@@ -1,0 +1,37 @@
+import { Column, CreateDateColumn, Entity, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm'
+
+import { UserInsertionFinders } from './user-insertion-finders.entity'
+import { UserRoles } from './user-roles.entity'
+
+@Entity()
+export class Users {
+  @PrimaryGeneratedColumn()
+  id: number
+
+  @Column({ length: 255 })
+  name: string
+
+  @Column({ unique: true, length: 255 })
+  email: string
+
+  @Column({ length: 10 })
+  wcaId: string
+
+  @Column({ length: 255 })
+  avatar: string
+
+  @Column({ length: 255 })
+  avatarThumb: string
+
+  @CreateDateColumn()
+  createdAt: Date
+
+  @UpdateDateColumn()
+  updatedAt: Date
+
+  @OneToMany(() => UserInsertionFinders, userInsertionFinders => userInsertionFinders.user)
+  userInsertionFinders: UserInsertionFinders[]
+
+  @OneToMany(() => UserRoles, userRoles => userRoles.user)
+  roles: UserRoles[]
+}
