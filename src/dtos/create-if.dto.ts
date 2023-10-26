@@ -1,5 +1,6 @@
 import { Transform } from 'class-transformer'
 import { IsArray, IsEnum, IsInt, IsOptional, IsString, isString, Max, Min } from 'class-validator'
+
 import { VALID_ALGS } from '@/entities/algs.entity'
 import { IFType } from '@/entities/insertion-finders.entity'
 

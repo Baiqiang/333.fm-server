@@ -2,8 +2,10 @@ import { HttpService } from '@nestjs/axios'
 import { Injectable } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { PassportStrategy } from '@nestjs/passport'
+import { Request } from 'express'
 import { Strategy } from 'passport-oauth2'
 import { firstValueFrom } from 'rxjs'
+
 import { UserService } from '@/user/user.service'
 
 import { AuthService } from '../auth.service'
@@ -46,6 +48,18 @@ export class WCAStrategy extends PassportStrategy(Strategy, 'wca') {
       clientSecret: wca.clientSecret,
       callbackURL: wca.callbackURL,
     })
+  }
+
+  authenticate(req: Request, options?: any) {
+    // set callbackURL for local development
+    const mode: string = req.query.mode ?? req.body.mode
+    if (mode === 'localhost') {
+      options = {
+        ...(options ?? {}),
+        callbackURL: 'http://localhost:3000/auth/callback',
+      }
+    }
+    return super.authenticate(req, options)
   }
 
   async userProfile(accessToken: string, done: (err?: Error, profile?: WCAProfile) => void) {

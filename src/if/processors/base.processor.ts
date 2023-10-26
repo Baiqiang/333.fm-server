@@ -2,9 +2,10 @@ import { Logger } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Job } from 'bull'
 import { spawn } from 'child_process'
+import { Repository } from 'typeorm'
+
 import { IFStatus, IFType } from '@/entities/insertion-finders.entity'
 import { RealInsertionFinders } from '@/entities/real-insertion-finders.entity'
-import { Repository } from 'typeorm'
 
 import { JobData } from '../if.service'
 

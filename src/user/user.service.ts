@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { IPaginationOptions, paginate, Pagination } from 'nestjs-typeorm-paginate'
+import { Repository } from 'typeorm'
+
 import { WCAProfile } from '@/auth/strategies/wca.strategy'
 import { Algs } from '@/entities/algs.entity'
 import { InsertionFinders } from '@/entities/insertion-finders.entity'
@@ -8,7 +10,6 @@ import { RealInsertionFinders } from '@/entities/real-insertion-finders.entity'
 import { UserInsertionFinders } from '@/entities/user-insertion-finders.entity'
 import { UserRoles } from '@/entities/user-roles.entity'
 import { Users } from '@/entities/users.entity'
-import { Repository } from 'typeorm'
 
 @Injectable()
 export class UserService {

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common'
 import { TypeOrmModule } from '@nestjs/typeorm'
+
 import { Algs } from '@/entities/algs.entity'
 import { InsertionFinders } from '@/entities/insertion-finders.entity'
 import { RealInsertionFinders } from '@/entities/real-insertion-finders.entity'

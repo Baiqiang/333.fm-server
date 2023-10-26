@@ -2,9 +2,10 @@ import { InjectQueue, Process, Processor } from '@nestjs/bull'
 import { Logger } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Job, Queue } from 'bull'
+import { Repository } from 'typeorm'
+
 import { IFStatus, IFType } from '@/entities/insertion-finders.entity'
 import { RealInsertionFinders } from '@/entities/real-insertion-finders.entity'
-import { Repository } from 'typeorm'
 
 import { JobData } from '../if.service'
 import { BaseProcessor } from './base.processor'
