@@ -19,6 +19,6 @@ export default () => ({
     maxScrambleLength: 50,
     maxSkeletonLength: 50,
     maxGreedy: 6,
-    version: ['0.5.4', '0.5.3'],
+    version: ['0.5.4', '0.5.4'],
   },
 })

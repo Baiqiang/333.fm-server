@@ -42,7 +42,8 @@ export abstract class BaseProcessor {
     switch (realIF.type) {
       case IFType.SLICEY_FINDER:
         args.push('-i')
-        args.push('-a slice')
+        args.push('-a')
+        args.push('slice')
         input = `${realIF.skeleton}\n`
         break
       case IFType.INSERTION_FINDER:
