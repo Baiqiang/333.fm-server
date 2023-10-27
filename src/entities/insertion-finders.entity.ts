@@ -51,7 +51,7 @@ export class InsertionFinders {
   @OneToMany(() => UserInsertionFinders, userInsertionFinders => userInsertionFinders.insertionFinder)
   userInsertionFinders: UserInsertionFinders[]
 
-  get json() {
+  get summary() {
     return {
       type: this.realInsertionFinder.type,
       hash: this.hash,
@@ -59,7 +59,6 @@ export class InsertionFinders {
       skeleton: this.skeleton,
       realSkeleton: this.realInsertionFinder.skeleton,
       greedy: this.realInsertionFinder.greedy,
-      algs: this.realInsertionFinder.algs.map(({ name }) => name),
       totalCycles: this.realInsertionFinder.totalCycles,
       cycles: {
         corners: this.realInsertionFinder.cornerCycles,
@@ -71,6 +70,13 @@ export class InsertionFinders {
       result: this.realInsertionFinder.result,
       status: this.realInsertionFinder.status,
       createdAt: this.createdAt,
+    }
+  }
+
+  get detail() {
+    return {
+      ...this.summary,
+      algs: (this.realInsertionFinder.algs ?? []).map(({ name }) => name),
     }
   }
 }

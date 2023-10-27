@@ -2,7 +2,7 @@ import { Column, CreateDateColumn, Entity, Index, ManyToOne, PrimaryGeneratedCol
 
 import { RealInsertionFinders } from './real-insertion-finders.entity'
 
-export enum VALID_ALGS {
+export enum ValidAlgs {
   '3CP' = '3CP',
   '3CP-pure' = '3CP-pure',
   '2x2CP' = '2x2CP',

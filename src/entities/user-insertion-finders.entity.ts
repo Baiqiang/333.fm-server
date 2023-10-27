@@ -47,10 +47,10 @@ export class UserInsertionFinders {
   @JoinColumn([{ name: 'user_id', referencedColumnName: 'id' }])
   user: Users
 
-  get json() {
+  get summary() {
     return {
       name: this.name,
-      ...this.insertionFinder.json,
+      ...this.insertionFinder.summary,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
     }

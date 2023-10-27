@@ -26,15 +26,14 @@ import { UserService } from './user.service'
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
-  @Get('if')
-  public async userIF(
+  @Get(['if', 'ifs'])
+  public async getIFs(
     @CurrentUser() user: Users,
     @Query() { limit, page }: PaginationDto,
-  ): Promise<Pagination<UserInsertionFinders['json']>> {
-    console.log(user, limit, page)
+  ): Promise<Pagination<UserInsertionFinders['summary']>> {
     const ret = await this.userService.getUserIFs(user, { limit, page })
     return new Pagination(
-      ret.items.map(item => item.json),
+      ret.items.map(item => item.summary),
       ret.meta,
       ret.links,
     )
@@ -48,7 +47,7 @@ export class UserController {
     }
     userIF.name = name
     await this.userService.saveUserIF(userIF)
-    return userIF.json
+    return userIF.summary
   }
 
   @HttpCode(HttpStatus.NO_CONTENT)

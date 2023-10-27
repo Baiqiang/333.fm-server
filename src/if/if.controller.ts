@@ -19,7 +19,7 @@ export class IfController {
   @Get('latest')
   public async getLatest() {
     const latest = await this.ifService.getLatest()
-    return latest.map(insertionFinder => insertionFinder.json)
+    return latest.map(insertionFinder => insertionFinder.summary)
   }
 
   @Get(':hash')
@@ -28,7 +28,7 @@ export class IfController {
     if (!insertionFinder) {
       throw new NotFoundException()
     }
-    return insertionFinder.json
+    return insertionFinder.detail
   }
 
   @Post()
@@ -41,6 +41,6 @@ export class IfController {
     if (user) {
       await this.userService.createUserIF(user, insertionFinder, createIFDto.name)
     }
-    return insertionFinder
+    return insertionFinder.detail
   }
 }

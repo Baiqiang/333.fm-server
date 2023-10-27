@@ -40,7 +40,7 @@ export class IfService {
       order: {
         id: 'DESC',
       },
-      relations: ['realInsertionFinder', 'realInsertionFinder.algs'],
+      relations: ['realInsertionFinder'],
     })
   }
 
