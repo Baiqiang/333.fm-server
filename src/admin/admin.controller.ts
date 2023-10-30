@@ -1,4 +1,5 @@
 import { Controller, Get, NotFoundException, Param, ParseIntPipe, Query, UseGuards } from '@nestjs/common'
+import { ApiBearerAuth, ApiQuery } from '@nestjs/swagger'
 import { Pagination } from 'nestjs-typeorm-paginate'
 
 import { Roles } from '@/auth/decorators/roles.decorator'
@@ -15,6 +16,7 @@ import { AdminService } from './admin.service'
 @Controller('admin')
 @UseGuards(JwtRequiredGuard, RolesGuard)
 @Roles(Role.Admin)
+@ApiBearerAuth()
 export class AdminController {
   constructor(
     private readonly adminService: AdminService,
@@ -22,6 +24,7 @@ export class AdminController {
   ) {}
 
   @Get('ifs')
+  @ApiQuery({ type: PaginationDto })
   public async getIFs(
     @Query() { limit, page }: PaginationDto,
   ): Promise<Pagination<InsertionFinders['summary'] & { users: Users[] }>> {
@@ -37,6 +40,7 @@ export class AdminController {
   }
 
   @Get('users')
+  @ApiQuery({ type: PaginationDto })
   public async getUsers(@Query() { limit, page }: PaginationDto): Promise<Pagination<Users>> {
     const ret = await this.userService.getUsers({ limit, page })
     return new Pagination(
@@ -64,6 +68,7 @@ export class AdminController {
   }
 
   @Get('user/:id/ifs')
+  @ApiQuery({ type: PaginationDto })
   public async getUserIFs(
     @Param('id', ParseIntPipe) id: number,
     @Query() { limit, page }: PaginationDto,

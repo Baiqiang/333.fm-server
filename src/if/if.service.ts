@@ -51,6 +51,9 @@ export class IfService {
       },
       relations: ['realInsertionFinder', 'realInsertionFinder.algs'],
     })
+    if (!insertionFinder) {
+      return null
+    }
     // check version
     const realIF = insertionFinder.realInsertionFinder
     if (compare(realIF.version, this.configService.get('if.version')[realIF.type]) < 0) {

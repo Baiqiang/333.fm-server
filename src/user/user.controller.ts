@@ -11,6 +11,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common'
+import { ApiBearerAuth, ApiQuery } from '@nestjs/swagger'
 import { Pagination } from 'nestjs-typeorm-paginate'
 
 import { CurrentUser } from '@/auth/decorators/current-user.decorator'
@@ -23,10 +24,12 @@ import { UserService } from './user.service'
 
 @Controller('user')
 @UseGuards(JwtRequiredGuard)
+@ApiBearerAuth()
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
-  @Get(['if', 'ifs'])
+  @Get('ifs')
+  @ApiQuery({ type: PaginationDto })
   public async getIFs(
     @CurrentUser() user: Users,
     @Query() { limit, page }: PaginationDto,
