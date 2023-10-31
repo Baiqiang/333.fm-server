@@ -5,7 +5,7 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { Queue } from 'bull'
 import { centerCycleTable, Cube } from 'insertionfinder'
 import * as compare from 'node-version-compare'
-import { Repository } from 'typeorm'
+import { In, Repository } from 'typeorm'
 
 import { CreateIFDto } from '@/dtos/create-if.dto'
 import { Algs } from '@/entities/algs.entity'
@@ -34,14 +34,22 @@ export class IfService {
     private readonly ifHGQueue: Queue<JobData>,
   ) {}
 
-  public getLatest() {
-    return this.insertionFindersRepository.find({
+  public async getLatest() {
+    const ids = await this.insertionFindersRepository.find({
+      select: ['id'],
       take: 10,
       order: {
         id: 'DESC',
       },
+    })
+    const latest = await this.insertionFindersRepository.find({
+      where: {
+        id: In(ids.map(i => i.id)),
+      },
       relations: ['realInsertionFinder'],
     })
+    latest.sort((a, b) => b.id - a.id)
+    return latest
   }
 
   public async getIFByHash(hash: string) {
