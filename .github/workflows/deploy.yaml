@@ -16,6 +16,7 @@ on:
 
 jobs:
   deploy:
+    runs-on: ubuntu-latest
     steps:
       - name: Start
         uses: appleboy/ssh-action@v1.0.0
