@@ -11,10 +11,11 @@ on:
         required: true
       DEPLOY_PATH:
         required: true
+  push:
+    branches: [ master ]
 
 jobs:
   deploy:
-
     steps:
       - name: Start
         uses: appleboy/ssh-action@v1.0.0
