@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Queue } from 'bull'
 import { centerCycleTable, Cube } from 'insertionfinder'
-import * as compare from 'node-version-compare'
+import compare from 'node-version-compare'
 import { In, Repository } from 'typeorm'
 
 import { CreateIFDto } from '@/dtos/create-if.dto'

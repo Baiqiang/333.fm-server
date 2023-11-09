@@ -1,6 +1,7 @@
 import { BullModule } from '@nestjs/bull'
 import { Module } from '@nestjs/common'
 import { ConfigModule } from '@nestjs/config'
+import { ScheduleModule } from '@nestjs/schedule'
 import { TypeOrmModule } from '@nestjs/typeorm'
 import { SnakeNamingStrategy } from 'typeorm-naming-strategies'
 
@@ -8,6 +9,7 @@ import { AdminModule } from './admin/admin.module'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
 import { AuthModule } from './auth/auth.module'
+import { CompetitionModule } from './competition/competition.module'
 import configuration from './config/configuration'
 import { IfModule } from './if/if.module'
 import { UserModule } from './user/user.module'
@@ -28,6 +30,7 @@ import { UserModule } from './user/user.module'
       synchronize: true,
       autoLoadEntities: true,
       namingStrategy: new SnakeNamingStrategy(),
+      // logging: true,
     }),
     BullModule.forRoot({
       redis: {
@@ -35,10 +38,12 @@ import { UserModule } from './user/user.module'
         port: 6379,
       },
     }),
+    ScheduleModule.forRoot(),
     IfModule,
     UserModule,
     AuthModule,
     AdminModule,
+    CompetitionModule,
   ],
   controllers: [AppController],
   providers: [AppService],

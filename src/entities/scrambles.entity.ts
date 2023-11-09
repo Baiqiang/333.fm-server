@@ -1,28 +1,34 @@
+import { Exclude } from 'class-transformer'
 import { Column, CreateDateColumn, Entity, Index, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm'
 
-import { Users } from './users.entity'
+import { Competitions } from './competitions.entity'
 
 @Entity()
-export class UserRoles {
+export class Scrambles {
   @PrimaryGeneratedColumn()
   id: number
 
+  @Column()
+  number: number
+
   @Column({ length: 255 })
   @Index()
-  name: string
+  scramble: string
+
+  @Column()
+  competitionId: number
 
   @CreateDateColumn()
+  @Exclude()
   createdAt: Date
 
   @UpdateDateColumn()
+  @Exclude()
   updatedAt: Date
 
-  @Column()
-  userId: number
-
-  @ManyToOne(() => Users, users => users.roles, {
+  @ManyToOne(() => Competitions, competition => competition.scrambles, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE',
   })
-  user: Users
+  competition: Competitions
 }

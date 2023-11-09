@@ -1,3 +1,4 @@
+import { Exclude } from 'class-transformer'
 import { Column, CreateDateColumn, Entity, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm'
 
 import { UserInsertionFinders } from './user-insertion-finders.entity'
@@ -12,6 +13,7 @@ export class Users {
   name: string
 
   @Column({ unique: true, length: 255 })
+  @Exclude()
   email: string
 
   @Column({ length: 10 })

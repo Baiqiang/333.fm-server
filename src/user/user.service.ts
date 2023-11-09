@@ -6,6 +6,7 @@ import { Repository } from 'typeorm'
 import { WCAProfile } from '@/auth/strategies/wca.strategy'
 import { InsertionFinders } from '@/entities/insertion-finders.entity'
 import { UserInsertionFinders } from '@/entities/user-insertion-finders.entity'
+import { UserRoles } from '@/entities/user-roles.entity'
 import { Users } from '@/entities/users.entity'
 
 @Injectable()
@@ -15,6 +16,8 @@ export class UserService {
     private readonly userInsertionFindersRepository: Repository<UserInsertionFinders>,
     @InjectRepository(Users)
     private readonly usersRepository: Repository<Users>,
+    @InjectRepository(UserRoles)
+    private readonly userRolesRepository: Repository<UserRoles>,
   ) {}
 
   async findOrCreate(profile: WCAProfile) {

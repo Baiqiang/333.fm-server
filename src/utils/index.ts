@@ -1,5 +1,12 @@
-import * as crypto from 'crypto'
+import { createHash } from 'crypto'
+import dayjs from 'dayjs'
+import advancedFormat from 'dayjs/plugin/advancedFormat'
+import weekOfYear from 'dayjs/plugin/weekOfYear'
 import { Algorithm, Cube } from 'insertionfinder'
+import { fmcScramble } from 'twisty_puzzle_solver'
+
+dayjs.extend(advancedFormat)
+dayjs.extend(weekOfYear)
 
 export function removeComment(string: string | string[]): string {
   if (Array.isArray(string)) {
@@ -35,5 +42,21 @@ export function centerLength(centerCycles: number, placement: number): number {
 }
 
 export function calculateHash(obj: any) {
-  return crypto.createHash('md5').update(JSON.stringify(obj)).digest('hex')
+  return createHash('md5').update(JSON.stringify(obj)).digest('hex')
+}
+
+export function parseWeek(week: string): dayjs.Dayjs {
+  const matches = week.match(/^(\d{4})-(\d\d)$/)
+  if (!matches) {
+    return null
+  }
+  return dayjs(matches[1]).week(parseInt(matches[2])).day(1)
+}
+
+export function generateScrambles(number: number): string[] {
+  const scrambles: string[] = []
+  for (let i = 0; i < number; i++) {
+    scrambles.push(fmcScramble())
+  }
+  return scrambles
 }
