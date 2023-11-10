@@ -165,18 +165,22 @@ export class WeeklyService {
     submission.user = user
     submission.solution = solution.solution
     submission.comment = solution.comment
-    const { bestCube } = formatSkeleton(scramble.scramble, solution.solution)
-    // check if solved
-    if (
-      bestCube.getCornerCycles() === 0 &&
-      bestCube.getEdgeCycles() === 0 &&
-      bestCube.getCenterCycles() === 0 &&
-      !bestCube.hasParity()
-    ) {
-      const solutionAlg = new Algorithm(solution.solution)
-      submission.moves = (solutionAlg.twists.length + solutionAlg.inverseTwists.length) * 100
-    } else {
-      // DNF
+    try {
+      const { bestCube } = formatSkeleton(scramble.scramble, solution.solution)
+      // check if solved
+      if (
+        bestCube.getCornerCycles() === 0 &&
+        bestCube.getEdgeCycles() === 0 &&
+        bestCube.getCenterCycles() === 0 &&
+        !bestCube.hasParity()
+      ) {
+        const solutionAlg = new Algorithm(solution.solution)
+        submission.moves = (solutionAlg.twists.length + solutionAlg.inverseTwists.length) * 100
+      } else {
+        // DNF
+        submission.moves = DNF
+      }
+    } catch (e) {
       submission.moves = DNF
     }
     let result = await this.resultsRepository.findOne({

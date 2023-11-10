@@ -23,7 +23,7 @@ export class Results {
   @PrimaryGeneratedColumn()
   id: number
 
-  @Column()
+  @Column({ default: 0 })
   rank: number
 
   @Column('json')
