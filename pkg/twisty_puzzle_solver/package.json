@@ -1,0 +1,11 @@
+{
+  "name": "twisty_puzzle_solver",
+  "version": "0.1.0",
+  "files": [
+    "twisty_puzzle_solver_bg.wasm",
+    "twisty_puzzle_solver.js",
+    "twisty_puzzle_solver.d.ts"
+  ],
+  "main": "twisty_puzzle_solver.js",
+  "types": "twisty_puzzle_solver.d.ts"
+}
