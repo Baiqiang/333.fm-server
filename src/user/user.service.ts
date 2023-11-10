@@ -32,9 +32,9 @@ export class UserService {
       user.email = profile.email
     }
     user.name = profile.name
-    user.wcaId = profile.wca_id
-    user.avatar = profile.avatar.url
-    user.avatarThumb = profile.avatar.thumb_url
+    user.wcaId = profile.wca_id || ''
+    user.avatar = profile.avatar.url || ''
+    user.avatarThumb = profile.avatar.thumb_url || ''
     await this.usersRepository.save(user)
     return user
   }

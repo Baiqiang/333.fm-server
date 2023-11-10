@@ -19,7 +19,7 @@ import { WCAStrategy } from './strategies/wca.strategy'
     JwtModule.registerAsync({
       useFactory: (configService: ConfigService) => ({
         secret: configService.get<string>('jwt.secret'),
-        signOptions: { expiresIn: '10 weeks' },
+        signOptions: { expiresIn: '30 days' },
       }),
       inject: [ConfigService],
     }),
