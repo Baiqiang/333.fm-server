@@ -180,6 +180,10 @@ export class WeeklyService {
         // DNF
         submission.moves = DNF
       }
+      // check NISS and ()
+      if (solution.solution.includes('NISS') || solution.solution.includes('(')) {
+        submission.moves = DNF
+      }
     } catch (e) {
       submission.moves = DNF
     }
