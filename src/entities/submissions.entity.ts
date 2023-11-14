@@ -1,6 +1,6 @@
 import { Column, CreateDateColumn, Entity, Index, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm'
 
-import { Competitions } from './competitions.entity'
+import { CompetitionMode, Competitions } from './competitions.entity'
 import { Results } from './results.entity'
 import { Scrambles } from './scrambles.entity'
 import { Users } from './users.entity'
@@ -11,6 +11,9 @@ import { Users } from './users.entity'
 export class Submissions {
   @PrimaryGeneratedColumn()
   id: number
+
+  @Column()
+  mode: CompetitionMode
 
   @Column({ length: 255 })
   @Index()

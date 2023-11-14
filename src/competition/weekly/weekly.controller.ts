@@ -17,6 +17,7 @@ import { JwtAuthGuard } from '@/auth/guards/jwt.guard'
 import { JwtRequiredGuard } from '@/auth/guards/jwt-required.guard'
 import { PaginationDto } from '@/dtos/pagination.dto'
 import { SubmitSolutionDto } from '@/dtos/submit-solution.dto'
+import { CompetitionMode } from '@/entities/competitions.entity'
 import { Submissions } from '@/entities/submissions.entity'
 import { Users } from '@/entities/users.entity'
 
@@ -52,7 +53,12 @@ export class WeeklyController {
     if (!competition) {
       throw new NotFoundException()
     }
-    return this.weeklyService.getResults(competition)
+    const regular = await this.weeklyService.getResults(competition, CompetitionMode.REGULAR)
+    const unlimited = await this.weeklyService.getResults(competition, CompetitionMode.UNLIMITED)
+    return {
+      regular,
+      unlimited,
+    }
   }
 
   @Post(':week')
@@ -78,6 +84,21 @@ export class WeeklyController {
       throw new NotFoundException()
     }
     await this.weeklyService.updateComment(competition, user, submissionId, solution)
+    return true
+  }
+
+  @Post(':week/:id/unlimited')
+  @UseGuards(JwtRequiredGuard)
+  public async toUnlimited(
+    @Param('week') week: string,
+    @Param('id', ParseIntPipe) submissionId: number,
+    @CurrentUser() user: Users,
+  ) {
+    const competition = await this.weeklyService.getCompetition(week)
+    if (!competition) {
+      throw new NotFoundException()
+    }
+    await this.weeklyService.turnToUnlimited(competition, user, submissionId)
     return true
   }
 

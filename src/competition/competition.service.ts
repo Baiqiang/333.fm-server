@@ -4,12 +4,12 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { FindOneOptions, Repository } from 'typeorm'
 
 import { SubmitSolutionDto } from '@/dtos/submit-solution.dto'
-import { Competitions, CompetitionStatus, CompetitionType } from '@/entities/competitions.entity'
+import { CompetitionMode, Competitions, CompetitionStatus, CompetitionType } from '@/entities/competitions.entity'
 import { DNF, DNS, Results } from '@/entities/results.entity'
 import { Scrambles } from '@/entities/scrambles.entity'
 import { Submissions } from '@/entities/submissions.entity'
 import { Users } from '@/entities/users.entity'
-import { formatSkeleton, parseWeek } from '@/utils'
+import { formatSkeleton, parseWeek, setRanks } from '@/utils'
 
 @Injectable()
 export class CompetitionService {
@@ -35,33 +35,78 @@ export class CompetitionService {
     onGoings.forEach(async competition => {
       if (competition.endTime <= now) {
         competition.status = CompetitionStatus.ENDED
-        const results = await this.resultsRepository.find({
+        const regularResults = await this.resultsRepository.find({
           where: {
+            mode: CompetitionMode.REGULAR,
             competitionId: competition.id,
           },
         })
-        for (const result of results) {
+        const unlimitedResults = await this.resultsRepository.find({
+          where: {
+            mode: CompetitionMode.UNLIMITED,
+            competitionId: competition.id,
+          },
+        })
+        const regularResultsMap = new Map<number, Results>()
+        const unlimitedResultsMap = new Map<number, Results>()
+        for (const result of unlimitedResults) {
+          unlimitedResultsMap.set(result.userId, result)
+        }
+        for (const result of regularResults) {
+          regularResultsMap.set(result.userId, result)
+          const unlimitedResult = unlimitedResultsMap.get(result.userId)
           if (result.values.includes(0)) {
-            result.values = result.values.map(v => (v === 0 ? DNS : v))
+            // if user has unlimited result, DNF the regular result
+            result.values = result.values.map((v, i) => {
+              if (v !== 0) {
+                return v
+              }
+              if (!unlimitedResult) {
+                return DNS
+              }
+              if (unlimitedResult.values[i] !== 0) {
+                return DNF
+              }
+              return DNS
+            })
+            result.best = Math.min(...result.values)
+            result.average = DNF
+          }
+          // if there's no unlimited result, copy the regular result
+          if (!unlimitedResult) {
+            const newResult = new Results()
+            newResult.mode = CompetitionMode.UNLIMITED
+            newResult.competitionId = result.competitionId
+            newResult.userId = result.userId
+            newResult.values = result.values
+            newResult.best = result.best
+            newResult.average = result.average
+            unlimitedResults.push(newResult)
+          }
+        }
+        for (const result of unlimitedResults) {
+          if (result.values.includes(0)) {
+            const regularResult = regularResultsMap.get(result.userId)
+            result.values = result.values.map((v, i) => {
+              if (v !== 0) {
+                return v
+              }
+              if (!regularResult) {
+                return DNS
+              }
+              if (regularResult.values[i] !== 0) {
+                return regularResult.values[i]
+              }
+              return DNS
+            })
             result.best = Math.min(...result.values)
             result.average = DNF
           }
         }
-        results.sort((a, b) => {
-          let tmp = a.average - b.average
-          if (tmp === 0) {
-            tmp = a.best - b.best
-          }
-          return tmp
-        })
-        results.forEach((result, index) => {
-          const previous = results[index - 1]
-          result.rank = index + 1
-          if (previous && previous.average === result.average && previous.best === result.best) {
-            result.rank = previous.rank
-          }
-        })
-        await this.resultsRepository.save(results)
+        setRanks(regularResults)
+        setRanks(unlimitedResults)
+        await this.resultsRepository.save(regularResults)
+        await this.resultsRepository.save(unlimitedResults)
       }
     })
     await this.competitionsRepository.save(onGoings)

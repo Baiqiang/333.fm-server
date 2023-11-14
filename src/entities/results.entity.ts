@@ -9,7 +9,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm'
 
-import { Competitions } from './competitions.entity'
+import { CompetitionMode, Competitions } from './competitions.entity'
 import { Submissions } from './submissions.entity'
 import { Users } from './users.entity'
 
@@ -18,10 +18,13 @@ export const DNS = 99999999
 
 @Entity()
 @Index(['competitionId', 'best'])
-@Index(['competitionId', 'average'])
+@Index(['competitionId', 'average', 'best'])
 export class Results {
   @PrimaryGeneratedColumn()
   id: number
+
+  @Column()
+  mode: CompetitionMode
 
   @Column({ default: 0 })
   rank: number

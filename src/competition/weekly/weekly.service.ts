@@ -7,7 +7,13 @@ import { IPaginationOptions, paginate, Pagination } from 'nestjs-typeorm-paginat
 import { Repository } from 'typeorm'
 
 import { SubmitSolutionDto } from '@/dtos/submit-solution.dto'
-import { CompetitionFormat, Competitions, CompetitionStatus, CompetitionType } from '@/entities/competitions.entity'
+import {
+  CompetitionFormat,
+  CompetitionMode,
+  Competitions,
+  CompetitionStatus,
+  CompetitionType,
+} from '@/entities/competitions.entity'
 import { DNF, DNS, Results } from '@/entities/results.entity'
 import { Scrambles } from '@/entities/scrambles.entity'
 import { Submissions } from '@/entities/submissions.entity'
@@ -122,9 +128,10 @@ export class WeeklyService {
     })
   }
 
-  async getResults(competition: Competitions) {
+  async getResults(competition: Competitions, mode: CompetitionMode) {
     const results = await this.resultsRepository.find({
       where: {
+        mode,
         competitionId: competition.id,
       },
       order: {
@@ -150,21 +157,28 @@ export class WeeklyService {
     if (scramble === null) {
       throw new BadRequestException('Invalid scramble')
     }
-    let submission = await this.submissionsRepository.findOne({
+    const preSubmissions = await this.submissionsRepository.find({
       where: {
         scrambleId: scramble.id,
         userId: user.id,
       },
     })
-    if (submission !== null) {
-      throw new BadRequestException('Already submitted')
+
+    // regular mode can only submit once
+    if (solution.mode === CompetitionMode.REGULAR) {
+      if (preSubmissions.length > 0) {
+        throw new BadRequestException('Already submitted')
+      }
     }
-    submission = new Submissions()
+    const preSubmission = preSubmissions.find(s => s.mode === solution.mode)
+    const submission = preSubmission || new Submissions()
     submission.competition = competition
+    submission.mode = solution.mode
     submission.scramble = scramble
     submission.user = user
     submission.solution = solution.solution
     submission.comment = solution.comment
+    let moves: number = DNS
     try {
       const { bestCube } = formatSkeleton(scramble.scramble, solution.solution)
       // check if solved
@@ -175,20 +189,26 @@ export class WeeklyService {
         !bestCube.hasParity()
       ) {
         const solutionAlg = new Algorithm(solution.solution)
-        submission.moves = (solutionAlg.twists.length + solutionAlg.inverseTwists.length) * 100
+        moves = (solutionAlg.twists.length + solutionAlg.inverseTwists.length) * 100
       } else {
         // DNF
-        submission.moves = DNF
+        moves = DNF
       }
       // check NISS and ()
       if (solution.solution.includes('NISS') || solution.solution.includes('(')) {
-        submission.moves = DNF
+        moves = DNF
       }
     } catch (e) {
-      submission.moves = DNF
+      moves = DNF
     }
+    // check if moves is better than preSubmission
+    if (solution.mode === CompetitionMode.UNLIMITED && preSubmissions.some(s => s.moves < moves)) {
+      throw new BadRequestException('Solution is not better than previous submission')
+    }
+    submission.moves = moves
     let result = await this.resultsRepository.findOne({
       where: {
+        mode: solution.mode,
         competition: {
           id: competition.id,
         },
@@ -199,6 +219,7 @@ export class WeeklyService {
     })
     if (result === null) {
       result = new Results()
+      result.mode = solution.mode
       result.competition = competition
       result.user = user
       result.values = competition.scrambles.map(() => 0)
@@ -236,6 +257,69 @@ export class WeeklyService {
       throw new BadRequestException('Invalid submission')
     }
     submission.comment = solution.comment
+    await this.submissionsRepository.save(submission)
+  }
+
+  async turnToUnlimited(competition: Competitions, user: Users, id: number) {
+    const submission = await this.submissionsRepository.findOne({
+      where: {
+        id,
+        mode: CompetitionMode.REGULAR,
+        userId: user.id,
+        competitionId: competition.id,
+      },
+      relations: {
+        scramble: true,
+        result: true,
+      },
+    })
+    if (submission === null) {
+      throw new BadRequestException('Invalid submission')
+    }
+    const unlimitedSubmission = await this.submissionsRepository.findOne({
+      where: {
+        scrambleId: submission.scrambleId,
+        mode: CompetitionMode.UNLIMITED,
+        userId: user.id,
+        competitionId: competition.id,
+      },
+    })
+    if (unlimitedSubmission) {
+      throw new BadRequestException('Already submitted')
+    }
+    submission.mode = CompetitionMode.UNLIMITED
+    // DNF regular result
+    const regularResult = submission.result
+    regularResult.values[submission.scramble.number - 1] = DNF
+    regularResult.best = Math.min(...regularResult.values.filter(v => v > 0))
+    regularResult.average = DNF
+    await this.resultsRepository.save(regularResult)
+    // update unlimited result
+    let unlimitedResult = await this.resultsRepository.findOne({
+      where: {
+        mode: CompetitionMode.UNLIMITED,
+        competitionId: competition.id,
+        userId: user.id,
+      },
+    })
+    if (unlimitedResult === null) {
+      unlimitedResult = new Results()
+      unlimitedResult.mode = CompetitionMode.UNLIMITED
+      unlimitedResult.competition = competition
+      unlimitedResult.user = user
+      unlimitedResult.values = competition.scrambles.map(() => 0)
+      unlimitedResult.best = 0
+      unlimitedResult.average = 0
+    }
+    unlimitedResult.values[submission.scramble.number - 1] = submission.moves
+    const nonZeroValues = unlimitedResult.values.filter(value => value > 0)
+    unlimitedResult.best = Math.min(...nonZeroValues)
+    unlimitedResult.average = Math.round(nonZeroValues.reduce((a, b) => a + b, 0) / nonZeroValues.length)
+    if (unlimitedResult.values.some(v => v === DNF || v === DNS)) {
+      unlimitedResult.average = DNF
+    }
+    await this.resultsRepository.save(unlimitedResult)
+    submission.result = unlimitedResult
     await this.submissionsRepository.save(submission)
   }
 

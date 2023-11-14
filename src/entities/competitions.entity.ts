@@ -31,6 +31,11 @@ export enum CompetitionStatus {
   ENDED,
 }
 
+export enum CompetitionMode {
+  REGULAR,
+  UNLIMITED,
+}
+
 @Entity()
 @Index(['type', 'startTime', 'endTime'])
 @Index(['type', 'endTime'])

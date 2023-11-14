@@ -5,6 +5,8 @@ import weekOfYear from 'dayjs/plugin/weekOfYear'
 import { Algorithm, Cube } from 'insertionfinder'
 import { fmcScramble } from 'twisty_puzzle_solver'
 
+import { Results } from '@/entities/results.entity'
+
 dayjs.extend(advancedFormat)
 dayjs.extend(weekOfYear)
 
@@ -59,4 +61,22 @@ export function generateScrambles(number: number): string[] {
     scrambles.push(fmcScramble())
   }
   return scrambles
+}
+
+export function sortResult(a: Results, b: Results): number {
+  if (a.average === b.average) {
+    return a.best - b.best
+  }
+  return a.average - b.average
+}
+
+export function setRanks(results: Results[]) {
+  results.sort(sortResult)
+  results.forEach((result, index) => {
+    const previous = results[index - 1]
+    result.rank = index + 1
+    if (previous && previous.average === result.average && previous.best === result.best) {
+      result.rank = previous.rank
+    }
+  })
 }
