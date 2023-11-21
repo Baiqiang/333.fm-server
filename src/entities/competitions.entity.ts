@@ -44,6 +44,10 @@ export class Competitions {
   id: number
 
   @Column()
+  @Index({ unique: true })
+  alias: string
+
+  @Column()
   type: CompetitionType
 
   @Column()
