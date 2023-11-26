@@ -49,6 +49,7 @@ export class WeeklyService {
       return
     }
     competition.name = `Weekly ${week.format('YYYY-ww')}`
+    competition.alias = week.format('YYYY-ww')
     competition.startTime = week.toDate()
     competition.endTime = week.add(1, 'week').toDate()
     competition.type = CompetitionType.WEEKLY
