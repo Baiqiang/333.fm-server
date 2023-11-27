@@ -1,7 +1,17 @@
 import { Exclude } from 'class-transformer'
-import { Column, CreateDateColumn, Entity, Index, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm'
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  ManyToOne,
+  OneToMany,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm'
 
 import { Competitions } from './competitions.entity'
+import { EndlessKickoffs } from './endless-kickoffs.entity'
 
 @Entity()
 export class Scrambles {
@@ -31,4 +41,7 @@ export class Scrambles {
     onUpdate: 'CASCADE',
   })
   competition: Competitions
+
+  @OneToMany(() => EndlessKickoffs, kickoff => kickoff.scramble)
+  kickoffs: EndlessKickoffs[]
 }

@@ -1,8 +1,7 @@
-import { BadRequestException, Injectable } from '@nestjs/common'
+import { BadRequestException, forwardRef, Inject, Injectable } from '@nestjs/common'
 import { Cron } from '@nestjs/schedule'
 import { InjectRepository } from '@nestjs/typeorm'
 import dayjs from 'dayjs'
-import { Algorithm } from 'insertionfinder'
 import { IPaginationOptions, paginate, Pagination } from 'nestjs-typeorm-paginate'
 import { Repository } from 'typeorm'
 
@@ -18,7 +17,7 @@ import { DNF, DNS, Results } from '@/entities/results.entity'
 import { Scrambles } from '@/entities/scrambles.entity'
 import { Submissions } from '@/entities/submissions.entity'
 import { Users } from '@/entities/users.entity'
-import { formatSkeleton, generateScrambles, parseWeek } from '@/utils'
+import { calculateMoves, generateScrambles, parseWeek, setRanks } from '@/utils'
 
 import { CompetitionService } from '../competition.service'
 
@@ -33,6 +32,7 @@ export class WeeklyService {
     private readonly submissionsRepository: Repository<Submissions>,
     @InjectRepository(Results)
     private readonly resultsRepository: Repository<Results>,
+    @Inject(forwardRef(() => CompetitionService))
     private readonly competitionService: CompetitionService,
   ) {}
 
@@ -65,6 +65,85 @@ export class WeeklyService {
       return scramble
     })
     await this.scramblesRepository.save(scrambles)
+  }
+
+  async calculateResults(competition: Competitions) {
+    const regularResults = await this.resultsRepository.find({
+      where: {
+        mode: CompetitionMode.REGULAR,
+        competitionId: competition.id,
+      },
+    })
+    const unlimitedResults = await this.resultsRepository.find({
+      where: {
+        mode: CompetitionMode.UNLIMITED,
+        competitionId: competition.id,
+      },
+    })
+    const regularResultsMap = new Map<number, Results>()
+    const unlimitedResultsMap = new Map<number, Results>()
+    for (const result of unlimitedResults) {
+      unlimitedResultsMap.set(result.userId, result)
+    }
+    for (const result of regularResults) {
+      regularResultsMap.set(result.userId, result)
+      const unlimitedResult = unlimitedResultsMap.get(result.userId)
+      if (result.values.includes(0)) {
+        // if user has unlimited result, DNF the regular result
+        result.values = result.values.map((v, i) => {
+          if (v !== 0) {
+            return v
+          }
+          if (!unlimitedResult) {
+            return DNS
+          }
+          if (unlimitedResult.values[i] !== 0) {
+            return DNF
+          }
+          return DNS
+        })
+        result.best = Math.min(...result.values)
+        // if regular results contains 0, it must be DNF or DNS, thus the average is DNF
+        result.average = DNF
+      }
+      // if there's no unlimited result, copy the regular result
+      if (!unlimitedResult) {
+        const newResult = new Results()
+        newResult.mode = CompetitionMode.UNLIMITED
+        newResult.competitionId = result.competitionId
+        newResult.userId = result.userId
+        newResult.values = result.values
+        newResult.best = result.best
+        newResult.average = result.average
+        unlimitedResults.push(newResult)
+      }
+    }
+    for (const result of unlimitedResults) {
+      if (result.values.includes(0)) {
+        const regularResult = regularResultsMap.get(result.userId)
+        result.values = result.values.map((v, i) => {
+          if (v !== 0) {
+            return v
+          }
+          if (!regularResult) {
+            return DNS
+          }
+          if (regularResult.values[i] !== 0) {
+            return regularResult.values[i]
+          }
+          return DNS
+        })
+        result.best = Math.min(...result.values)
+        result.average = Math.round(result.values.reduce((a, b) => a + b, 0) / result.values.length)
+        if (result.values.some(v => v === DNF || v === DNS)) {
+          result.average = DNF
+        }
+      }
+    }
+    setRanks(regularResults)
+    setRanks(unlimitedResults)
+    await this.resultsRepository.save(regularResults)
+    await this.resultsRepository.save(unlimitedResults)
   }
 
   getOnGoing() {
@@ -179,29 +258,7 @@ export class WeeklyService {
     submission.user = user
     submission.solution = solution.solution
     submission.comment = solution.comment
-    let moves: number = DNS
-    try {
-      const { bestCube } = formatSkeleton(scramble.scramble, solution.solution)
-      // check if solved
-      if (
-        bestCube.getCornerCycles() === 0 &&
-        bestCube.getEdgeCycles() === 0 &&
-        bestCube.getCenterCycles() === 0 &&
-        !bestCube.hasParity()
-      ) {
-        const solutionAlg = new Algorithm(solution.solution)
-        moves = (solutionAlg.twists.length + solutionAlg.inverseTwists.length) * 100
-      } else {
-        // DNF
-        moves = DNF
-      }
-      // check NISS and ()
-      if (solution.solution.includes('NISS') || solution.solution.includes('(')) {
-        moves = DNF
-      }
-    } catch (e) {
-      moves = DNF
-    }
+    const moves = calculateMoves(scramble.scramble, solution.solution)
     // check if moves is better than preSubmission
     if (solution.mode === CompetitionMode.UNLIMITED && preSubmissions.some(s => s.moves < moves)) {
       throw new BadRequestException('Solution is not better than previous submission')

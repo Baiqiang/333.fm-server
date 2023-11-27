@@ -26,7 +26,7 @@ import { WeeklyService } from './weekly.service'
 @Controller('weekly')
 @UseInterceptors(ClassSerializerInterceptor)
 export class WeeklyController {
-  constructor(private weeklyService: WeeklyService) {}
+  constructor(private readonly weeklyService: WeeklyService) {}
 
   @Get()
   public async getCompetitions(@Query() { page, limit }: PaginationDto) {

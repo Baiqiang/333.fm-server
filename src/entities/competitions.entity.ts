@@ -10,13 +10,16 @@ import {
   UpdateDateColumn,
 } from 'typeorm'
 
+import { EndlessKickoffs } from './endless-kickoffs.entity'
 import { Results } from './results.entity'
 import { Scrambles } from './scrambles.entity'
+import { Submissions } from './submissions.entity'
 import { Users } from './users.entity'
 
 export enum CompetitionType {
   WEEKLY,
   RANDOM,
+  ENDLESS,
 }
 
 export enum CompetitionFormat {
@@ -34,6 +37,13 @@ export enum CompetitionStatus {
 export enum CompetitionMode {
   REGULAR,
   UNLIMITED,
+}
+
+export interface Level {
+  level: number
+  competitors: number
+  bestSubmissions: Submissions[]
+  kickedOffs: EndlessKickoffs[]
 }
 
 @Entity()
@@ -92,7 +102,9 @@ export class Competitions {
 
   winner: Results
 
+  levels: Level[]
+
   get hasEnded() {
-    return this.status === CompetitionStatus.ENDED || this.endTime <= new Date()
+    return this.status === CompetitionStatus.ENDED || (this.endTime !== null && this.endTime <= new Date())
   }
 }

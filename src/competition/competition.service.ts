@@ -4,12 +4,15 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { FindOneOptions, Repository } from 'typeorm'
 
 import { SubmitSolutionDto } from '@/dtos/submit-solution.dto'
-import { CompetitionMode, Competitions, CompetitionStatus, CompetitionType } from '@/entities/competitions.entity'
+import { Competitions, CompetitionStatus, CompetitionType } from '@/entities/competitions.entity'
 import { DNF, DNS, Results } from '@/entities/results.entity'
 import { Scrambles } from '@/entities/scrambles.entity'
 import { Submissions } from '@/entities/submissions.entity'
 import { Users } from '@/entities/users.entity'
-import { formatSkeleton, parseWeek, setRanks } from '@/utils'
+import { formatSkeleton, parseWeek } from '@/utils'
+
+import { EndlessService } from './endless/endless.service'
+import { WeeklyService } from './weekly/weekly.service'
 
 @Injectable()
 export class CompetitionService {
@@ -22,6 +25,8 @@ export class CompetitionService {
     private readonly submissionsRepository: Repository<Submissions>,
     @InjectRepository(Results)
     private readonly resultsRepository: Repository<Results>,
+    private readonly weeklyService: WeeklyService,
+    private readonly endlessService: EndlessService,
   ) {}
 
   @Cron('* * * * *')
@@ -33,80 +38,16 @@ export class CompetitionService {
     })
     const now = new Date()
     onGoings.forEach(async competition => {
-      if (competition.endTime <= now) {
+      if (competition.endTime !== null && competition.endTime <= now) {
         competition.status = CompetitionStatus.ENDED
-        const regularResults = await this.resultsRepository.find({
-          where: {
-            mode: CompetitionMode.REGULAR,
-            competitionId: competition.id,
-          },
-        })
-        const unlimitedResults = await this.resultsRepository.find({
-          where: {
-            mode: CompetitionMode.UNLIMITED,
-            competitionId: competition.id,
-          },
-        })
-        const regularResultsMap = new Map<number, Results>()
-        const unlimitedResultsMap = new Map<number, Results>()
-        for (const result of unlimitedResults) {
-          unlimitedResultsMap.set(result.userId, result)
+        switch (competition.type) {
+          case CompetitionType.WEEKLY:
+            await this.weeklyService.calculateResults(competition)
+            break
+
+          default:
+            break
         }
-        for (const result of regularResults) {
-          regularResultsMap.set(result.userId, result)
-          const unlimitedResult = unlimitedResultsMap.get(result.userId)
-          if (result.values.includes(0)) {
-            // if user has unlimited result, DNF the regular result
-            result.values = result.values.map((v, i) => {
-              if (v !== 0) {
-                return v
-              }
-              if (!unlimitedResult) {
-                return DNS
-              }
-              if (unlimitedResult.values[i] !== 0) {
-                return DNF
-              }
-              return DNS
-            })
-            result.best = Math.min(...result.values)
-            result.average = DNF
-          }
-          // if there's no unlimited result, copy the regular result
-          if (!unlimitedResult) {
-            const newResult = new Results()
-            newResult.mode = CompetitionMode.UNLIMITED
-            newResult.competitionId = result.competitionId
-            newResult.userId = result.userId
-            newResult.values = result.values
-            newResult.best = result.best
-            newResult.average = result.average
-            unlimitedResults.push(newResult)
-          }
-        }
-        for (const result of unlimitedResults) {
-          if (result.values.includes(0)) {
-            const regularResult = regularResultsMap.get(result.userId)
-            result.values = result.values.map((v, i) => {
-              if (v !== 0) {
-                return v
-              }
-              if (!regularResult) {
-                return DNS
-              }
-              if (regularResult.values[i] !== 0) {
-                return regularResult.values[i]
-              }
-              return DNS
-            })
-            result.best = Math.min(...result.values)
-            result.average = DNF
-          }
-        }
-        setRanks(regularResults)
-        setRanks(unlimitedResults)
-        await this.resultsRepository.save(regularResults)
-        await this.resultsRepository.save(unlimitedResults)
       }
     })
     await this.competitionsRepository.save(onGoings)
@@ -115,9 +56,17 @@ export class CompetitionService {
         status: CompetitionStatus.NOT_STARTED,
       },
     })
-    notStarteds.forEach(competition => {
+    notStarteds.forEach(async competition => {
       if (competition.startTime <= now) {
         competition.status = CompetitionStatus.ON_GOING
+        switch (competition.type) {
+          case CompetitionType.ENDLESS:
+            await this.endlessService.start(competition)
+            break
+
+          default:
+            break
+        }
       }
     })
     await this.competitionsRepository.save(notStarteds)

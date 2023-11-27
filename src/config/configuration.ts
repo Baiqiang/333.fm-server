@@ -21,4 +21,10 @@ export default () => ({
     maxGreedy: 6,
     version: ['0.5.4', '0.5.4'],
   },
+  endless: {
+    kickoffMoves: {
+      single: 2500,
+      team: [3000, 3],
+    },
+  },
 })

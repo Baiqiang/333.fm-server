@@ -5,7 +5,7 @@ import weekOfYear from 'dayjs/plugin/weekOfYear'
 import { Algorithm, Cube } from 'insertionfinder'
 import { fmcScramble } from 'twisty_puzzle_solver'
 
-import { Results } from '@/entities/results.entity'
+import { DNF, Results } from '@/entities/results.entity'
 
 dayjs.extend(advancedFormat)
 dayjs.extend(weekOfYear)
@@ -45,6 +45,35 @@ export function centerLength(centerCycles: number, placement: number): number {
 
 export function calculateHash(obj: any) {
   return createHash('md5').update(JSON.stringify(obj)).digest('hex')
+}
+
+export function calculateMoves(scramble: string, solution: string, allowNISS = false): number {
+  let moves: number
+  try {
+    const { bestCube } = formatSkeleton(scramble, solution)
+    // check if solved
+    if (
+      bestCube.getCornerCycles() === 0 &&
+      bestCube.getEdgeCycles() === 0 &&
+      bestCube.getCenterCycles() === 0 &&
+      !bestCube.hasParity()
+    ) {
+      const solutionAlg = new Algorithm(solution)
+      moves = (solutionAlg.twists.length + solutionAlg.inverseTwists.length) * 100
+    } else {
+      // DNF
+      moves = DNF
+    }
+    if (!allowNISS) {
+      // check NISS and ()
+      if (solution.includes('NISS') || solution.includes('(')) {
+        moves = DNF
+      }
+    }
+  } catch (e) {
+    moves = DNF
+  }
+  return moves
 }
 
 export function parseWeek(week: string): dayjs.Dayjs {
