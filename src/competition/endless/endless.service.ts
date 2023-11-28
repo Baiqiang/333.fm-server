@@ -209,11 +209,16 @@ export class EndlessService {
         competitionId: competition.id,
         number: level,
       },
+      relations: {
+        kickoffs: {
+          user: true,
+          submission: true,
+        },
+      },
     })
     if (scramble === null) {
       throw new BadRequestException('Invalid level')
     }
-    let kickedBy: EndlessKickoffs[] = []
     if (level > 1) {
       const prevSubmission = await this.submissionsRepository.findOne({
         where: {
@@ -223,22 +228,10 @@ export class EndlessService {
             number: scramble.number - 1,
           },
         },
-        relations: {
-          scramble: {
-            kickoffs: {
-              user: true,
-              submission: true,
-            },
-          },
-        },
       })
       if (prevSubmission === null) {
         throw new BadRequestException('Previous scramble not solved')
       }
-      kickedBy = prevSubmission.scramble.kickoffs.map(k => {
-        k.removeSolution()
-        return k
-      })
     }
     let submission: Submissions = null
     if (user) {
@@ -249,6 +242,11 @@ export class EndlessService {
         },
       })
     }
+    const kickedBy = scramble.kickoffs.map(k => {
+      k.removeSolution()
+      return k
+    })
+    delete scramble.kickoffs
     return {
       level,
       scramble,
