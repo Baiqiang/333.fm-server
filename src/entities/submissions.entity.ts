@@ -66,4 +66,9 @@ export class Submissions {
     onUpdate: 'CASCADE',
   })
   result: Results
+
+  removeSolution() {
+    this.solution = ''
+    this.comment = ''
+  }
 }

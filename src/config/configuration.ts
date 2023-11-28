@@ -23,7 +23,7 @@ export default () => ({
   },
   endless: {
     kickoffMoves: {
-      single: 2500,
+      single: 2400,
       team: [3000, 3],
     },
   },

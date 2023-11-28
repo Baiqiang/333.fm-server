@@ -138,12 +138,16 @@ export class EndlessService {
               user: true,
             },
           })
+          bestSubmissions.forEach(s => s.removeSolution())
         }
         return {
           level: level.number,
           competitors,
           bestSubmissions,
-          kickedOffs: level.kickoffs,
+          kickedOffs: level.kickoffs.map(k => {
+            k.removeSolution()
+            return k
+          }),
         }
       }),
     )
@@ -197,7 +201,7 @@ export class EndlessService {
   }
 
   async getLevel(competition: Competitions, user: Users, level: number): Promise<Progress> {
-    if (user === null && level > 1) {
+    if (!user && level > 1) {
       throw new BadRequestException('Invalid level')
     }
     const scramble = await this.scramblesRepository.findOne({
@@ -231,7 +235,10 @@ export class EndlessService {
       if (prevSubmission === null) {
         throw new BadRequestException('Previous scramble not solved')
       }
-      kickedBy = prevSubmission.scramble.kickoffs
+      kickedBy = prevSubmission.scramble.kickoffs.map(k => {
+        k.removeSolution()
+        return k
+      })
     }
     let submission: Submissions = null
     if (user) {

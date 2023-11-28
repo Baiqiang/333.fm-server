@@ -52,4 +52,8 @@ export class EndlessKickoffs {
     onUpdate: 'CASCADE',
   })
   submission: Submissions
+
+  removeSolution() {
+    this.submission?.removeSolution()
+  }
 }
