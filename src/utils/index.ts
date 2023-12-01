@@ -10,12 +10,16 @@ import { DNF, Results } from '@/entities/results.entity'
 dayjs.extend(advancedFormat)
 dayjs.extend(weekOfYear)
 
+export function replaceQuote(string: string): string {
+  return string.replace(/[‘’`]/g, "'")
+}
+
 export function removeComment(string: string | string[]): string {
   if (Array.isArray(string)) {
     string = string.join(' ')
   }
   // supports various types of quotes
-  string = string.replace(/[‘’`]/g, "'")
+  string = replaceQuote(string)
   return string
     .split('\n')
     .map(s => s.split('//')[0])
@@ -58,7 +62,7 @@ export function calculateMoves(scramble: string, solution: string, allowNISS = f
       bestCube.getCenterCycles() === 0 &&
       !bestCube.hasParity()
     ) {
-      const solutionAlg = new Algorithm(solution)
+      const solutionAlg = new Algorithm(replaceQuote(solution))
       moves = (solutionAlg.twists.length + solutionAlg.inverseTwists.length) * 100
     } else {
       // DNF
