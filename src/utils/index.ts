@@ -103,8 +103,12 @@ export function sortResult(a: Results, b: Results): number {
   return a.average - b.average
 }
 
-export function setRanks(results: Results[]) {
+export function setRanks(results: Results[]): Results[] {
   results.sort(sortResult)
+  return setRanksOnly(results)
+}
+
+export function setRanksOnly(results: Results[]): Results[] {
   results.forEach((result, index) => {
     const previous = results[index - 1]
     result.rank = index + 1
@@ -112,4 +116,44 @@ export function setRanks(results: Results[]) {
       result.rank = previous.rank
     }
   })
+  return results
+}
+
+export function calculateMean(values: number[]): number {
+  const dnfResults = values.filter(v => v === DNF)
+  if (dnfResults.length > 0) {
+    return DNF
+  }
+  return values.reduce((a, b) => a + b, 0) / values.length
+}
+
+export function calculateAverage(values: number[]): number {
+  const dnfResults = values.filter(v => v === DNF)
+  if (dnfResults.length > 1) {
+    return DNF
+  }
+  const max = Math.max(...values)
+  const min = Math.min(...values)
+  return (values.reduce((a, b) => a + b, 0) - max - min) / (values.length - 2)
+}
+
+export function getTopN<T extends Results>(results: T[], n: number): T[] {
+  const map: Record<number, boolean> = {}
+  const topN = []
+  for (const result of results) {
+    if (map[result.userId]) {
+      continue
+    }
+    map[result.userId] = true
+    topN.push(result)
+  }
+  setRanksOnly(topN)
+  if (topN.length <= n) {
+    return topN
+  }
+  const nth = topN[n - 1]
+  const nthAverage = nth.average
+  const nthBest = nth.best
+  const nthIndex = topN.findIndex(r => r.average > nthAverage || (r.average === nthAverage && r.best > nthBest))
+  return topN.slice(0, nthIndex)
 }

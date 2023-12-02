@@ -1,5 +1,6 @@
 import { InjectQueue } from '@nestjs/bull'
 import { BadRequestException, forwardRef, Inject, Injectable } from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Queue } from 'bull'
 import { fmcScramble } from 'twisty_puzzle_solver'
@@ -12,7 +13,7 @@ import { DNF, Results } from '@/entities/results.entity'
 import { Scrambles } from '@/entities/scrambles.entity'
 import { Submissions } from '@/entities/submissions.entity'
 import { Users } from '@/entities/users.entity'
-import { calculateMoves } from '@/utils'
+import { calculateMoves, getTopN, setRanks, sortResult } from '@/utils'
 
 import { CompetitionService } from '../competition.service'
 
@@ -54,6 +55,7 @@ export class EndlessService {
     private readonly competitionService: CompetitionService,
     @InjectQueue('endless')
     private readonly queue: Queue<EndlessJob>,
+    private readonly configService: ConfigService,
   ) {}
 
   async start(competition: Competitions) {
@@ -151,6 +153,95 @@ export class EndlessService {
         }
       }),
     )
+  }
+
+  async getStats(competition: Competitions) {
+    // get all submissions
+    const submissions = await this.submissionsRepository.find({
+      where: {
+        competitionId: competition.id,
+      },
+      order: {
+        moves: 'ASC',
+      },
+      relations: {
+        user: true,
+        scramble: true,
+      },
+    })
+    const singles: Results[] = []
+    const singlesMap: Record<number, boolean> = {}
+    for (const submission of submissions) {
+      if (!singlesMap[submission.userId]) {
+        singlesMap[submission.userId] = true
+        const r = new Results()
+        r.userId = submission.userId
+        r.user = submission.user
+        r.best = submission.moves
+        r.average = submission.moves
+        r.values = [r.best]
+        singles.push(r)
+      }
+    }
+    const results = await this.resultsRepository.find({
+      where: {
+        competitionId: competition.id,
+      },
+      order: {
+        average: 'ASC',
+        best: 'ASC',
+      },
+      relations: {
+        user: true,
+      },
+    })
+    setRanks(results)
+    // rolling average of 5 and average of 12
+    const allRollingMo3: Results[] = []
+    const allRollingAo5: Results[] = []
+    const allRollingAo12: Results[] = []
+    for (const result of results) {
+      const length = result.values.length
+      if (length < 3) {
+        continue
+      }
+      for (let i = 0; i < length - 2; i++) {
+        // mean of 3
+        allRollingMo3.push(result.cloneRolling(i, 3, true))
+        // average of 5
+        if (length >= 5 && i < length - 4) {
+          allRollingAo5.push(result.cloneRolling(i, 5))
+          // average of 12
+          if (length >= 12 && i < length - 11) {
+            allRollingAo12.push(result.cloneRolling(i, 12))
+          }
+        }
+      }
+    }
+    // sort means and averages
+    allRollingMo3.sort(sortResult)
+    allRollingAo5.sort(sortResult)
+    allRollingAo12.sort(sortResult)
+    // const { single, team } = this.configService.get<{ single: number; team: [number, number] }>('endless.kickoffMoves')
+    // const kickedOffs = await this.kickoffRepository
+    //   .createQueryBuilder('k')
+    //   .select([`SUM(CASE WHEN s.moves <= ${single} THEN 1 ELSE 1/${team[1]} END) count`, 'u.*'])
+    //   .leftJoin(Users, 'u', 'u.id = k.userId')
+    //   .leftJoin(Submissions, 's', 's.id = k.submissionId')
+    //   .where('k.competitionId = :competitionId', { competitionId: competition.id })
+    //   .groupBy('k.userId')
+    //   .orderBy('count', 'DESC')
+    //   .limit(10)
+    //   .getRawMany()
+
+    return {
+      // kickedOffs,
+      singles: getTopN(singles, 10),
+      means: getTopN(results, 10),
+      rollingMo3: setRanks(getTopN(allRollingMo3, 10)),
+      rollingAo5: setRanks(getTopN(allRollingAo5, 10)),
+      rollingAo12: setRanks(getTopN(allRollingAo12, 10)),
+    }
   }
 
   async getProgress(competition: Competitions, user: Users): Promise<UserProgress> {

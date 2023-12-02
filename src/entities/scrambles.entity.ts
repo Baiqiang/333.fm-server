@@ -44,4 +44,8 @@ export class Scrambles {
 
   @OneToMany(() => EndlessKickoffs, kickoff => kickoff.scramble)
   kickoffs: EndlessKickoffs[]
+
+  removeScramble() {
+    this.scramble = ''
+  }
 }

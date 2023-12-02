@@ -9,6 +9,8 @@ import {
   UpdateDateColumn,
 } from 'typeorm'
 
+import { calculateAverage, calculateMean } from '@/utils'
+
 import { CompetitionMode, Competitions } from './competitions.entity'
 import { Submissions } from './submissions.entity'
 import { Users } from './users.entity'
@@ -64,4 +66,23 @@ export class Results {
 
   @OneToMany(() => Submissions, submission => submission.result)
   submissions: Submissions[]
+
+  rollingStart: number
+
+  cloneRolling(start: number, n: number, mean = false): Results {
+    const result = new Results()
+    result.mode = this.mode
+    result.values = this.values.slice(start, start + n)
+    result.best = Math.min(...result.values)
+    result.rollingStart = start
+    if (mean) {
+      result.average = calculateMean(result.values)
+    } else {
+      result.average = calculateAverage(result.values)
+    }
+    result.competitionId = this.competitionId
+    result.userId = this.userId
+    result.user = this.user
+    return result
+  }
 }
