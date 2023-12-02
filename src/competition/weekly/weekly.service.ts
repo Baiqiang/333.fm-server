@@ -176,6 +176,7 @@ export class WeeklyService {
         const winner = await this.resultsRepository.findOne({
           where: {
             competitionId: competition.id,
+            mode: CompetitionMode.REGULAR,
           },
           order: {
             average: 'ASC',
