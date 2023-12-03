@@ -29,11 +29,9 @@ export class Scrambles {
   competitionId: number
 
   @CreateDateColumn()
-  @Exclude()
   createdAt: Date
 
   @UpdateDateColumn()
-  @Exclude()
   updatedAt: Date
 
   @ManyToOne(() => Competitions, competition => competition.scrambles, {

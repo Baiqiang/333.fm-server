@@ -35,7 +35,6 @@ export class WeeklyController {
 
   @Get('on-going')
   public async getOnGoing() {
-    console.log(11)
     return this.weeklyService.getOnGoing()
   }
 
