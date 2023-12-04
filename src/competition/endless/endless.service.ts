@@ -13,7 +13,7 @@ import { DNF, Results } from '@/entities/results.entity'
 import { Scrambles } from '@/entities/scrambles.entity'
 import { Submissions } from '@/entities/submissions.entity'
 import { Users } from '@/entities/users.entity'
-import { calculateMoves, getTopN, setRanks, sortResult } from '@/utils'
+import { calculateMoves, getTopDistinctN, getTopN, sortResult } from '@/utils'
 
 import { CompetitionService } from '../competition.service'
 
@@ -36,6 +36,17 @@ export interface EndlessJob {
   scrambleNumber: number
   submissionId: number
   moves: number
+}
+
+export interface UserLevel {
+  level: number
+  rank: number
+  userId: number
+  user: Users
+}
+
+export interface UserBest extends UserLevel {
+  best: number
 }
 
 @Injectable()
@@ -169,19 +180,27 @@ export class EndlessService {
         scramble: true,
       },
     })
-    const singles: Results[] = []
+    const singles: UserBest[] = []
     const singlesMap: Record<number, boolean> = {}
+    const submissionsMap: Record<number, UserLevel> = {}
     for (const submission of submissions) {
       if (!singlesMap[submission.userId]) {
         singlesMap[submission.userId] = true
-        const r = new Results()
-        r.userId = submission.userId
-        r.user = submission.user
-        r.best = submission.moves
-        r.average = submission.moves
-        r.values = [r.best]
-        singles.push(r)
+        submissionsMap[submission.userId] = {
+          userId: submission.userId,
+          user: submission.user,
+          level: 0,
+          rank: 0,
+        }
+        singles.push({
+          userId: submission.userId,
+          user: submission.user,
+          level: submission.scramble.number,
+          rank: 0,
+          best: submission.moves,
+        })
       }
+      submissionsMap[submission.userId].level++
     }
     const results = await this.resultsRepository.find({
       where: {
@@ -195,7 +214,6 @@ export class EndlessService {
         user: true,
       },
     })
-    setRanks(results)
     // rolling average of 5 and average of 12
     const allRollingMo3: Results[] = []
     const allRollingAo5: Results[] = []
@@ -236,11 +254,15 @@ export class EndlessService {
 
     return {
       // kickedOffs,
-      singles: getTopN(singles, 10),
-      means: getTopN(results, 10),
-      rollingMo3: setRanks(getTopN(allRollingMo3, 10)),
-      rollingAo5: setRanks(getTopN(allRollingAo5, 10)),
-      rollingAo12: setRanks(getTopN(allRollingAo12, 10)),
+      highestLevels: getTopDistinctN(submissionsMap, 10, ['level'], true),
+      singles: getTopN(singles, 10, ['best']),
+      means: getTopN(
+        results.filter(r => r.values.length >= 3),
+        10,
+      ),
+      rollingMo3: getTopDistinctN(allRollingMo3, 10),
+      rollingAo5: getTopDistinctN(allRollingAo5, 10),
+      rollingAo12: getTopDistinctN(allRollingAo12, 10),
     }
   }
 

@@ -108,11 +108,11 @@ export function setRanks(results: Results[]): Results[] {
   return setRanksOnly(results)
 }
 
-export function setRanksOnly(results: Results[]): Results[] {
+export function setRanksOnly<T extends Rankable>(results: T[], rankKeys: string[] = ['average', 'best']): T[] {
   results.forEach((result, index) => {
     const previous = results[index - 1]
     result.rank = index + 1
-    if (previous && previous.average === result.average && previous.best === result.best) {
+    if (previous && rankKeys.every(key => result[key] === previous[key])) {
       result.rank = previous.rank
     }
   })
@@ -137,23 +137,54 @@ export function calculateAverage(values: number[]): number {
   return (values.reduce((a, b) => a + b, 0) - max - min) / (values.length - 2)
 }
 
-export function getTopN<T extends Results>(results: T[], n: number): T[] {
-  const map: Record<number, boolean> = {}
-  const topN = []
-  for (const result of results) {
-    if (map[result.userId]) {
+export function groupBy<T>(array: T[], key: string): T[] {
+  const map: Record<string, boolean> = {}
+  const grouped = []
+  for (const item of array) {
+    if (map[item[key]]) {
       continue
     }
-    map[result.userId] = true
-    topN.push(result)
+    map[item[key]] = true
+    grouped.push(item)
   }
-  setRanksOnly(topN)
-  if (topN.length <= n) {
-    return topN
+  return grouped
+}
+
+export function getTopN<T extends Rankable>(results: T[], n: number, rankKeys: string[] = ['average', 'best']): T[] {
+  setRanksOnly(results, rankKeys)
+  if (results.length <= n) {
+    return results
   }
-  const nth = topN[n - 1]
-  const nthAverage = nth.average
-  const nthBest = nth.best
-  const nthIndex = topN.findIndex(r => r.average > nthAverage || (r.average === nthAverage && r.best > nthBest))
-  return topN.slice(0, nthIndex)
+  return results.filter(result => result.rank <= n)
+}
+
+export function getTopDistinctN<T extends Rankable>(
+  results: T[] | Record<string, T>,
+  n: number,
+  rankKeys: string[] = ['average', 'best'],
+  sortDesc: boolean = false,
+  groupKey = 'userId',
+): T[] {
+  if (!Array.isArray(results)) {
+    results = Object.values(results)
+  }
+  results.sort((a, b) => {
+    for (const key of rankKeys) {
+      if (a[key] > b[key]) {
+        return 1
+      } else if (a[key] < b[key]) {
+        return -1
+      }
+    }
+    return 0
+  })
+  if (sortDesc) {
+    results.reverse()
+  }
+  const ret = groupBy(results, groupKey)
+  return getTopN(ret, n, rankKeys)
+}
+
+export interface Rankable {
+  rank: number
 }
