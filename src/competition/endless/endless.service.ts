@@ -7,7 +7,7 @@ import { fmcScramble } from 'twisty_puzzle_solver'
 import { Repository } from 'typeorm'
 
 import { SubmitSolutionDto } from '@/dtos/submit-solution.dto'
-import { CompetitionMode, Competitions, CompetitionType } from '@/entities/competitions.entity'
+import { Competitions, CompetitionType } from '@/entities/competitions.entity'
 import { EndlessKickoffs } from '@/entities/endless-kickoffs.entity'
 import { DNF, Results } from '@/entities/results.entity'
 import { Scrambles } from '@/entities/scrambles.entity'
@@ -452,7 +452,7 @@ export class EndlessService {
     submission.competition = competition
     submission.scramble = scramble
     submission.user = user
-    submission.mode = CompetitionMode.REGULAR
+    submission.mode = solution.mode
     submission.solution = solution.solution
     submission.comment = solution.comment
     submission.moves = moves
@@ -493,11 +493,11 @@ export class EndlessService {
     return submission
   }
 
-  async updateComment(
+  async update(
     competition: Competitions,
     user: Users,
     id: number,
-    solution: Pick<SubmitSolutionDto, 'comment'>,
+    solution: Pick<SubmitSolutionDto, 'comment' | 'mode'>,
   ) {
     const submission = await this.submissionsRepository.findOne({
       where: {
@@ -509,6 +509,7 @@ export class EndlessService {
     if (submission === null) {
       throw new BadRequestException('Invalid submission')
     }
+    submission.mode = solution.mode
     submission.comment = solution.comment
     return await this.submissionsRepository.save(submission)
   }

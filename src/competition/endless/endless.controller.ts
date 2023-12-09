@@ -88,13 +88,13 @@ export class EndlessController {
     @Param('season') season: string,
     @Param('id', ParseIntPipe) submissionId: number,
     @CurrentUser() user: Users,
-    @Body() solution: Pick<SubmitSolutionDto, 'comment'>,
+    @Body() solution: Pick<SubmitSolutionDto, 'comment' | 'mode'>,
   ) {
     const competition = await this.endlessService.getBySeason(season)
     if (!competition) {
       throw new NotFoundException()
     }
-    return await this.endlessService.updateComment(competition, user, submissionId, solution)
+    return await this.endlessService.update(competition, user, submissionId, solution)
   }
 
   @Get(':season/:level/submissions')
