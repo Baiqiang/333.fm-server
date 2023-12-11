@@ -25,6 +25,7 @@ export abstract class BaseProcessor {
     const realIF = await this.realInsertionFindersRepository.findOne({
       where: {
         hash,
+        status: IFStatus.PENDING,
       },
       relations: ['algs'],
     })

@@ -1,6 +1,12 @@
 {
   "name": "twisty_puzzle_solver",
+  "description": "collection of twisty puzzle solvers written in rust",
   "version": "0.1.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CuberPro/twisty_puzzle_solver"
+  },
   "files": [
     "twisty_puzzle_solver_bg.wasm",
     "twisty_puzzle_solver.js",

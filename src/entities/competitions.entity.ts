@@ -100,7 +100,7 @@ export class Competitions {
   @OneToMany(() => Results, result => result.competition)
   results: Promise<Results[]>
 
-  winner: Results
+  winners: Results[]
 
   levels: Level[]
 

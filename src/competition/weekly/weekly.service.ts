@@ -17,7 +17,8 @@ import { DNF, DNS, Results } from '@/entities/results.entity'
 import { Scrambles } from '@/entities/scrambles.entity'
 import { Submissions } from '@/entities/submissions.entity'
 import { Users } from '@/entities/users.entity'
-import { calculateMoves, generateScrambles, parseWeek, setRanks } from '@/utils'
+import { calculateMoves, parseWeek, setRanks } from '@/utils'
+import { generateScrambles } from '@/utils/scramble'
 
 import { CompetitionService } from '../competition.service'
 
@@ -173,20 +174,17 @@ export class WeeklyService {
     })
     await Promise.all(
       data.items.map(async competition => {
-        const winner = await this.resultsRepository.findOne({
+        const winners = await this.resultsRepository.find({
           where: {
             competitionId: competition.id,
             mode: CompetitionMode.REGULAR,
-          },
-          order: {
-            average: 'ASC',
-            best: 'ASC',
+            rank: 1,
           },
           relations: {
             user: true,
           },
         })
-        competition.winner = winner
+        competition.winners = winners
       }),
     )
     return data

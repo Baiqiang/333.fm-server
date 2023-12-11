@@ -3,7 +3,6 @@ import { BadRequestException, forwardRef, Inject, Injectable } from '@nestjs/com
 import { ConfigService } from '@nestjs/config'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Queue } from 'bull'
-import { fmcScramble } from 'twisty_puzzle_solver'
 import { Repository } from 'typeorm'
 
 import { SubmitSolutionDto } from '@/dtos/submit-solution.dto'
@@ -14,6 +13,7 @@ import { Scrambles } from '@/entities/scrambles.entity'
 import { Submissions } from '@/entities/submissions.entity'
 import { Users } from '@/entities/users.entity'
 import { calculateMoves, getTopDistinctN, getTopN, sortResult } from '@/utils'
+import { generateScramble } from '@/utils/scramble'
 
 import { CompetitionService } from '../competition.service'
 
@@ -73,7 +73,7 @@ export class EndlessService {
     const scramble = new Scrambles()
     scramble.competition = competition
     scramble.number = 1
-    scramble.scramble = fmcScramble()
+    scramble.scramble = generateScramble()
     await this.scramblesRepository.save(scramble)
   }
 

@@ -3,13 +3,13 @@ import { Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Job } from 'bull'
-import { fmcScramble } from 'twisty_puzzle_solver'
 import { LessThanOrEqual, Repository } from 'typeorm'
 
 import { Competitions } from '@/entities/competitions.entity'
 import { EndlessKickoffs } from '@/entities/endless-kickoffs.entity'
 import { Scrambles } from '@/entities/scrambles.entity'
 import { Submissions } from '@/entities/submissions.entity'
+import { generateScramble } from '@/utils/scramble'
 
 import { EndlessJob } from '../endless.service'
 
@@ -69,7 +69,7 @@ export class EndlessProcessor {
     const scramble = new Scrambles()
     scramble.competitionId = competitionId
     scramble.number = scrambleNumber + 1
-    scramble.scramble = fmcScramble()
+    scramble.scramble = generateScramble()
     await this.scramblesRepository.save(scramble)
     this.logger.log(`Generated scramble ${scramble.id} kicked off ${singleKickedOff} user ${userId}`)
     // set kickoff
