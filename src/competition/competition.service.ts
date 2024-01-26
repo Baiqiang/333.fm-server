@@ -1,15 +1,12 @@
-import { BadRequestException, Injectable } from '@nestjs/common'
+import { Injectable } from '@nestjs/common'
 import { Cron } from '@nestjs/schedule'
 import { InjectRepository } from '@nestjs/typeorm'
-import { FindOneOptions, Repository } from 'typeorm'
+import { FindManyOptions, FindOneOptions, Repository } from 'typeorm'
 
-import { SubmitSolutionDto } from '@/dtos/submit-solution.dto'
 import { Competitions, CompetitionStatus, CompetitionType } from '@/entities/competitions.entity'
-import { DNF, DNS, Results } from '@/entities/results.entity'
+import { Results } from '@/entities/results.entity'
 import { Scrambles } from '@/entities/scrambles.entity'
 import { Submissions } from '@/entities/submissions.entity'
-import { Users } from '@/entities/users.entity'
-import { formatSkeleton, parseWeek } from '@/utils'
 
 import { EndlessService } from './endless/endless.service'
 import { WeeklyService } from './weekly/weekly.service'
@@ -81,137 +78,11 @@ export class CompetitionService {
     })
   }
 
-  getWeekly(week: string) {
-    // get date from week in format YYYY-ww
-    const date = parseWeek(week)
-    if (date === null) {
-      return null
-    }
-    return this.findOne({
-      where: {
-        type: CompetitionType.WEEKLY,
-        startTime: date.toDate(),
-      },
-      relations: {
-        scrambles: true,
-      },
-    })
-  }
-
-  async getWeeklyResults(competition: Competitions) {
-    const results = await this.resultsRepository.find({
-      where: {
-        competition: {
-          id: competition.id,
-        },
-      },
-      order: {
-        average: 'ASC',
-        best: 'ASC',
-      },
-      relations: {
-        user: true,
-      },
-    })
-    return results
-  }
-
-  async submitWeekly(competition: Competitions, user: Users, solution: SubmitSolutionDto) {
-    if (competition.hasEnded) {
-      throw new BadRequestException('Competition has ended')
-    }
-    const scramble = await this.scramblesRepository.findOne({
-      where: {
-        id: solution.scrambleId,
-      },
-    })
-    if (scramble === null) {
-      throw new BadRequestException('Invalid scramble')
-    }
-    let submission = await this.submissionsRepository.findOne({
-      where: {
-        scrambleId: scramble.id,
-        userId: user.id,
-      },
-    })
-    if (submission !== null) {
-      throw new BadRequestException('Already submitted')
-    }
-    submission = new Submissions()
-    submission.scramble = scramble
-    submission.user = user
-    submission.solution = solution.solution
-    submission.comment = solution.comment
-    const { bestCube, formattedSkeleton } = formatSkeleton(scramble.scramble, solution.solution)
-    // check if solved
-    if (
-      bestCube.getCornerCycles() === 0 &&
-      bestCube.getEdgeCycles() === 0 &&
-      bestCube.getCenterCycles() === 0 &&
-      !bestCube.hasParity()
-    ) {
-      submission.moves = formattedSkeleton.split(' ').length * 100
-    } else {
-      // DNF
-      submission.moves = DNF
-    }
-    await this.submissionsRepository.save(submission)
-    let result = await this.resultsRepository.findOne({
-      where: {
-        competition: {
-          id: competition.id,
-        },
-        user: {
-          id: user.id,
-        },
-      },
-    })
-    if (result === null) {
-      result = new Results()
-      result.competition = competition
-      result.user = user
-    }
-    submission.result = result
-    await this.submissionsRepository.save(submission)
-    const submissions = await this.submissionsRepository.find({
-      where: {
-        competitionId: competition.id,
-      },
-      order: {
-        scramble: {
-          number: 'ASC',
-        },
-      },
-    })
-    result.values = submissions.map(submission => submission.moves)
-    result.best = Math.min(...result.values)
-    result.average = Math.round(result.values.reduce((a, b) => a + b, 0) / result.values.length)
-    if (result.values.some(v => v === DNF || v === DNS)) {
-      result.average = DNF
-    }
-    await this.resultsRepository.save(result)
-  }
-
-  async patchWeekly(competition: Competitions, user: Users, id: number, solution: any) {
-    const submission = await this.submissionsRepository.findOne({
-      where: {
-        id,
-        user: {
-          id: user.id,
-        },
-        competition: {
-          id: competition.id,
-        },
-      },
-    })
-    if (submission === null) {
-      throw new BadRequestException('Invalid submission')
-    }
-    submission.comment = solution.comment
-    await this.submissionsRepository.save(submission)
-  }
-
   findOne(options: FindOneOptions<Competitions>) {
     return this.competitionsRepository.findOne(options)
+  }
+
+  findMany(options: FindManyOptions<Competitions>) {
+    return this.competitionsRepository.find(options)
   }
 }

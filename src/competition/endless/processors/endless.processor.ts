@@ -5,13 +5,13 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { Job } from 'bull'
 import { LessThanOrEqual, Repository } from 'typeorm'
 
-import { Competitions } from '@/entities/competitions.entity'
+import { Competitions, CompetitionSubType } from '@/entities/competitions.entity'
 import { EndlessKickoffs } from '@/entities/endless-kickoffs.entity'
 import { Scrambles } from '@/entities/scrambles.entity'
 import { Submissions } from '@/entities/submissions.entity'
-import { generateScramble } from '@/utils/scramble'
+import { generateScramble, ScrambleType } from '@/utils/scramble'
 
-import { EndlessJob } from '../endless.service'
+import { Chanllenge, EndlessJob } from '../endless.service'
 
 @Processor('endless')
 export class EndlessProcessor {
@@ -31,7 +31,31 @@ export class EndlessProcessor {
   @Process()
   async process(job: Job<EndlessJob>) {
     const { competitionId, userId, scrambleId, scrambleNumber, submissionId, moves } = job.data
-    const { single, team } = this.configService.get<{ single: number; team: [number, number] }>('endless.kickoffMoves')
+    let chanllenge: Chanllenge = {
+      single: 8000,
+      team: [8000, 1],
+    }
+    let scrambleType: ScrambleType = ScrambleType.NORMAL
+    const competition = await this.competitionsRepository.findOneBy({ id: competitionId })
+    switch (competition.subType) {
+      case CompetitionSubType.BOSS_CHANLLENGE:
+        chanllenge = this.getBossChanllenge(scrambleNumber)
+        break
+      case CompetitionSubType.EO_PRACTICE:
+        scrambleType = ScrambleType.EO
+        break
+      case CompetitionSubType.DR_PRACTICE:
+        scrambleType = ScrambleType.DR
+        break
+      case CompetitionSubType.HTR_PRACTICE:
+        scrambleType = ScrambleType.HTR
+        break
+      case CompetitionSubType.REGULAR:
+        chanllenge = this.configService.get<Chanllenge>('endless.kickoffMoves')
+      default:
+        break
+    }
+    const { single, team } = chanllenge
     // if the result is greater than 30, nothing to do
     if (moves > team[0]) {
       return
@@ -69,7 +93,7 @@ export class EndlessProcessor {
     const scramble = new Scrambles()
     scramble.competitionId = competitionId
     scramble.number = scrambleNumber + 1
-    scramble.scramble = generateScramble()
+    scramble.scramble = generateScramble(scrambleType)
     await this.scramblesRepository.save(scramble)
     this.logger.log(`Generated scramble ${scramble.id} kicked off ${singleKickedOff} user ${userId}`)
     // set kickoff
@@ -92,5 +116,14 @@ export class EndlessProcessor {
       }
     }
     await this.kickoffsRepository.save(kickoffs)
+  }
+
+  getBossChanllenge(level: number): Chanllenge {
+    const bossChanllenges = this.configService.get<Chanllenge[]>('endless.bossChanllenges')
+    let bossChanllenge = bossChanllenges.find(c => c.levels?.includes(level))
+    if (bossChanllenge === undefined) {
+      bossChanllenge = bossChanllenges.find(c => c.startLevel <= level)
+    }
+    return bossChanllenge ?? bossChanllenges[bossChanllenges.length - (level % 10 === 0 ? 1 : 2)]
   }
 }

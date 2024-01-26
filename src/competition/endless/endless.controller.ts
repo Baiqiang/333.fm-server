@@ -8,6 +8,7 @@ import {
   Param,
   ParseIntPipe,
   Post,
+  Query,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common'
@@ -16,6 +17,7 @@ import { CurrentUser } from '@/auth/decorators/current-user.decorator'
 import { JwtAuthGuard } from '@/auth/guards/jwt.guard'
 import { JwtRequiredGuard } from '@/auth/guards/jwt-required.guard'
 import { SubmitSolutionDto } from '@/dtos/submit-solution.dto'
+import { CompetitionSubType } from '@/entities/competitions.entity'
 import { Users } from '@/entities/users.entity'
 
 import { EndlessService } from './endless.service'
@@ -28,6 +30,14 @@ export class EndlessController {
   @Get('latest')
   public async getLatest() {
     return this.endlessService.getLatest()
+  }
+
+  @Get('on-going')
+  public async getOnGoing(@Query('type') subType: CompetitionSubType) {
+    if (!subType) {
+      subType = undefined
+    }
+    return this.endlessService.getOnGoing(subType)
   }
 
   @Get(':season')

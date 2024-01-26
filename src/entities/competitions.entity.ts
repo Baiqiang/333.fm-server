@@ -10,6 +10,8 @@ import {
   UpdateDateColumn,
 } from 'typeorm'
 
+import { Chanllenge } from '@/competition/endless/endless.service'
+
 import { EndlessKickoffs } from './endless-kickoffs.entity'
 import { Results } from './results.entity'
 import { Scrambles } from './scrambles.entity'
@@ -20,6 +22,14 @@ export enum CompetitionType {
   WEEKLY,
   RANDOM,
   ENDLESS,
+}
+
+export enum CompetitionSubType {
+  REGULAR,
+  BOSS_CHANLLENGE,
+  EO_PRACTICE,
+  DR_PRACTICE,
+  HTR_PRACTICE,
 }
 
 export enum CompetitionFormat {
@@ -59,6 +69,9 @@ export class Competitions {
 
   @Column()
   type: CompetitionType
+
+  @Column({ default: CompetitionSubType.REGULAR })
+  subType: CompetitionSubType
 
   @Column()
   format: CompetitionFormat
@@ -103,6 +116,7 @@ export class Competitions {
   winners: Results[]
 
   levels: Level[]
+  chanllenges?: Chanllenge[]
 
   get hasEnded() {
     return this.status === CompetitionStatus.ENDED || (this.endTime !== null && this.endTime <= new Date())

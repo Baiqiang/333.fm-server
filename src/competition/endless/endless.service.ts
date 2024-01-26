@@ -6,14 +6,14 @@ import { Queue } from 'bull'
 import { Repository } from 'typeorm'
 
 import { SubmitSolutionDto } from '@/dtos/submit-solution.dto'
-import { Competitions, CompetitionType } from '@/entities/competitions.entity'
+import { Competitions, CompetitionStatus, CompetitionSubType, CompetitionType } from '@/entities/competitions.entity'
 import { EndlessKickoffs } from '@/entities/endless-kickoffs.entity'
 import { DNF, Results } from '@/entities/results.entity'
 import { Scrambles } from '@/entities/scrambles.entity'
 import { Submissions } from '@/entities/submissions.entity'
 import { Users } from '@/entities/users.entity'
 import { calculateMoves, getTopDistinctN, getTopN, sortResult } from '@/utils'
-import { generateScramble } from '@/utils/scramble'
+import { generateScramble, ScrambleType } from '@/utils/scramble'
 
 import { CompetitionService } from '../competition.service'
 
@@ -49,6 +49,14 @@ export interface UserBest extends UserLevel {
   best: number
 }
 
+export interface Chanllenge {
+  startLevel?: number
+  endLevel?: number
+  levels?: number[]
+  single: number
+  team: [number, number]
+}
+
 @Injectable()
 export class EndlessService {
   constructor(
@@ -73,7 +81,20 @@ export class EndlessService {
     const scramble = new Scrambles()
     scramble.competition = competition
     scramble.number = 1
-    scramble.scramble = generateScramble()
+    switch (competition.subType) {
+      case CompetitionSubType.EO_PRACTICE:
+        scramble.scramble = generateScramble(ScrambleType.EO)
+        break
+      case CompetitionSubType.DR_PRACTICE:
+        scramble.scramble = generateScramble(ScrambleType.DR)
+        break
+      case CompetitionSubType.HTR_PRACTICE:
+        scramble.scramble = generateScramble(ScrambleType.HTR)
+        break
+      default:
+        scramble.scramble = generateScramble()
+        break
+    }
     await this.scramblesRepository.save(scramble)
   }
 
@@ -91,6 +112,21 @@ export class EndlessService {
     }
     await this.fetchLevelInfo(competition)
     return competition
+  }
+
+  async getOnGoing(subType?: CompetitionSubType) {
+    const competitions = await this.competitionService.findMany({
+      where: {
+        type: CompetitionType.ENDLESS,
+        subType,
+        status: CompetitionStatus.ON_GOING,
+      },
+      order: {
+        startTime: 'DESC',
+      },
+    })
+    // await Promise.all(competitions.map(c => this.fetchLevelInfo(c)))
+    return competitions
   }
 
   async getBySeason(season: string) {
@@ -164,6 +200,14 @@ export class EndlessService {
         }
       }),
     )
+    switch (competition.subType) {
+      case CompetitionSubType.REGULAR:
+        competition.chanllenges = [this.configService.get<Chanllenge>('endless.kickoffMoves')]
+        break
+      case CompetitionSubType.BOSS_CHANLLENGE:
+        competition.chanllenges = this.configService.get<Chanllenge[]>('endless.bossChanllenges')
+        break
+    }
   }
 
   async getStats(competition: Competitions) {

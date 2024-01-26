@@ -73,6 +73,10 @@ export function calculateMoves(scramble: string, solution: string, allowNISS = f
         moves = DNF
       }
     }
+    // check if moves > 80
+    if (moves > 8000) {
+      moves = DNF
+    }
   } catch (e) {
     moves = DNF
   }
