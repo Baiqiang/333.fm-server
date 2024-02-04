@@ -71,4 +71,6 @@ export class Submissions {
     this.solution = ''
     this.comment = ''
   }
+
+  alreadySubmitted: boolean
 }

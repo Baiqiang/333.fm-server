@@ -12,6 +12,7 @@ import { AuthModule } from './auth/auth.module'
 import { CompetitionModule } from './competition/competition.module'
 import configuration from './config/configuration'
 import { IfModule } from './if/if.module'
+import { ProfileModule } from './profile/profile.module'
 import { UserModule } from './user/user.module'
 
 @Module({
@@ -44,6 +45,7 @@ import { UserModule } from './user/user.module'
     AuthModule,
     AdminModule,
     CompetitionModule,
+    ProfileModule,
   ],
   controllers: [AppController],
   providers: [AppService],

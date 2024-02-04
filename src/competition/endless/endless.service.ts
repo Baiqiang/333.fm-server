@@ -60,16 +60,12 @@ export interface Chanllenge {
 @Injectable()
 export class EndlessService {
   constructor(
-    @InjectRepository(Competitions)
-    private readonly competitionsRepository: Repository<Competitions>,
     @InjectRepository(Scrambles)
     private readonly scramblesRepository: Repository<Scrambles>,
     @InjectRepository(Submissions)
     private readonly submissionsRepository: Repository<Submissions>,
     @InjectRepository(Results)
     private readonly resultsRepository: Repository<Results>,
-    @InjectRepository(EndlessKickoffs)
-    private readonly kickoffRepository: Repository<EndlessKickoffs>,
     @Inject(forwardRef(() => CompetitionService))
     private readonly competitionService: CompetitionService,
     @InjectQueue('endless')

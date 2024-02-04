@@ -4,9 +4,6 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { FindManyOptions, FindOneOptions, Repository } from 'typeorm'
 
 import { Competitions, CompetitionStatus, CompetitionType } from '@/entities/competitions.entity'
-import { Results } from '@/entities/results.entity'
-import { Scrambles } from '@/entities/scrambles.entity'
-import { Submissions } from '@/entities/submissions.entity'
 
 import { EndlessService } from './endless/endless.service'
 import { WeeklyService } from './weekly/weekly.service'
@@ -16,12 +13,6 @@ export class CompetitionService {
   constructor(
     @InjectRepository(Competitions)
     private readonly competitionsRepository: Repository<Competitions>,
-    @InjectRepository(Scrambles)
-    private readonly scramblesRepository: Repository<Scrambles>,
-    @InjectRepository(Submissions)
-    private readonly submissionsRepository: Repository<Submissions>,
-    @InjectRepository(Results)
-    private readonly resultsRepository: Repository<Results>,
     private readonly weeklyService: WeeklyService,
     private readonly endlessService: EndlessService,
   ) {}
