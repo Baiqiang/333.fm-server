@@ -32,11 +32,12 @@ export class ProfileController {
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() currentUser: Users,
     @Query() paginationOption: PaginationDto,
+    @Query('type') type: number,
   ) {
     const user = await this.userService.findOne(id)
     if (!user) {
       throw new NotFoundException()
     }
-    return this.profileService.getUserSubmissions(user, paginationOption, currentUser)
+    return this.profileService.getUserSubmissions(user, type, paginationOption, currentUser)
   }
 }
