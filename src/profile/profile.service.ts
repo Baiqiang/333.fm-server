@@ -68,6 +68,13 @@ export class ProfileService {
           }
         }
       }
+    } else {
+      for (const submission of data.items) {
+        submission.alreadySubmitted = false
+        submission.removeSolution()
+        submission.moves = 0
+        submission.scramble.removeScramble()
+      }
     }
     // filters
     data.meta.filters = []
