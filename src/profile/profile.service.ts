@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { IPaginationOptions, paginate } from 'nestjs-typeorm-paginate'
-import { FindOptionsWhere, In, Repository } from 'typeorm'
+import { In, Repository } from 'typeorm'
 
 import { Competitions, CompetitionType } from '@/entities/competitions.entity'
 import { Results } from '@/entities/results.entity'
@@ -35,14 +35,14 @@ export class ProfileService {
       queryBuilder.andWhere('c.type = :type', { type })
     }
     const data = await paginate<Submissions>(queryBuilder, options)
-    if (currentUser) {
-      await this.userService.loadUserActivities(currentUser, data.items)
-      if (currentUser.id === user.id) {
-        for (const submission of data.items) {
-          submission.alreadySubmitted = true
-        }
-      } else {
-        const submittedMap: Record<number, boolean> = {}
+    if (currentUser && currentUser.id === user.id) {
+      for (const submission of data.items) {
+        submission.alreadySubmitted = true
+      }
+    } else {
+      const submittedMap: Record<number, boolean> = {}
+      if (currentUser) {
+        await this.userService.loadUserActivities(currentUser, data.items)
         const scrambleIds = data.items.map(item => item.scrambleId)
         const currentUserSubmissions = await this.submissionsRepository.find({
           where: {
@@ -53,27 +53,20 @@ export class ProfileService {
         for (const submission of currentUserSubmissions) {
           submittedMap[submission.scrambleId] = true
         }
-        for (const submission of data.items) {
-          submission.alreadySubmitted = submittedMap[submission.scrambleId] || false
-          if (!submission.alreadySubmitted) {
-            let hideSolution = true
-            if (submission.competition.type === CompetitionType.WEEKLY && submission.competition.hasEnded) {
-              hideSolution = false
-            }
-            if (hideSolution) {
-              submission.removeSolution()
-              submission.moves = 0
-              submission.scramble.removeScramble()
-            }
+      }
+      for (const submission of data.items) {
+        submission.alreadySubmitted = submittedMap[submission.scrambleId] || false
+        if (!submission.alreadySubmitted) {
+          let hideSolution = true
+          if (submission.competition.type === CompetitionType.WEEKLY && submission.competition.hasEnded) {
+            hideSolution = false
+          }
+          if (hideSolution) {
+            submission.removeSolution()
+            submission.moves = 0
+            submission.scramble.removeScramble()
           }
         }
-      }
-    } else {
-      for (const submission of data.items) {
-        submission.alreadySubmitted = false
-        submission.removeSolution()
-        submission.moves = 0
-        submission.scramble.removeScramble()
       }
     }
     // filters
