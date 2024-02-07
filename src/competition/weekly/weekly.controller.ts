@@ -104,18 +104,32 @@ export class WeeklyController {
 
   @Get(':week/submissions')
   @UseGuards(JwtAuthGuard)
-  public async getSubmissions(@Param('week') week: string) {
+  public async getSubmissions(@CurrentUser() user: Users, @Param('week') week: string) {
     const competition = await this.weeklyService.getCompetition(week)
     if (!competition) {
       throw new NotFoundException()
     }
     const submissions = await this.weeklyService.getSubmissions(competition)
     const ret: Record<number, Submissions[]> = {}
+    const userSubmissions: Record<number, Submissions> = {}
     submissions.forEach(submission => {
       if (!ret[submission.scrambleId]) {
         ret[submission.scrambleId] = []
       }
       ret[submission.scrambleId].push(submission)
+      if (user) {
+        if (submission.userId === user.id) {
+          userSubmissions[submission.scrambleId] = submission
+        }
+      }
+    })
+    submissions.forEach(submission => {
+      if (userSubmissions[submission.scrambleId] || competition.hasEnded) {
+        submission.alreadySubmitted = true
+      } else {
+        submission.alreadySubmitted = false
+        submission.removeSolution()
+      }
     })
     return ret
   }

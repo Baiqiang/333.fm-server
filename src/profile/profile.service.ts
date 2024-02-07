@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { IPaginationOptions, paginate } from 'nestjs-typeorm-paginate'
 import { FindOptionsWhere, In, Repository } from 'typeorm'
 
-import { Competitions } from '@/entities/competitions.entity'
+import { Competitions, CompetitionType } from '@/entities/competitions.entity'
 import { Results } from '@/entities/results.entity'
 import { Scrambles } from '@/entities/scrambles.entity'
 import { Submissions } from '@/entities/submissions.entity'
@@ -55,6 +55,17 @@ export class ProfileService {
         }
         for (const submission of data.items) {
           submission.alreadySubmitted = submittedMap[submission.scrambleId] || false
+          if (!submission.alreadySubmitted) {
+            let hideSolution = true
+            if (submission.competition.type === CompetitionType.WEEKLY && submission.competition.hasEnded) {
+              hideSolution = false
+            }
+            if (hideSolution) {
+              submission.removeSolution()
+              submission.moves = 0
+              submission.scramble.removeScramble()
+            }
+          }
         }
       }
     }
