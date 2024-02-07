@@ -8,6 +8,7 @@ import { Results } from '@/entities/results.entity'
 import { Scrambles } from '@/entities/scrambles.entity'
 import { Submissions } from '@/entities/submissions.entity'
 import { Users } from '@/entities/users.entity'
+import { UserService } from '@/user/user.service'
 
 @Injectable()
 export class ProfileService {
@@ -18,6 +19,7 @@ export class ProfileService {
     private readonly submissionsRepository: Repository<Submissions>,
     @InjectRepository(Results)
     private readonly resultsRepository: Repository<Results>,
+    private readonly userService: UserService,
   ) {}
 
   async getUserSubmissions(user: Users, type: number, options: IPaginationOptions, currentUser?: Users) {
@@ -29,14 +31,18 @@ export class ProfileService {
         type,
       }
     }
-    const data = await paginate<Submissions>(this.submissionsRepository, options, {
-      where,
-      order: {
-        createdAt: 'DESC',
-      },
-      relations: ['scramble', 'competition'],
-    })
+    const data = await paginate<Submissions>(
+      this.submissionsRepository
+        .createQueryBuilder('s')
+        .leftJoinAndSelect('s.scramble', 'sc')
+        .leftJoinAndSelect('s.competition', 'c')
+        .loadRelationCountAndMap('s.likes', 's.userActivities', 'ual', qb => qb.andWhere('ual.like = 1'))
+        .loadRelationCountAndMap('s.favorites', 's.userActivities', 'uaf', qb => qb.andWhere('uaf.favorite = 1'))
+        .orderBy('s.created_at', 'DESC'),
+      options,
+    )
     if (currentUser) {
+      await this.userService.loadUserActivities(currentUser, data.items)
       if (currentUser.id === user.id) {
         for (const submission of data.items) {
           submission.alreadySubmitted = true

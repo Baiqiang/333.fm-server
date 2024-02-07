@@ -381,17 +381,14 @@ export class WeeklyService {
   }
 
   async getSubmissions(competition: Competitions) {
-    const submissions = await this.submissionsRepository.find({
-      where: {
-        competitionId: competition.id,
-      },
-      order: {
-        moves: 'ASC',
-      },
-      relations: {
-        user: true,
-      },
-    })
+    const submissions = await this.submissionsRepository
+      .createQueryBuilder('s')
+      .leftJoinAndSelect('s.user', 'u')
+      .loadRelationCountAndMap('s.likes', 's.userActivities', 'ual', qb => qb.andWhere('ual.like = 1'))
+      .loadRelationCountAndMap('s.favorites', 's.userActivities', 'uaf', qb => qb.andWhere('uaf.favorite = 1'))
+      .where('s.competition_id = :id', { id: competition.id })
+      .orderBy('s.moves', 'ASC')
+      .getMany()
     return submissions
   }
 }

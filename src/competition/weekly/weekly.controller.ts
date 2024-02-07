@@ -20,13 +20,17 @@ import { SubmitSolutionDto } from '@/dtos/submit-solution.dto'
 import { CompetitionMode } from '@/entities/competitions.entity'
 import { Submissions } from '@/entities/submissions.entity'
 import { Users } from '@/entities/users.entity'
+import { UserService } from '@/user/user.service'
 
 import { WeeklyService } from './weekly.service'
 
 @Controller('weekly')
 @UseInterceptors(ClassSerializerInterceptor)
 export class WeeklyController {
-  constructor(private readonly weeklyService: WeeklyService) {}
+  constructor(
+    private readonly weeklyService: WeeklyService,
+    private readonly userService: UserService,
+  ) {}
 
   @Get()
   public async getCompetitions(@Query() { page, limit }: PaginationDto) {
@@ -131,6 +135,9 @@ export class WeeklyController {
         submission.removeSolution()
       }
     })
+    if (user) {
+      await this.userService.loadUserActivities(user, submissions)
+    }
     return ret
   }
 }

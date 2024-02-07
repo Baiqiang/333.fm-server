@@ -1,8 +1,18 @@
-import { Column, CreateDateColumn, Entity, Index, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm'
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  ManyToOne,
+  OneToMany,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm'
 
 import { CompetitionMode, Competitions } from './competitions.entity'
 import { Results } from './results.entity'
 import { Scrambles } from './scrambles.entity'
+import { UserActivities } from './user-activities.entity'
 import { Users } from './users.entity'
 
 @Entity()
@@ -67,10 +77,18 @@ export class Submissions {
   })
   result: Results
 
+  @OneToMany(() => UserActivities, userActivities => userActivities.submission)
+  userActivities: UserActivities[]
+
   removeSolution() {
     this.solution = ''
     this.comment = ''
   }
+
+  likes: number
+  liked: boolean
+  favorites: number
+  favorited: boolean
 
   alreadySubmitted: boolean
 }

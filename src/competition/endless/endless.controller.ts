@@ -19,13 +19,17 @@ import { JwtRequiredGuard } from '@/auth/guards/jwt-required.guard'
 import { SubmitSolutionDto } from '@/dtos/submit-solution.dto'
 import { CompetitionSubType } from '@/entities/competitions.entity'
 import { Users } from '@/entities/users.entity'
+import { UserService } from '@/user/user.service'
 
 import { EndlessService } from './endless.service'
 
 @Controller('endless')
 @UseInterceptors(ClassSerializerInterceptor)
 export class EndlessController {
-  constructor(private readonly endlessService: EndlessService) {}
+  constructor(
+    private readonly endlessService: EndlessService,
+    private readonly userService: UserService,
+  ) {}
 
   @Get('latest')
   public async getLatest() {
@@ -118,6 +122,10 @@ export class EndlessController {
     if (!competition) {
       throw new NotFoundException()
     }
-    return this.endlessService.getLevelSubmissions(competition, user, level)
+    const submissions = await this.endlessService.getLevelSubmissions(competition, user, level)
+    if (user) {
+      await this.userService.loadUserActivities(user, submissions)
+    }
+    return submissions
   }
 }

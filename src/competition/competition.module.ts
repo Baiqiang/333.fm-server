@@ -8,6 +8,7 @@ import { Results } from '@/entities/results.entity'
 import { Scrambles } from '@/entities/scrambles.entity'
 import { Submissions } from '@/entities/submissions.entity'
 import { Users } from '@/entities/users.entity'
+import { UserModule } from '@/user/user.module'
 
 import { CompetitionController } from './competition.controller'
 import { CompetitionService } from './competition.service'
@@ -23,6 +24,7 @@ import { WeeklyService } from './weekly/weekly.service'
     BullModule.registerQueue({
       name: 'endless',
     }),
+    UserModule,
   ],
   providers: [CompetitionService, WeeklyService, EndlessService, EndlessProcessor],
   controllers: [CompetitionController, WeeklyController, EndlessController],

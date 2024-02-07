@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -61,5 +62,23 @@ export class UserController {
       throw new NotFoundException()
     }
     await this.userService.deleteUserIF(userIF)
+  }
+
+  @Post('act')
+  public async act(@CurrentUser() user: Users, @Body('id') id: number, @Body() body: Record<string, boolean>) {
+    if (!('like' in body) && !('favorite' in body)) {
+      throw new BadRequestException()
+    }
+    const submission = await this.userService.getSubmission(id)
+    if (!submission) {
+      throw new BadRequestException()
+    }
+    if (!submission.competition.hasEnded) {
+      const userSubmission = await this.userService.getUserSubmission(submission.scrambleId, user)
+      if (!userSubmission) {
+        throw new BadRequestException()
+      }
+    }
+    return await this.userService.act(user, id, body)
   }
 }
