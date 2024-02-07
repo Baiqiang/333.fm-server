@@ -23,24 +23,18 @@ export class ProfileService {
   ) {}
 
   async getUserSubmissions(user: Users, type: number, options: IPaginationOptions, currentUser?: Users) {
-    const where: FindOptionsWhere<Submissions> = {
-      userId: user.id,
-    }
+    const queryBuilder = this.submissionsRepository
+      .createQueryBuilder('s')
+      .leftJoinAndSelect('s.scramble', 'sc')
+      .leftJoinAndSelect('s.competition', 'c')
+      .loadRelationCountAndMap('s.likes', 's.userActivities', 'ual', qb => qb.andWhere('ual.like = 1'))
+      .loadRelationCountAndMap('s.favorites', 's.userActivities', 'uaf', qb => qb.andWhere('uaf.favorite = 1'))
+      .where('s.user_id = :userId', { userId: user.id })
+      .orderBy('s.created_at', 'DESC')
     if (!Number.isNaN(type)) {
-      where.competition = {
-        type,
-      }
+      queryBuilder.andWhere('c.type = :type', { type })
     }
-    const data = await paginate<Submissions>(
-      this.submissionsRepository
-        .createQueryBuilder('s')
-        .leftJoinAndSelect('s.scramble', 'sc')
-        .leftJoinAndSelect('s.competition', 'c')
-        .loadRelationCountAndMap('s.likes', 's.userActivities', 'ual', qb => qb.andWhere('ual.like = 1'))
-        .loadRelationCountAndMap('s.favorites', 's.userActivities', 'uaf', qb => qb.andWhere('uaf.favorite = 1'))
-        .orderBy('s.created_at', 'DESC'),
-      options,
-    )
+    const data = await paginate<Submissions>(queryBuilder, options)
     if (currentUser) {
       await this.userService.loadUserActivities(currentUser, data.items)
       if (currentUser.id === user.id) {
