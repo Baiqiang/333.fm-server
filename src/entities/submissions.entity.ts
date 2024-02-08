@@ -90,5 +90,5 @@ export class Submissions {
   favorites: number
   favorited: boolean
 
-  alreadySubmitted: boolean
+  hideSolution: boolean
 }

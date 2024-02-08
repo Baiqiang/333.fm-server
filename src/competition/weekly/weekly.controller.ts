@@ -129,9 +129,9 @@ export class WeeklyController {
     })
     submissions.forEach(submission => {
       if (userSubmissions[submission.scrambleId] || competition.hasEnded) {
-        submission.alreadySubmitted = true
+        submission.hideSolution = false
       } else {
-        submission.alreadySubmitted = false
+        submission.hideSolution = true
         submission.removeSolution()
       }
     })

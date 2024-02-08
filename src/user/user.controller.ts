@@ -33,9 +33,9 @@ export class UserController {
   @ApiQuery({ type: PaginationDto })
   public async getIFs(
     @CurrentUser() user: Users,
-    @Query() { limit, page }: PaginationDto,
+    @Query() paginationOption: PaginationDto,
   ): Promise<Pagination<UserInsertionFinders['summary']>> {
-    const ret = await this.userService.getUserIFs(user, { limit, page })
+    const ret = await this.userService.getUserIFs(user, paginationOption)
     return new Pagination(
       ret.items.map(item => item.summary),
       ret.meta,
@@ -80,5 +80,15 @@ export class UserController {
       }
     }
     return await this.userService.act(user, id, body)
+  }
+
+  @Get('likes')
+  public async likes(@CurrentUser() user: Users, @Query() paginationOption: PaginationDto) {
+    return this.userService.getActivities(user, { like: true }, paginationOption)
+  }
+
+  @Get('favorites')
+  public async favorites(@CurrentUser() user: Users, @Query() paginationOption: PaginationDto) {
+    return this.userService.getActivities(user, { favorite: true }, paginationOption)
   }
 }

@@ -37,7 +37,7 @@ export class ProfileService {
     const data = await paginate<Submissions>(queryBuilder, options)
     if (currentUser && currentUser.id === user.id) {
       for (const submission of data.items) {
-        submission.alreadySubmitted = true
+        submission.hideSolution = false
       }
     } else {
       const submittedMap: Record<number, boolean> = {}
@@ -55,17 +55,14 @@ export class ProfileService {
         }
       }
       for (const submission of data.items) {
-        submission.alreadySubmitted = submittedMap[submission.scrambleId] || false
-        if (!submission.alreadySubmitted) {
-          let hideSolution = true
-          if (submission.competition.type === CompetitionType.WEEKLY && submission.competition.hasEnded) {
-            hideSolution = false
-          }
-          if (hideSolution) {
-            submission.removeSolution()
-            submission.moves = 0
-            submission.scramble.removeScramble()
-          }
+        submission.hideSolution = !submittedMap[submission.scrambleId]
+        if (submission.competition.type === CompetitionType.WEEKLY && submission.competition.hasEnded) {
+          submission.hideSolution = false
+        }
+        if (submission.hideSolution) {
+          submission.removeSolution()
+          submission.moves = 0
+          submission.scramble.removeScramble()
         }
       }
     }

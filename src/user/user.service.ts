@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { IPaginationOptions, paginate, Pagination } from 'nestjs-typeorm-paginate'
-import { In, Repository } from 'typeorm'
+import { FindOptionsWhere, In, Repository } from 'typeorm'
 
 import { WCAProfile } from '@/auth/strategies/wca.strategy'
 import { InsertionFinders } from '@/entities/insertion-finders.entity'
@@ -161,12 +161,14 @@ export class UserService {
       userId: user.id,
       submissionId,
     })
+    let isNew = false
     if (!userActivitie) {
       userActivitie = new UserActivities()
       userActivitie.user = user
       userActivitie.submissionId = submissionId
       userActivitie.like = false
       userActivitie.favorite = false
+      isNew = true
     }
     if ('like' in body) {
       userActivitie.like = Boolean(body.like)
@@ -177,8 +179,42 @@ export class UserService {
     if (userActivitie.like || userActivitie.favorite) {
       await this.userActivitiesRepository.save(userActivitie)
     } else {
-      await this.userActivitiesRepository.remove(userActivitie)
+      if (!isNew) {
+        await this.userActivitiesRepository.remove(userActivitie)
+      }
     }
     return userActivitie
+  }
+
+  async getActivities(
+    user: Users,
+    where: FindOptionsWhere<UserActivities>,
+    options: IPaginationOptions,
+  ): Promise<Pagination<Submissions>> {
+    where.userId = user.id
+    const queryBuilder = this.userActivitiesRepository
+      .createQueryBuilder('ua')
+      .leftJoinAndSelect('ua.submission', 'submission')
+      .leftJoinAndSelect('submission.competition', 'competition')
+      .leftJoinAndSelect('submission.scramble', 'scramble')
+      .leftJoinAndSelect('submission.user', 'user')
+      .loadRelationCountAndMap('submission.likes', 'submission.userActivities', 'ual', qb =>
+        qb.andWhere('ual.like = 1'),
+      )
+      .loadRelationCountAndMap('submission.favorites', 'submission.userActivities', 'uaf', qb =>
+        qb.andWhere('uaf.favorite = 1'),
+      )
+      .where(where)
+      .orderBy('ua.created_at', 'DESC')
+    const data = await paginate<UserActivities>(queryBuilder, options)
+    return {
+      items: data.items.map(x => {
+        x.submission.hideSolution = false
+        x.submission.liked = x.like
+        x.submission.favorited = x.favorite
+        return x.submission
+      }),
+      meta: data.meta,
+    }
   }
 }
