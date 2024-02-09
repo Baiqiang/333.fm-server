@@ -122,7 +122,7 @@ export class EndlessProcessor {
     const bossChanllenges = this.configService.get<Chanllenge[]>('endless.bossChanllenges')
     let bossChanllenge = bossChanllenges.find(c => c.levels?.includes(level))
     if (bossChanllenge === undefined) {
-      bossChanllenge = bossChanllenges.find(c => c.startLevel <= level)
+      bossChanllenge = bossChanllenges.find(c => c.startLevel <= level && c.endLevel >= level)
     }
     return bossChanllenge ?? bossChanllenges[bossChanllenges.length - (level % 10 === 0 ? 1 : 2)]
   }
