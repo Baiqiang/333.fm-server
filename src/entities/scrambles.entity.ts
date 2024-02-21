@@ -42,6 +42,12 @@ export class Scrambles {
   @OneToMany(() => EndlessKickoffs, kickoff => kickoff.scramble)
   kickoffs: EndlessKickoffs[]
 
+  cubieCube: {
+    corners: number[]
+    edges: number[]
+    placement: number
+  }
+
   removeScramble() {
     this.scramble = ''
   }

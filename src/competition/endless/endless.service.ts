@@ -12,7 +12,7 @@ import { DNF, Results } from '@/entities/results.entity'
 import { Scrambles } from '@/entities/scrambles.entity'
 import { Submissions } from '@/entities/submissions.entity'
 import { Users } from '@/entities/users.entity'
-import { calculateMoves, getTopDistinctN, getTopN, sortResult } from '@/utils'
+import { calculateMoves, getCubieCube, getTopDistinctN, getTopN, sortResult } from '@/utils'
 import { generateScramble, ScrambleType } from '@/utils/scramble'
 
 import { CompetitionService } from '../competition.service'
@@ -206,6 +206,16 @@ export class EndlessService {
     }
   }
 
+  handleScramble(scramble: Scrambles, competition: Competitions) {
+    if (!scramble) {
+      return
+    }
+    if (competition.subType === CompetitionSubType.HIDDEN_SCRAMBLE) {
+      scramble.cubieCube = getCubieCube(scramble.scramble)
+      scramble.removeScramble()
+    }
+  }
+
   async getStats(competition: Competitions) {
     // get all submissions
     const submissions = await this.submissionsRepository.find({
@@ -326,6 +336,7 @@ export class EndlessService {
           number: 1,
         },
       })
+      this.handleScramble(nextScramble, competition)
       return {
         current: null,
         next: {
@@ -340,6 +351,7 @@ export class EndlessService {
         number: latestSubmission.scramble.number + 1,
       },
     })
+    this.handleScramble(nextScramble, competition)
     return {
       current: {
         level: latestSubmission.scramble.number,
@@ -400,6 +412,7 @@ export class EndlessService {
       return k
     })
     delete scramble.kickoffs
+    this.handleScramble(scramble, competition)
     return {
       level,
       scramble,

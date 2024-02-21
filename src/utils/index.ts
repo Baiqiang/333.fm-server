@@ -42,6 +42,16 @@ export function formatSkeleton(scramble: string, skeleton: string): { formattedS
   return { formattedSkeleton, bestCube }
 }
 
+export function getCubieCube(scramble: string) {
+  const cube = new Cube()
+  cube.twist(new Algorithm(scramble))
+  return {
+    corners: cube.getRawCorners(),
+    edges: cube.getRawEdges(),
+    placement: cube.placement,
+  }
+}
+
 export function centerLength(centerCycles: number, placement: number): number {
   return centerCycles === 3 ? 6 : centerCycles === 2 ? 4 : [2, 8, 10].includes(placement) ? 4 : 6
 }
@@ -55,12 +65,7 @@ export function calculateMoves(scramble: string, solution: string, allowNISS = f
   try {
     const { bestCube } = formatSkeleton(scramble, solution)
     // check if solved
-    if (
-      bestCube.getCornerCycles() === 0 &&
-      bestCube.getEdgeCycles() === 0 &&
-      bestCube.getCenterCycles() === 0 &&
-      !bestCube.hasParity()
-    ) {
+    if (bestCube.isSolved()) {
       const solutionAlg = new Algorithm(replaceQuote(solution))
       moves = (solutionAlg.twists.length + solutionAlg.inverseTwists.length) * 100
     } else {

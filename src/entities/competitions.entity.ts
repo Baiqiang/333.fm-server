@@ -30,6 +30,7 @@ export enum CompetitionSubType {
   EO_PRACTICE,
   DR_PRACTICE,
   HTR_PRACTICE,
+  HIDDEN_SCRAMBLE,
 }
 
 export enum CompetitionFormat {
