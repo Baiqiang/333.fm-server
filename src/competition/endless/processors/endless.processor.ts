@@ -11,7 +11,7 @@ import { Scrambles } from '@/entities/scrambles.entity'
 import { Submissions } from '@/entities/submissions.entity'
 import { generateScramble, ScrambleType } from '@/utils/scramble'
 
-import { Chanllenge, EndlessJob } from '../endless.service'
+import { Challenge, EndlessJob } from '../endless.service'
 
 @Processor('endless')
 export class EndlessProcessor {
@@ -31,7 +31,7 @@ export class EndlessProcessor {
   @Process()
   async process(job: Job<EndlessJob>) {
     const { competitionId, userId, scrambleId, scrambleNumber, submissionId, moves } = job.data
-    let chanllenge: Chanllenge = {
+    let challenge: Challenge = {
       single: 8000,
       team: [8000, 1],
     }
@@ -39,7 +39,7 @@ export class EndlessProcessor {
     const competition = await this.competitionsRepository.findOneBy({ id: competitionId })
     switch (competition.subType) {
       case CompetitionSubType.BOSS_CHANLLENGE:
-        chanllenge = this.getBossChanllenge(scrambleNumber)
+        challenge = this.getBossChallenge(scrambleNumber)
         break
       case CompetitionSubType.EO_PRACTICE:
         scrambleType = ScrambleType.EO
@@ -51,11 +51,11 @@ export class EndlessProcessor {
         scrambleType = ScrambleType.HTR
         break
       case CompetitionSubType.REGULAR:
-        chanllenge = this.configService.get<Chanllenge>('endless.kickoffMoves')
+        challenge = this.configService.get<Challenge>('endless.kickoffMoves')
       default:
         break
     }
-    const { single, team } = chanllenge
+    const { single, team } = challenge
     // if the result is greater than 30, nothing to do
     if (moves > team[0]) {
       return
@@ -118,12 +118,12 @@ export class EndlessProcessor {
     await this.kickoffsRepository.save(kickoffs)
   }
 
-  getBossChanllenge(level: number): Chanllenge {
-    const bossChanllenges = this.configService.get<Chanllenge[]>('endless.bossChanllenges')
-    let bossChanllenge = bossChanllenges.find(c => c.levels?.includes(level))
-    if (bossChanllenge === undefined) {
-      bossChanllenge = bossChanllenges.find(c => c.startLevel <= level && c.endLevel >= level)
+  getBossChallenge(level: number): Challenge {
+    const bossChallenges = this.configService.get<Challenge[]>('endless.bossChallenges')
+    let bossChallenge = bossChallenges.find(c => c.levels?.includes(level))
+    if (bossChallenge === undefined) {
+      bossChallenge = bossChallenges.find(c => c.startLevel <= level && c.endLevel >= level)
     }
-    return bossChanllenge ?? bossChanllenges[bossChanllenges.length - (level % 10 === 0 ? 1 : 2)]
+    return bossChallenge ?? bossChallenges[bossChallenges.length - (level % 10 === 0 ? 1 : 2)]
   }
 }

@@ -10,7 +10,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm'
 
-import { Chanllenge } from '@/competition/endless/endless.service'
+import { Challenge } from '@/competition/endless/endless.service'
 
 import { EndlessKickoffs } from './endless-kickoffs.entity'
 import { Results } from './results.entity'
@@ -117,7 +117,7 @@ export class Competitions {
   winners: Results[]
 
   levels: Level[]
-  chanllenges?: Chanllenge[]
+  challenges?: Challenge[]
 
   get hasEnded() {
     return this.status === CompetitionStatus.ENDED || (this.endTime !== null && this.endTime <= new Date())

@@ -1,92 +1,92 @@
-import { Chanllenge } from '@/competition/endless/endless.service'
+import { Challenge } from '@/competition/endless/endless.service'
 
-function makeBossChanllenge(): Chanllenge[] {
-  const chanllenges: Chanllenge[] = []
+function makeBossChallenge(): Challenge[] {
+  const challenges: Challenge[] = []
   // 1-40
-  chanllenges.push({
+  challenges.push({
     startLevel: 1,
     endLevel: 9,
     single: 2400,
     team: [2800, 3],
   })
-  chanllenges.push({
+  challenges.push({
     startLevel: 11,
     endLevel: 19,
     single: 2400,
     team: [2800, 4],
   })
-  chanllenges.push({
+  challenges.push({
     startLevel: 21,
     endLevel: 29,
     single: 2400,
     team: [2800, 5],
   })
-  chanllenges.push({
+  challenges.push({
     levels: [10, 20, 30],
     single: 2300,
     team: [2600, 5],
   })
   // 41-70
-  chanllenges.push({
+  challenges.push({
     startLevel: 31,
     endLevel: 39,
     single: 2300,
     team: [2700, 3],
   })
-  chanllenges.push({
+  challenges.push({
     startLevel: 41,
     endLevel: 49,
     single: 2300,
     team: [2700, 4],
   })
-  chanllenges.push({
+  challenges.push({
     startLevel: 51,
     endLevel: 59,
     single: 2300,
     team: [2700, 5],
   })
-  chanllenges.push({
+  challenges.push({
     levels: [40, 50, 60],
     single: 2200,
     team: [2500, 5],
   })
   // 71-90
-  chanllenges.push({
+  challenges.push({
     startLevel: 61,
     endLevel: 69,
     single: 2200,
     team: [2600, 3],
   })
-  chanllenges.push({
+  challenges.push({
     startLevel: 71,
     endLevel: 79,
     single: 2200,
     team: [2600, 4],
   })
-  chanllenges.push({
+  challenges.push({
     startLevel: 81,
     endLevel: 89,
     single: 2200,
     team: [2600, 5],
   })
-  chanllenges.push({
+  challenges.push({
     levels: [70, 80, 90],
     single: 2100,
     team: [2400, 5],
   })
   // 91-100
-  chanllenges.push({
+  challenges.push({
     startLevel: 91,
     endLevel: 99,
     single: 2100,
     team: [2500, 3],
   })
-  chanllenges.push({
+  challenges.push({
     levels: [100],
     single: 2000,
     team: [2300, 5],
   })
-  return chanllenges
+  return challenges
 }
 
 export default () => ({
@@ -117,6 +117,6 @@ export default () => ({
       single: 2400,
       team: [3000, 3],
     },
-    bossChanllenges: makeBossChanllenge(),
+    bossChallenges: makeBossChallenge(),
   },
 })

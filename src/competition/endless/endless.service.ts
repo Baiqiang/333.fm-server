@@ -49,7 +49,7 @@ export interface UserBest extends UserLevel {
   best: number
 }
 
-export interface Chanllenge {
+export interface Challenge {
   startLevel?: number
   endLevel?: number
   levels?: number[]
@@ -198,10 +198,10 @@ export class EndlessService {
     )
     switch (competition.subType) {
       case CompetitionSubType.REGULAR:
-        competition.chanllenges = [this.configService.get<Chanllenge>('endless.kickoffMoves')]
+        competition.challenges = [this.configService.get<Challenge>('endless.kickoffMoves')]
         break
       case CompetitionSubType.BOSS_CHANLLENGE:
-        competition.chanllenges = this.configService.get<Chanllenge[]>('endless.bossChanllenges')
+        competition.challenges = this.configService.get<Challenge[]>('endless.bossChallenges')
         break
     }
   }
