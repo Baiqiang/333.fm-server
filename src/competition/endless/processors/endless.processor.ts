@@ -38,7 +38,7 @@ export class EndlessProcessor {
     let scrambleType: ScrambleType = ScrambleType.NORMAL
     const competition = await this.competitionsRepository.findOneBy({ id: competitionId })
     switch (competition.subType) {
-      case CompetitionSubType.BOSS_CHANLLENGE:
+      case CompetitionSubType.BOSS_CHALLENGE:
         challenge = this.getBossChallenge(scrambleNumber)
         break
       case CompetitionSubType.EO_PRACTICE:

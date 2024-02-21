@@ -200,7 +200,7 @@ export class EndlessService {
       case CompetitionSubType.REGULAR:
         competition.challenges = [this.configService.get<Challenge>('endless.kickoffMoves')]
         break
-      case CompetitionSubType.BOSS_CHANLLENGE:
+      case CompetitionSubType.BOSS_CHALLENGE:
         competition.challenges = this.configService.get<Challenge[]>('endless.bossChallenges')
         break
     }

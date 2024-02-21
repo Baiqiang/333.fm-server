@@ -26,7 +26,7 @@ export enum CompetitionType {
 
 export enum CompetitionSubType {
   REGULAR,
-  BOSS_CHANLLENGE,
+  BOSS_CHALLENGE,
   EO_PRACTICE,
   DR_PRACTICE,
   HTR_PRACTICE,
