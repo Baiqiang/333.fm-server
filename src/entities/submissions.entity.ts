@@ -6,6 +6,9 @@ import {
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
+  Tree,
+  TreeChildren,
+  TreeParent,
   UpdateDateColumn,
 } from 'typeorm'
 
@@ -15,9 +18,32 @@ import { Scrambles } from './scrambles.entity'
 import { UserActivities } from './user-activities.entity'
 import { Users } from './users.entity'
 
+export enum SubmissionPhase {
+  FINISHED,
+  SCRAMBLED,
+  EO,
+  DR,
+  HTR,
+  SKELETON,
+  INSERTIONS,
+}
+
+export enum SolutionMode {
+  REGULAR,
+  INSERTIONS,
+}
+
+export interface Insertion {
+  skeleton: string
+  insertion: string
+  insertPlace: number
+}
+
 @Entity()
+@Tree('closure-table')
 @Index(['scrambleId', 'userId'])
 @Index(['competitionId', 'moves'])
+@Index(['scrambleId', 'phase', 'cumulativeMoves'])
 export class Submissions {
   @PrimaryGeneratedColumn()
   id: number
@@ -29,11 +55,26 @@ export class Submissions {
   @Index()
   solution: string
 
+  @Column({ type: 'json', default: null })
+  insertions: Insertion[] | null
+
+  @Column({ default: false })
+  inverse: boolean
+
+  @Column({ default: SubmissionPhase.FINISHED })
+  phase: SubmissionPhase
+
   @Column({ length: 2048 })
   comment: string
 
   @Column({ default: 0 })
   moves: number
+
+  @Column({ default: 0 })
+  cumulativeMoves: number
+
+  @Column({ default: 0 })
+  cancelMoves: number
 
   @Column()
   competitionId: number
@@ -44,8 +85,11 @@ export class Submissions {
   @Column()
   userId: number
 
-  @Column()
+  @Column({ nullable: true })
   resultId: number
+
+  @Column({ nullable: true })
+  parentId: number
 
   @CreateDateColumn()
   createdAt: Date
@@ -74,11 +118,18 @@ export class Submissions {
   @ManyToOne(() => Results, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE',
+    nullable: true,
   })
   result: Results
 
   @OneToMany(() => UserActivities, userActivities => userActivities.submission)
   userActivities: UserActivities[]
+
+  @TreeChildren()
+  children: Submissions[]
+
+  @TreeParent()
+  parent: Submissions
 
   removeSolution() {
     this.solution = ''

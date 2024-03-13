@@ -462,6 +462,7 @@ export class EndlessService {
     const scramble = await this.scramblesRepository.findOne({
       where: {
         id: solution.scrambleId,
+        competitionId: competition.id,
       },
     })
     if (scramble === null) {

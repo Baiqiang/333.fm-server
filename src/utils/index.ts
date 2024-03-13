@@ -4,7 +4,9 @@ import advancedFormat from 'dayjs/plugin/advancedFormat'
 import weekOfYear from 'dayjs/plugin/weekOfYear'
 import { Algorithm, Cube } from 'insertionfinder'
 
+import { SubmitSolutionDto } from '@/dtos/submit-solution.dto'
 import { DNF, Results } from '@/entities/results.entity'
+import { SolutionMode, SubmissionPhase, Submissions } from '@/entities/submissions.entity'
 
 dayjs.extend(advancedFormat)
 dayjs.extend(weekOfYear)
@@ -67,7 +69,7 @@ export function calculateMoves(scramble: string, solution: string, allowNISS = f
     // check if solved
     if (bestCube.isSolved()) {
       const solutionAlg = new Algorithm(replaceQuote(solution))
-      moves = (solutionAlg.twists.length + solutionAlg.inverseTwists.length) * 100
+      moves = solutionAlg.length * 100
     } else {
       // DNF
       moves = DNF
@@ -86,6 +88,112 @@ export function calculateMoves(scramble: string, solution: string, allowNISS = f
     moves = DNF
   }
   return moves
+}
+
+export function countMoves(skeleton: string): number {
+  try {
+    const alg = new Algorithm(skeleton)
+    return alg.length * 100
+  } catch (e) {
+    return 0
+  }
+}
+
+export function calculatePhases(scramble: string, dto: SubmitSolutionDto, parent: Submissions | null) {
+  let skeleton: string = ''
+  let solution: string = dto.solution
+  let moves: number = 0
+  let cancelMoves: number = 0
+  let cumulativeMoves: number = 0
+
+  const parentSkeleton = flattenSkeletons(parent)
+  const parentSkeletonAlg = new Algorithm(parentSkeleton)
+  parentSkeletonAlg.cancelMoves()
+  if ((dto.mode as any as SolutionMode) === SolutionMode.REGULAR) {
+    skeleton = parentSkeleton + dto.solution
+    moves = countMoves(dto.solution)
+    const totalMoves = moves + parentSkeletonAlg.length * 100
+    const skeletonAlg = new Algorithm(skeleton)
+    skeletonAlg.cancelMoves()
+    cancelMoves = totalMoves - skeletonAlg.length * 100
+    cumulativeMoves = skeletonAlg.length * 100
+  } else {
+    try {
+      const lastInsertion = dto.insertions[dto.insertions.length - 1]
+      const lastSkeletonAlg = new Algorithm(lastInsertion.skeleton)
+      const skeletonArray = lastSkeletonAlg.toString().split(' ')
+      const skeletonAlg = new Algorithm(
+        skeletonArray.slice(0, lastInsertion.insertPlace).join(' ') +
+          lastInsertion.insertion +
+          skeletonArray.slice(lastInsertion.insertPlace).join(' '),
+      )
+      skeletonAlg.cancelMoves()
+      skeleton = skeletonAlg.toString()
+      if (dto.inverse) {
+        skeleton = reverseTwists(skeleton)
+      }
+      solution = skeleton
+      moves = dto.insertions.reduce((acc, cur) => acc + countMoves(cur.insertion), 0)
+      cumulativeMoves = countMoves(solution)
+      cancelMoves = moves + parentSkeletonAlg.length * 100 - cumulativeMoves
+    } catch (e) {}
+  }
+  const { bestCube } = formatSkeleton(scramble, skeleton)
+  let phase: SubmissionPhase
+  const eoStatus = bestCube.getEdgeOrientationStatus()
+  const drStatus = bestCube.getDominoReductionStatus()
+  if (bestCube.isSolved()) {
+    phase = SubmissionPhase.FINISHED
+  } else if (bestCube.isHalfTurnReductionSolved()) {
+    phase = SubmissionPhase.HTR
+  } else if (drStatus.length > 0) {
+    phase = SubmissionPhase.DR
+  } else if (eoStatus.length > 0) {
+    phase = SubmissionPhase.EO
+  } else {
+    phase = SubmissionPhase.SCRAMBLED
+  }
+  // check if skeleton is LxEyC
+  if (phase !== SubmissionPhase.FINISHED) {
+    const cornerCycles = bestCube.getCornerCycles()
+    const edgeCycles = bestCube.getEdgeCycles()
+    if (cornerCycles + edgeCycles <= 3) {
+      phase = SubmissionPhase.SKELETON
+    }
+  } else if ((dto.mode as any as SolutionMode) === SolutionMode.INSERTIONS) {
+    phase = SubmissionPhase.INSERTIONS
+  }
+  return {
+    bestCube,
+    phase,
+    moves,
+    cancelMoves,
+    cumulativeMoves,
+    solution,
+  }
+}
+export function reverseTwists(twists: string) {
+  return twists
+    .split(' ')
+    .map(twist => {
+      if (twist.endsWith('2')) return twist
+
+      if (twist.endsWith("'")) return twist[0]
+
+      return `${twist}'`
+    })
+    .reverse()
+    .join(' ')
+}
+
+export function flattenSkeletons(submission: Submissions): string {
+  let parent = submission
+  const skeletons: string[] = []
+  while (parent) {
+    skeletons.unshift(parent.solution)
+    parent = parent.parent
+  }
+  return skeletons.join('')
 }
 
 export function parseWeek(week: string): dayjs.Dayjs {

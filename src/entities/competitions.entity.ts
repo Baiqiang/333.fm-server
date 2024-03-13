@@ -22,6 +22,7 @@ export enum CompetitionType {
   WEEKLY,
   RANDOM,
   ENDLESS,
+  FMC_CHAIN,
 }
 
 export enum CompetitionSubType {

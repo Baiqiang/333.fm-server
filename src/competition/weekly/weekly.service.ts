@@ -231,6 +231,7 @@ export class WeeklyService {
     const scramble = await this.scramblesRepository.findOne({
       where: {
         id: solution.scrambleId,
+        competitionId: competition.id,
       },
     })
     if (scramble === null) {

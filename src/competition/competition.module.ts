@@ -10,6 +10,8 @@ import { Submissions } from '@/entities/submissions.entity'
 import { Users } from '@/entities/users.entity'
 import { UserModule } from '@/user/user.module'
 
+import { ChainController } from './chain/chain.controller'
+import { ChainService } from './chain/chain.service'
 import { CompetitionController } from './competition.controller'
 import { CompetitionService } from './competition.service'
 import { EndlessController } from './endless/endless.controller'
@@ -26,7 +28,7 @@ import { WeeklyService } from './weekly/weekly.service'
     }),
     UserModule,
   ],
-  providers: [CompetitionService, WeeklyService, EndlessService, EndlessProcessor],
-  controllers: [CompetitionController, WeeklyController, EndlessController],
+  providers: [CompetitionService, WeeklyService, EndlessService, EndlessProcessor, ChainService],
+  controllers: [CompetitionController, WeeklyController, EndlessController, ChainController],
 })
 export class CompetitionModule {}

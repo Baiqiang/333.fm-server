@@ -27,6 +27,7 @@ export class UserService {
   ) {}
 
   async findOrCreate(profile: WCAProfile) {
+    // profile.id is unique
     let user = await this.usersRepository.findOne({
       where: {
         email: profile.email,
@@ -45,7 +46,19 @@ export class UserService {
     return user
   }
 
-  async findOne(id: number) {
+  async findOne(id: number | string) {
+    if (typeof id === 'string') {
+      if (/^\d{4}[A-Z]{4}\d{2}$/.test(id)) {
+        return this.usersRepository.findOne({
+          where: { wcaId: id },
+          relations: ['roles'],
+        })
+      }
+      id = parseInt(id, 10)
+      if (isNaN(id) || id < 1) {
+        return null
+      }
+    }
     return this.usersRepository.findOne({
       where: { id },
       relations: ['roles'],

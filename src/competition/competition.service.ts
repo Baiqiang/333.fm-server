@@ -1,10 +1,11 @@
-import { Injectable } from '@nestjs/common'
+import { forwardRef, Inject, Injectable } from '@nestjs/common'
 import { Cron } from '@nestjs/schedule'
 import { InjectRepository } from '@nestjs/typeorm'
 import { FindManyOptions, FindOneOptions, Repository } from 'typeorm'
 
 import { Competitions, CompetitionStatus, CompetitionType } from '@/entities/competitions.entity'
 
+import { ChainService } from './chain/chain.service'
 import { EndlessService } from './endless/endless.service'
 import { WeeklyService } from './weekly/weekly.service'
 
@@ -15,6 +16,8 @@ export class CompetitionService {
     private readonly competitionsRepository: Repository<Competitions>,
     private readonly weeklyService: WeeklyService,
     private readonly endlessService: EndlessService,
+    @Inject(forwardRef(() => ChainService))
+    private readonly chainService: ChainService,
   ) {}
 
   @Cron('* * * * *')
@@ -25,7 +28,7 @@ export class CompetitionService {
       },
     })
     const now = new Date()
-    onGoings.forEach(async competition => {
+    for (const competition of onGoings) {
       if (competition.endTime !== null && competition.endTime <= now) {
         competition.status = CompetitionStatus.ENDED
         switch (competition.type) {
@@ -37,26 +40,29 @@ export class CompetitionService {
             break
         }
       }
-    })
+    }
     await this.competitionsRepository.save(onGoings)
     const notStarteds = await this.competitionsRepository.find({
       where: {
         status: CompetitionStatus.NOT_STARTED,
       },
     })
-    notStarteds.forEach(async competition => {
+    for (const competition of notStarteds) {
       if (competition.startTime <= now) {
         competition.status = CompetitionStatus.ON_GOING
         switch (competition.type) {
           case CompetitionType.ENDLESS:
             await this.endlessService.start(competition)
             break
+          case CompetitionType.FMC_CHAIN:
+            await this.chainService.start(competition)
+            break
 
           default:
             break
         }
       }
-    })
+    }
     await this.competitionsRepository.save(notStarteds)
   }
 

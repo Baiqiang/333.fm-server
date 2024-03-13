@@ -1,4 +1,4 @@
-import { Controller, Get, NotFoundException, Param, ParseIntPipe, Query, UseGuards } from '@nestjs/common'
+import { Controller, Get, NotFoundException, Param, Query, UseGuards } from '@nestjs/common'
 import { ApiQuery } from '@nestjs/swagger'
 
 import { CurrentUser } from '@/auth/decorators/current-user.decorator'
@@ -17,7 +17,7 @@ export class ProfileController {
   ) {}
 
   @Get(':id')
-  async userProfile(@Param('id', ParseIntPipe) id: number) {
+  async userProfile(@Param('id') id: string) {
     const user = await this.userService.findOne(id)
     if (!user) {
       throw new NotFoundException()
@@ -29,7 +29,7 @@ export class ProfileController {
   @UseGuards(JwtAuthGuard)
   @ApiQuery({ type: PaginationDto })
   async submissions(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @CurrentUser() currentUser: Users,
     @Query() paginationOption: PaginationDto,
     @Query('type') type: number,
