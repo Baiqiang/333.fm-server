@@ -75,9 +75,7 @@ export class ChainService {
     const submissions = await queryBuilder.getMany()
     await Promise.all(
       submissions.map(async submission => {
-        const childrenLength = await this.submissionsRepository.countBy({
-          parentId: submission.id,
-        })
+        const childrenLength = await this.submissionsRepository.countDescendants(submission)
         submission.childrenLength = childrenLength
       }),
     )
