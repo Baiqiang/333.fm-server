@@ -141,7 +141,11 @@ export class ChainService {
       case SubmissionPhase.DR:
       case SubmissionPhase.HTR:
       case SubmissionPhase.SKELETON:
-        if (parent && (phase <= parent.phase || parent.phase === SubmissionPhase.FINISHED)) {
+        if (
+          parent &&
+          (phase <= parent.phase || parent.phase === SubmissionPhase.FINISHED) &&
+          !(phase === SubmissionPhase.HTR && parent.phase === SubmissionPhase.SKELETON)
+        ) {
           throw new BadRequestException('Invalid solution')
         }
         submission.phase = phase

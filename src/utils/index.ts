@@ -163,7 +163,7 @@ export function calculatePhases(scramble: string, dto: SubmitSolutionDto, parent
   if (phase !== SubmissionPhase.FINISHED) {
     const cornerCycles = bestCube.getCornerCycles()
     const edgeCycles = bestCube.getEdgeCycles()
-    if (cornerCycles + edgeCycles <= 3) {
+    if ((cornerCycles + edgeCycles <= 3 && !bestCube.hasParity()) || cornerCycles + edgeCycles <= 2) {
       phase = SubmissionPhase.SKELETON
     }
   } else if ((dto.mode as any as SolutionMode) === SolutionMode.INSERTIONS) {
