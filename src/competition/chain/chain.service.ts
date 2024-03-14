@@ -73,6 +73,14 @@ export class ChainService {
       queryBuilder.andWhere('s.parent_id IS NULL')
     }
     const submissions = await queryBuilder.getMany()
+    await Promise.all(
+      submissions.map(async submission => {
+        const childrenLength = await this.submissionsRepository.countBy({
+          parentId: submission.id,
+        })
+        submission.childrenLength = childrenLength
+      }),
+    )
     return submissions
   }
 

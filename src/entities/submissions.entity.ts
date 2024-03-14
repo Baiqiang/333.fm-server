@@ -142,4 +142,6 @@ export class Submissions {
   favorited: boolean
 
   hideSolution: boolean
+
+  childrenLength: number
 }
