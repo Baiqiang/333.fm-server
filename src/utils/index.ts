@@ -117,6 +117,10 @@ export function calculatePhases(scramble: string, dto: SubmitSolutionDto, parent
     skeletonAlg.cancelMoves()
     cancelMoves = totalMoves - skeletonAlg.length * 100
     cumulativeMoves = skeletonAlg.length * 100
+    // cancel moves in solution
+    const solutionAlg = new Algorithm(dto.solution)
+    solutionAlg.cancelMoves()
+    solution = solutionAlg.toString()
   } else {
     try {
       const lastInsertion = dto.insertions[dto.insertions.length - 1]
@@ -163,6 +167,15 @@ export function calculatePhases(scramble: string, dto: SubmitSolutionDto, parent
   } else if ((dto.mode as any as SolutionMode) === SolutionMode.INSERTIONS) {
     phase = SubmissionPhase.INSERTIONS
   }
+  // force last move to be clockwise for EO, DR and HTR
+  // if ([SubmissionPhase.EO, SubmissionPhase.DR, SubmissionPhase.HTR].includes(phase)) {
+  //   const solutionAlg = new Algorithm(solution)
+  //   const twists = solutionAlg.twists
+  //   const twistsLength = twists.length
+  //   const inverseTwists = solutionAlg.inverseTwists
+  //   const inverseTwistsLength = inverseTwists.length
+
+  // }
   return {
     bestCube,
     phase,
