@@ -119,6 +119,7 @@ export function calculatePhases(scramble: string, dto: SubmitSolutionDto, parent
     cumulativeMoves = skeletonAlg.length * 100
     // cancel moves in solution
     const solutionAlg = new Algorithm(dto.solution)
+    solutionAlg.normalize()
     solutionAlg.cancelMoves()
     solution = solutionAlg.toString()
   } else {
@@ -131,6 +132,7 @@ export function calculatePhases(scramble: string, dto: SubmitSolutionDto, parent
           lastInsertion.insertion +
           skeletonArray.slice(lastInsertion.insertPlace).join(' '),
       )
+      skeletonAlg.normalize()
       skeletonAlg.cancelMoves()
       skeleton = skeletonAlg.toString()
       if (dto.inverse) {
