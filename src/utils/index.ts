@@ -170,14 +170,16 @@ export function calculatePhases(scramble: string, dto: SubmitSolutionDto, parent
     phase = SubmissionPhase.INSERTIONS
   }
   // force last move to be clockwise for EO, DR and HTR
-  // if ([SubmissionPhase.EO, SubmissionPhase.DR, SubmissionPhase.HTR].includes(phase)) {
-  //   const solutionAlg = new Algorithm(solution)
-  //   const twists = solutionAlg.twists
-  //   const twistsLength = twists.length
-  //   const inverseTwists = solutionAlg.inverseTwists
-  //   const inverseTwistsLength = inverseTwists.length
-
-  // }
+  if ([SubmissionPhase.EO, SubmissionPhase.DR, SubmissionPhase.HTR].includes(phase)) {
+    const solutionAlg = new Algorithm(solution)
+    solutionAlg.normalize()
+    solutionAlg.cancelMoves()
+    const twists = solutionAlg.twists
+    const inverseTwists = solutionAlg.inverseTwists
+    if (!checkLastQuarterTurns(twists, inverseTwists)) {
+      moves = 0
+    }
+  }
   return {
     bestCube,
     phase,
@@ -187,6 +189,46 @@ export function calculatePhases(scramble: string, dto: SubmitSolutionDto, parent
     solution,
   }
 }
+
+function checkLastQuarterTurns(twists: readonly number[], inverseTwists: readonly number[]) {
+  const last = twists[twists.length - 1]
+  const lastInverse = inverseTwists[inverseTwists.length - 1]
+  if (last !== undefined && !isClockwise(last)) {
+    return false
+  }
+  if (lastInverse !== undefined && !isClockwise(lastInverse)) {
+    return false
+  }
+  if (last !== undefined && lastInverse !== undefined && !isSwapable(last, lastInverse)) {
+    return false
+  }
+  const penultimate = twists[twists.length - 2]
+  const penultimateInverse = inverseTwists[inverseTwists.length - 2]
+  if (penultimate !== undefined && isSwapable(penultimate, last) && [penultimate, last].some(isHalfTurn)) {
+    return false
+  }
+  if (
+    penultimateInverse !== undefined &&
+    isSwapable(penultimateInverse, lastInverse) &&
+    [penultimateInverse, lastInverse].some(isHalfTurn)
+  ) {
+    return false
+  }
+  return true
+}
+
+function isSwapable(twistA: number, twistB: number) {
+  return twistA >>> 3 === twistB >>> 3
+}
+
+function isClockwise(twist: number) {
+  return twist % 4 === 1
+}
+
+function isHalfTurn(twist: number) {
+  return twist % 4 === 2
+}
+
 export function reverseTwists(twists: string) {
   return twists
     .split(' ')
