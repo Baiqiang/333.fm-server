@@ -41,18 +41,18 @@ export class ChainProcessor {
     }
     await this.userActivitiesRepository.save(userActivities)
     // create notifications
-    const newUserActivities: UserActivities[] = []
-    for (const { userId } of userActivities) {
-      const userActivity = new UserActivities()
-      userActivity.userId = userId
-      userActivity.submissionId = submission.id
-      userActivity.notify = true
-      userActivity.favorite = false
-      userActivity.like = false
-      userActivity.decline = false
-      userActivity.view = false
-      newUserActivities.push(userActivity)
-    }
-    await this.userActivitiesRepository.save(newUserActivities)
+    // const newUserActivities: UserActivities[] = []
+    // for (const { userId } of userActivities) {
+    //   const userActivity = new UserActivities()
+    //   userActivity.userId = userId
+    //   userActivity.submissionId = submission.id
+    //   userActivity.notify = true
+    //   userActivity.favorite = false
+    //   userActivity.like = false
+    //   userActivity.decline = false
+    //   userActivity.view = false
+    //   newUserActivities.push(userActivity)
+    // }
+    // await this.userActivitiesRepository.save(newUserActivities)
   }
 }
