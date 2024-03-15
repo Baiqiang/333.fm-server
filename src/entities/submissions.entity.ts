@@ -143,5 +143,7 @@ export class Submissions {
 
   hideSolution: boolean
 
-  childrenLength: number
+  continuances: number
+  finishes: number
+  best: number
 }

@@ -75,8 +75,19 @@ export class ChainService {
     const submissions = await queryBuilder.getMany()
     await Promise.all(
       submissions.map(async submission => {
-        const childrenLength = (await this.submissionsRepository.countDescendants(submission)) - 1
-        submission.childrenLength = childrenLength
+        const decsendants = await this.submissionsRepository.findDescendants(submission)
+        submission.finishes = 0
+        let best = 0
+        for (const descendant of decsendants) {
+          if ([SubmissionPhase.FINISHED, SubmissionPhase.INSERTIONS].includes(descendant.phase)) {
+            submission.finishes++
+            if (best === 0 || descendant.cumulativeMoves < best) {
+              best = descendant.cumulativeMoves
+            }
+          }
+        }
+        submission.best = best
+        submission.continuances = decsendants.length - 1
       }),
     )
     return submissions
@@ -93,6 +104,9 @@ export class ChainService {
         cumulativeMoves: 'ASC',
       },
       take: n,
+      relations: {
+        user: true,
+      },
     })
     return Promise.all(submissions.map(submission => this.getTree(submission)))
   }
