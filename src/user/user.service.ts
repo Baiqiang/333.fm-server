@@ -166,36 +166,37 @@ export class UserService {
     for (const submission of submissions) {
       submission.liked = userActivitiesMap[submission.id]?.like || false
       submission.favorited = userActivitiesMap[submission.id]?.favorite || false
+      submission.viewed = userActivitiesMap[submission.id]?.view || false
+      submission.declined = userActivitiesMap[submission.id]?.decline || false
+      submission.notification = userActivitiesMap[submission.id]?.notify || false
     }
   }
 
-  async act(user: Users, submissionId: number, body: Record<string, boolean>) {
+  async act(
+    user: Users,
+    submissionId: number,
+    body: Partial<Record<'like' | 'favorite' | 'decline' | 'view' | 'notify', boolean>>,
+  ) {
     let userActivitie = await this.userActivitiesRepository.findOneBy({
       userId: user.id,
       submissionId,
     })
-    let isNew = false
     if (!userActivitie) {
       userActivitie = new UserActivities()
       userActivitie.user = user
       userActivitie.submissionId = submissionId
       userActivitie.like = false
       userActivitie.favorite = false
-      isNew = true
+      userActivitie.decline = false
+      userActivitie.view = false
+      userActivitie.notify = false
     }
-    if ('like' in body) {
-      userActivitie.like = Boolean(body.like)
-    }
-    if ('favorite' in body) {
-      userActivitie.favorite = Boolean(body.favorite)
-    }
-    if (userActivitie.like || userActivitie.favorite) {
-      await this.userActivitiesRepository.save(userActivitie)
-    } else {
-      if (!isNew) {
-        await this.userActivitiesRepository.remove(userActivitie)
+    for (const key of ['like', 'favorite', 'decline', 'view', 'notify']) {
+      if (key in body) {
+        userActivitie[key] = Boolean(body[key])
       }
     }
+    await this.userActivitiesRepository.save(userActivitie)
     return userActivitie
   }
 

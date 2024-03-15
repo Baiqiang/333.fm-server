@@ -141,6 +141,11 @@ export class Submissions {
   favorites: number
   favorited: boolean
 
+  viewed: boolean
+  declined: boolean
+  notification: boolean
+  latestSubmitted: boolean
+
   hideSolution: boolean
 
   continuances: number

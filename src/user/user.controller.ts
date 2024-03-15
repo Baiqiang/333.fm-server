@@ -18,6 +18,7 @@ import { Pagination } from 'nestjs-typeorm-paginate'
 import { CurrentUser } from '@/auth/decorators/current-user.decorator'
 import { JwtRequiredGuard } from '@/auth/guards/jwt-required.guard'
 import { PaginationDto } from '@/dtos/pagination.dto'
+import { CompetitionType } from '@/entities/competitions.entity'
 import { UserInsertionFinders } from '@/entities/user-insertion-finders.entity'
 import { Users } from '@/entities/users.entity'
 
@@ -66,18 +67,26 @@ export class UserController {
 
   @Post('act')
   public async act(@CurrentUser() user: Users, @Body('id') id: number, @Body() body: Record<string, boolean>) {
-    if (!('like' in body) && !('favorite' in body)) {
+    if (!('like' in body) && !('favorite' in body) && !('decline' in body)) {
+      throw new BadRequestException()
+    }
+    if ('view' in body || 'notify' in body) {
       throw new BadRequestException()
     }
     const submission = await this.userService.getSubmission(id)
     if (!submission) {
       throw new BadRequestException()
     }
-    if (!submission.competition.hasEnded) {
+    let canAct = true
+    const competition = submission.competition
+    if (!competition.hasEnded && [CompetitionType.WEEKLY, CompetitionType.ENDLESS].includes(competition.type)) {
       const userSubmission = await this.userService.getUserSubmission(submission.scrambleId, user)
       if (!userSubmission) {
-        throw new BadRequestException()
+        canAct = false
       }
+    }
+    if (!canAct) {
+      throw new BadRequestException()
     }
     return await this.userService.act(user, id, body)
   }

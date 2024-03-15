@@ -23,6 +23,16 @@ export class UserActivities {
   @Column()
   favorite: boolean
 
+  @Column()
+  decline: boolean
+
+  @Column()
+  view: boolean
+
+  // when someone continues a submission
+  @Column()
+  notify: boolean
+
   @CreateDateColumn()
   createdAt: Date
 

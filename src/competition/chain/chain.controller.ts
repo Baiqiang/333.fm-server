@@ -66,7 +66,7 @@ export class ChainController {
         throw new NotFoundException()
       }
     }
-    const submissions = await this.chainService.getSubmissions(competition, scramble, parent)
+    const submissions = await this.chainService.getSubmissions(competition, scramble, parent, user)
     if (user) {
       await this.userService.loadUserActivities(user, submissions)
     }
@@ -74,9 +74,11 @@ export class ChainController {
   }
 
   @Get([':number', ':number/:id'])
+  @UseGuards(JwtAuthGuard)
   async tree(
     @Param('number', ParseIntPipe) number: number,
     @Param('id', new DefaultValuePipe(0), ParseIntPipe) id: number,
+    @CurrentUser() user: Users,
   ) {
     const competition = await this.chainService.get()
     if (!competition) {
@@ -97,6 +99,10 @@ export class ChainController {
       throw new NotFoundException()
     }
     const tree = await this.chainService.getTree(submission)
+    if (user) {
+      await this.userService.act(user, submission.id, { view: true, notify: false })
+      await this.userService.loadUserActivities(user, [tree])
+    }
     return {
       scramble,
       tree,

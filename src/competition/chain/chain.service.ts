@@ -1,5 +1,7 @@
+import { InjectQueue } from '@nestjs/bull'
 import { BadRequestException, Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
+import { Queue } from 'bull'
 import { In, IsNull, Repository, TreeRepository } from 'typeorm'
 
 import { SubmitSolutionDto } from '@/dtos/submit-solution.dto'
@@ -13,6 +15,12 @@ import { generateScramble } from '@/utils/scramble'
 
 import { CompetitionService } from '../competition.service'
 
+export interface ChainJob {
+  scrambleId: number
+  submissionId: number
+  userId: number
+}
+
 @Injectable()
 export class ChainService {
   constructor(
@@ -23,6 +31,8 @@ export class ChainService {
     @InjectRepository(Results)
     private readonly resultsRepository: Repository<Results>,
     private readonly competitionService: CompetitionService,
+    @InjectQueue('chain')
+    private readonly queue: Queue<ChainJob>,
   ) {}
 
   get() {
@@ -56,7 +66,7 @@ export class ChainService {
     })
   }
 
-  async getSubmissions(competition: Competitions, scramble: Scrambles, parent: Submissions | null) {
+  async getSubmissions(competition: Competitions, scramble: Scrambles, parent: Submissions | null, user?: Users) {
     const queryBuilder = this.submissionsRepository
       .createQueryBuilder('s')
       .leftJoinAndSelect('s.user', 'u')
@@ -73,23 +83,35 @@ export class ChainService {
       queryBuilder.andWhere('s.parent_id IS NULL')
     }
     const submissions = await queryBuilder.getMany()
+    let latestSubmission: Submissions | null = null
+    let latestSubmittedDate: Date | null = null
     await Promise.all(
       submissions.map(async submission => {
         const decsendants = await this.submissionsRepository.findDescendants(submission)
         submission.finishes = 0
         let best = 0
         for (const descendant of decsendants) {
+          if (descendant.id === submission.id) {
+            continue
+          }
           if ([SubmissionPhase.FINISHED, SubmissionPhase.INSERTIONS].includes(descendant.phase)) {
             submission.finishes++
             if (best === 0 || descendant.cumulativeMoves < best) {
               best = descendant.cumulativeMoves
             }
           }
+          if (user?.id === descendant.userId && (!latestSubmittedDate || descendant.createdAt > latestSubmittedDate)) {
+            latestSubmission = submission
+            latestSubmittedDate = descendant.createdAt
+          }
         }
         submission.best = best
         submission.continuances = decsendants.length - 1
       }),
     )
+    if (latestSubmission) {
+      latestSubmission.latestSubmitted = true
+    }
     return submissions
   }
 
@@ -193,6 +215,11 @@ export class ChainService {
     submission.cancelMoves = cancelMoves
     submission.cumulativeMoves = cumulativeMoves
     await this.submissionsRepository.save(submission)
+    this.queue.add({
+      scrambleId: scramble.id,
+      submissionId: submission.id,
+      userId: user.id,
+    })
     return submission
   }
 
