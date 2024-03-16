@@ -134,10 +134,14 @@ export class ChainService {
         count: string
         competitors: string
       }>()
-    const competitors = await this.submissionsRepository.countBy({
-      competitionId: competition.id,
-      scrambleId: scramble.id,
-    })
+    const { competitors } = await this.submissionsRepository
+      .createQueryBuilder()
+      .select('count(distinct user_id)', 'competitors')
+      .where('competition_id = :competitionId and scramble_id = :scrambleId', {
+        competitionId: competition.id,
+        scrambleId: scramble.id,
+      })
+      .getRawOne<{ competitors: string }>()
     const total = phaseCount.reduce((acc, cur) => acc + parseInt(cur.count), 0)
     return {
       top10,
