@@ -87,6 +87,10 @@ export class ChainService {
     let latestSubmittedDate: Date | null = null
     await Promise.all(
       submissions.map(async submission => {
+        if (user?.id === submission.userId && (!latestSubmittedDate || submission.createdAt > latestSubmittedDate)) {
+          latestSubmission = submission
+          latestSubmittedDate = submission.createdAt
+        }
         const decsendants = await this.submissionsRepository.findDescendants(submission)
         submission.finishes = 0
         let best = 0
@@ -113,6 +117,32 @@ export class ChainService {
       latestSubmission.latestSubmitted = true
     }
     return submissions
+  }
+
+  async getStats(competition: Competitions, scramble: Scrambles) {
+    const top10 = await this.getTopN(competition, scramble, 10)
+    const phaseCount = await this.submissionsRepository
+      .createQueryBuilder()
+      .select(['phase', 'count(*) as count', 'count(distinct user_id) as users'])
+      .where('competition_id = :competitionId and scramble_id = :scrambleId', {
+        competitionId: competition.id,
+        scrambleId: scramble.id,
+      })
+      .groupBy('phase')
+      .getRawMany<{
+        phase: SubmissionPhase
+        count: string
+        users: string
+      }>()
+    const competitors = await this.submissionsRepository.countBy({
+      competitionId: competition.id,
+      scrambleId: scramble.id,
+    })
+    return {
+      top10,
+      phaseCount,
+      competitors,
+    }
   }
 
   async getTopN(competition: Competitions, scramble: Scrambles, n: number) {
