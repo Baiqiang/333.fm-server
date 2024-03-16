@@ -123,7 +123,7 @@ export class ChainService {
     const top10 = await this.getTopN(competition, scramble, 10)
     const phaseCount = await this.submissionsRepository
       .createQueryBuilder()
-      .select(['phase', 'count(*) as count', 'count(distinct user_id) as users'])
+      .select(['phase', 'count(*) as count', 'count(distinct user_id) as competitors'])
       .where('competition_id = :competitionId and scramble_id = :scrambleId', {
         competitionId: competition.id,
         scrambleId: scramble.id,
@@ -132,16 +132,18 @@ export class ChainService {
       .getRawMany<{
         phase: SubmissionPhase
         count: string
-        users: string
+        competitors: string
       }>()
     const competitors = await this.submissionsRepository.countBy({
       competitionId: competition.id,
       scrambleId: scramble.id,
     })
+    const total = phaseCount.reduce((acc, cur) => acc + parseInt(cur.count), 0)
     return {
       top10,
       phaseCount,
       competitors,
+      total,
     }
   }
 

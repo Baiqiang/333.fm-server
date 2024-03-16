@@ -31,6 +31,19 @@ export class ChainController {
     return this.chainService.get()
   }
 
+  @Get(':number/stats')
+  public async stats(@Param('number', ParseIntPipe) number: number) {
+    const competition = await this.chainService.get()
+    if (!competition) {
+      throw new NotFoundException()
+    }
+    const scramble = competition.scrambles.find(s => s.number === number)
+    if (!scramble) {
+      throw new NotFoundException()
+    }
+    return this.chainService.getStats(competition, scramble)
+  }
+
   @Get(':number/top10')
   public async top10(@Param('number', ParseIntPipe) number: number) {
     const competition = await this.chainService.get()
