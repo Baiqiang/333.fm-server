@@ -66,6 +66,18 @@ export class ChainService {
     })
   }
 
+  async getSubmissionsByPhase(competition: Competitions, scramble: Scrambles, phase: SubmissionPhase, user?: Users) {
+    const submissions = await this.submissionsRepository.find({
+      where: {
+        competitionId: competition.id,
+        scrambleId: scramble.id,
+        phase,
+      },
+      relations: ['user'],
+    })
+    return await this.handleSubmissions(submissions, user)
+  }
+
   async getSubmissions(competition: Competitions, scramble: Scrambles, parent: Submissions | null, user?: Users) {
     const queryBuilder = this.submissionsRepository
       .createQueryBuilder('s')
@@ -83,6 +95,10 @@ export class ChainService {
       queryBuilder.andWhere('s.parent_id IS NULL')
     }
     const submissions = await queryBuilder.getMany()
+    return await this.handleSubmissions(submissions, user)
+  }
+
+  async handleSubmissions(submissions: Submissions[], user?: Users) {
     let latestSubmission: Submissions | null = null
     let latestSubmittedDate: Date | null = null
     await Promise.all(
@@ -108,6 +124,8 @@ export class ChainService {
             latestSubmission = submission
             latestSubmittedDate = descendant.createdAt
           }
+          submission.updatedAt =
+            descendant.updatedAt > submission.updatedAt ? descendant.updatedAt : submission.updatedAt
         }
         submission.best = best
         submission.continuances = decsendants.length - 1

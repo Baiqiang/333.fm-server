@@ -1,6 +1,5 @@
 import {
   Body,
-  ClassSerializerInterceptor,
   Controller,
   DefaultValuePipe,
   Get,
@@ -10,7 +9,6 @@ import {
   Post,
   Query,
   UseGuards,
-  UseInterceptors,
 } from '@nestjs/common'
 
 import { CurrentUser } from '@/auth/decorators/current-user.decorator'
@@ -24,7 +22,6 @@ import { UserService } from '@/user/user.service'
 import { EndlessService } from './endless.service'
 
 @Controller('endless')
-@UseInterceptors(ClassSerializerInterceptor)
 export class EndlessController {
   constructor(
     private readonly endlessService: EndlessService,

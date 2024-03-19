@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { IPaginationOptions, paginate } from 'nestjs-typeorm-paginate'
-import { In, Repository } from 'typeorm'
+import { In, Repository, TreeRepository } from 'typeorm'
 
 import { Competitions, CompetitionType } from '@/entities/competitions.entity'
 import { Results } from '@/entities/results.entity'
@@ -16,7 +16,7 @@ export class ProfileService {
     @InjectRepository(Scrambles)
     private readonly scramblesRepository: Repository<Scrambles>,
     @InjectRepository(Submissions)
-    private readonly submissionsRepository: Repository<Submissions>,
+    private readonly submissionsRepository: TreeRepository<Submissions>,
     @InjectRepository(Results)
     private readonly resultsRepository: Repository<Results>,
     private readonly userService: UserService,
@@ -35,6 +35,15 @@ export class ProfileService {
       queryBuilder.andWhere('c.type = :type', { type })
     }
     const data = await paginate<Submissions>(queryBuilder, options)
+    const scrambleIds = await Promise.all(
+      data.items.map(async item => {
+        // fetch parent
+        if (item.parentId) {
+          await this.submissionsRepository.findAncestorsTree(item)
+        }
+        return item.scrambleId
+      }),
+    )
     if (currentUser && currentUser.id === user.id) {
       for (const submission of data.items) {
         submission.hideSolution = false
@@ -43,7 +52,6 @@ export class ProfileService {
       const submittedMap: Record<number, boolean> = {}
       if (currentUser) {
         await this.userService.loadUserActivities(currentUser, data.items)
-        const scrambleIds = data.items.map(item => item.scrambleId)
         const currentUserSubmissions = await this.submissionsRepository.find({
           where: {
             scrambleId: In(scrambleIds),

@@ -1,16 +1,4 @@
-import {
-  Body,
-  ClassSerializerInterceptor,
-  Controller,
-  Get,
-  NotFoundException,
-  Param,
-  ParseIntPipe,
-  Post,
-  Query,
-  UseGuards,
-  UseInterceptors,
-} from '@nestjs/common'
+import { Body, Controller, Get, NotFoundException, Param, ParseIntPipe, Post, Query, UseGuards } from '@nestjs/common'
 
 import { CurrentUser } from '@/auth/decorators/current-user.decorator'
 import { JwtAuthGuard } from '@/auth/guards/jwt.guard'
@@ -25,7 +13,6 @@ import { UserService } from '@/user/user.service'
 import { WeeklyService } from './weekly.service'
 
 @Controller('weekly')
-@UseInterceptors(ClassSerializerInterceptor)
 export class WeeklyController {
   constructor(
     private readonly weeklyService: WeeklyService,

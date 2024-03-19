@@ -1,5 +1,6 @@
 import { BullModule } from '@nestjs/bull'
-import { Module } from '@nestjs/common'
+import { ClassSerializerInterceptor, Module } from '@nestjs/common'
+import { APP_INTERCEPTOR } from '@nestjs/core'
 import { TypeOrmModule } from '@nestjs/typeorm'
 
 import { Competitions } from '@/entities/competitions.entity'
@@ -35,7 +36,18 @@ import { WeeklyService } from './weekly/weekly.service'
     ),
     UserModule,
   ],
-  providers: [CompetitionService, WeeklyService, EndlessService, EndlessProcessor, ChainService, ChainProcessor],
+  providers: [
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: ClassSerializerInterceptor,
+    },
+    CompetitionService,
+    WeeklyService,
+    EndlessService,
+    EndlessProcessor,
+    ChainService,
+    ChainProcessor,
+  ],
   controllers: [CompetitionController, WeeklyController, EndlessController, ChainController],
 })
 export class CompetitionModule {}

@@ -9,11 +9,13 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common'
+import { isInt } from 'class-validator'
 
 import { CurrentUser } from '@/auth/decorators/current-user.decorator'
 import { JwtAuthGuard } from '@/auth/guards/jwt.guard'
 import { JwtRequiredGuard } from '@/auth/guards/jwt-required.guard'
 import { SubmitSolutionDto } from '@/dtos/submit-solution.dto'
+import { SubmissionPhase, Submissions } from '@/entities/submissions.entity'
 import { Users } from '@/entities/users.entity'
 import { UserService } from '@/user/user.service'
 
@@ -44,24 +46,32 @@ export class ChainController {
     return this.chainService.getStats(competition, scramble)
   }
 
-  @Get(':number/top10')
-  public async top10(@Param('number', ParseIntPipe) number: number) {
-    const competition = await this.chainService.get()
-    if (!competition) {
-      throw new NotFoundException()
-    }
-    const scramble = competition.scrambles.find(s => s.number === number)
-    if (!scramble) {
-      throw new NotFoundException()
-    }
-    return this.chainService.getTopN(competition, scramble, 10)
-  }
+  // @Get(':number/:phase')
+  // @UseGuards(JwtAuthGuard)
+  // public async phase(
+  //   @Param('number', ParseIntPipe) number: number,
+  //   @Param('phase') phase: string,
+  //   @CurrentUser() user: Users,
+  // ) {
+  //   if (!SubmissionPhase[phase]) {
+  //     throw new NotFoundException()
+  //   }
+  //   const competition = await this.chainService.get()
+  //   if (!competition) {
+  //     throw new NotFoundException()
+  //   }
+  //   const scramble = competition.scrambles.find(s => s.number === number)
+  //   if (!scramble) {
+  //     throw new NotFoundException()
+  //   }
+  //   return this.chainService.getSubmissionsByPhase(competition, scramble, SubmissionPhase[phase], user)
+  // }
 
-  @Get([':number/submissions', ':number/:parentId/submissions'])
+  @Get([':number/submissions', ':number/:parentIdOrPhase/submissions'])
   @UseGuards(JwtAuthGuard)
   async submissions(
     @Param('number', ParseIntPipe) number: number,
-    @Param('parentId', new DefaultValuePipe(0), ParseIntPipe) parentId: number,
+    @Param('parentIdOrPhase') parentIdOrPhase: string,
     @CurrentUser() user: Users,
   ) {
     const competition = await this.chainService.get()
@@ -72,14 +82,28 @@ export class ChainController {
     if (!scramble) {
       throw new NotFoundException()
     }
-    let parent = null
-    if (parentId) {
-      parent = await this.chainService.getSubmission(competition, scramble, parentId)
-      if (!parent) {
-        throw new NotFoundException()
+    let submissions: Submissions[]
+    let parent: Submissions = null
+    let phase: SubmissionPhase
+    if (parentIdOrPhase) {
+      const parsed = parseFloat(parentIdOrPhase)
+      if (!Number.isNaN(parsed) && isInt(parsed)) {
+        parent = await this.chainService.getSubmission(competition, scramble, parsed)
+        if (!parent) {
+          throw new NotFoundException()
+        }
+      } else {
+        if (SubmissionPhase[parentIdOrPhase] === undefined) {
+          throw new NotFoundException()
+        }
+        phase = SubmissionPhase[parentIdOrPhase]
       }
     }
-    const submissions = await this.chainService.getSubmissions(competition, scramble, parent, user)
+    if (phase !== undefined) {
+      submissions = await this.chainService.getSubmissionsByPhase(competition, scramble, phase, user)
+    } else {
+      submissions = await this.chainService.getSubmissions(competition, scramble, parent, user)
+    }
     if (user) {
       await this.userService.loadUserActivities(user, submissions)
     }
