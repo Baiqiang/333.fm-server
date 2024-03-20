@@ -132,7 +132,7 @@ export function calculatePhases(scramble: string, dto: SubmitSolutionDto, parent
           lastInsertion.insertion +
           skeletonArray.slice(lastInsertion.insertPlace).join(' '),
       )
-      skeletonAlg.normalize()
+      skeletonAlg.clearFlags()
       skeletonAlg.cancelMoves()
       skeleton = skeletonAlg.toString()
       if (dto.inverse) {
@@ -144,7 +144,7 @@ export function calculatePhases(scramble: string, dto: SubmitSolutionDto, parent
       cancelMoves = moves + parentSkeletonAlg.length * 100 - cumulativeMoves
     } catch (e) {}
   }
-  const { bestCube } = formatSkeleton(scramble, skeleton)
+  const { bestCube, formattedSkeleton } = formatSkeleton(scramble, skeleton)
   let phase: SubmissionPhase
   const eoStatus = bestCube.getEdgeOrientationStatus()
   const drStatus = bestCube.getDominoReductionStatus()
@@ -168,6 +168,9 @@ export function calculatePhases(scramble: string, dto: SubmitSolutionDto, parent
     }
   } else if ((dto.mode as any as SolutionMode) === SolutionMode.INSERTIONS) {
     phase = SubmissionPhase.INSERTIONS
+  } else {
+    // cancel moves for inverse and normal
+    cumulativeMoves = countMoves(formattedSkeleton)
   }
   // force last move to be clockwise for EO, DR and HTR
   if ([SubmissionPhase.EO, SubmissionPhase.DR, SubmissionPhase.HTR].includes(phase)) {
