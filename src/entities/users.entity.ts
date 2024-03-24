@@ -1,10 +1,11 @@
 import { Exclude } from 'class-transformer'
-import { Column, CreateDateColumn, Entity, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm'
+import { Column, CreateDateColumn, Entity, Index, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm'
 
 import { UserInsertionFinders } from './user-insertion-finders.entity'
 import { UserRoles } from './user-roles.entity'
 
 @Entity()
+@Index(['source', 'sourceId'])
 export class Users {
   @PrimaryGeneratedColumn()
   id: number
@@ -24,6 +25,12 @@ export class Users {
 
   @Column({ length: 255 })
   avatarThumb: string
+
+  @Column()
+  source: string
+
+  @Column()
+  sourceId: string
 
   @CreateDateColumn()
   createdAt: Date

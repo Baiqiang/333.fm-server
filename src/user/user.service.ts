@@ -30,18 +30,37 @@ export class UserService {
     // profile.id is unique
     let user = await this.usersRepository.findOne({
       where: {
-        email: profile.email,
+        source: 'WCA',
+        sourceId: profile.id.toString(),
       },
-      relations: ['roles'],
     })
+    // check wca id for backward compatibility
+    if (!user && profile.wca_id) {
+      user = await this.usersRepository.findOne({
+        where: {
+          source: 'WCA',
+          sourceId: profile.wca_id,
+        },
+      })
+    }
+    // check email for backward compatibility
+    if (!user) {
+      user = await this.usersRepository.findOne({
+        where: {
+          email: profile.email,
+        },
+      })
+    }
     if (!user) {
       user = new Users()
-      user.email = profile.email
     }
+    user.email = profile.email
     user.name = profile.name
     user.wcaId = profile.wca_id || ''
     user.avatar = profile.avatar.url || ''
     user.avatarThumb = profile.avatar.thumb_url || ''
+    user.source = 'WCA'
+    user.sourceId = profile.id.toString()
     await this.usersRepository.save(user)
     return user
   }

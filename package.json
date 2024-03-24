@@ -39,6 +39,7 @@
     "dayjs": "^1.11.10",
     "insertionfinder": "^0.5.0",
     "mysql2": "^3.9.2",
+    "nest-commander": "^3.12.5",
     "nestjs-typeorm-paginate": "^4.0.4",
     "node-version-compare": "^1.0.3",
     "passport": "^0.7.0",
