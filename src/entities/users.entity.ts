@@ -6,6 +6,7 @@ import { UserRoles } from './user-roles.entity'
 
 @Entity()
 @Index(['source', 'sourceId'])
+@Index(['source', 'wcaId'])
 export class Users {
   @PrimaryGeneratedColumn()
   id: number
