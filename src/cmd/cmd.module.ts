@@ -18,6 +18,8 @@ import { UserRoles } from '@/entities/user-roles.entity'
 import { Users } from '@/entities/users.entity'
 
 import { CmdService } from './cmd.service'
+import { PointCommand } from './point/point.command'
+import { PointService } from './point/point.service'
 import { UserCommand } from './user/user.command'
 import { UserService } from './user/user.service'
 
@@ -54,6 +56,6 @@ import { UserService } from './user/user.service'
       UserRoles,
     ]),
   ],
-  providers: [CmdService, UserService, UserCommand],
+  providers: [CmdService, PointService, PointCommand, UserService, UserCommand],
 })
 export class CmdModule {}
