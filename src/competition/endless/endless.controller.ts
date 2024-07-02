@@ -1,3 +1,4 @@
+import { CacheInterceptor } from '@nestjs/cache-manager'
 import {
   Body,
   Controller,
@@ -9,6 +10,7 @@ import {
   Post,
   Query,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common'
 
 import { CurrentUser } from '@/auth/decorators/current-user.decorator'
@@ -29,11 +31,13 @@ export class EndlessController {
   ) {}
 
   @Get('latest')
+  @UseInterceptors(CacheInterceptor)
   public async getLatest() {
     return this.endlessService.getLatest()
   }
 
   @Get('on-going')
+  @UseInterceptors(CacheInterceptor)
   public async getOnGoing(@Query('type') subType: CompetitionSubType) {
     if (!subType) {
       subType = undefined
@@ -42,6 +46,7 @@ export class EndlessController {
   }
 
   @Get(':season')
+  @UseInterceptors(CacheInterceptor)
   async getSeason(@Param('season') season: string) {
     const competition = await this.endlessService.getBySeason(season)
     if (!competition) {
@@ -51,6 +56,7 @@ export class EndlessController {
   }
 
   @Get(':season/stats')
+  @UseInterceptors(CacheInterceptor)
   async getStats(@Param('season') season: string) {
     const competition = await this.endlessService.getBySeason(season)
     if (!competition) {
