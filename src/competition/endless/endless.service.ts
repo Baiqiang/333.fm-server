@@ -372,7 +372,7 @@ export class EndlessService {
         userId: user.id,
       },
       order: {
-        createdAt: 'DESC',
+        createdAt: 'ASC',
       },
     })
     return {
