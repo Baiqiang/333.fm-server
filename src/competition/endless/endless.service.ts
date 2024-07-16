@@ -365,6 +365,21 @@ export class EndlessService {
     }
   }
 
+  async getUserStats(competition: Competitions, user: Users) {
+    const submissions = await this.submissionsRepository.find({
+      where: {
+        competitionId: competition.id,
+        userId: user.id,
+      },
+      order: {
+        createdAt: 'DESC',
+      },
+    })
+    return {
+      submissions,
+    }
+  }
+
   async getLevel(competition: Competitions, user: Users, level: number): Promise<Progress> {
     if (!user && level > 1) {
       throw new BadRequestException('Invalid level')

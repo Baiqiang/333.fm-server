@@ -75,6 +75,16 @@ export class EndlessController {
     return this.endlessService.getProgress(competition, user)
   }
 
+  @Get(':season/user-stats')
+  @UseGuards(JwtRequiredGuard)
+  async getUserStats(@Param('season') season: string, @CurrentUser() user: Users) {
+    const competition = await this.endlessService.getBySeason(season)
+    if (!competition) {
+      throw new NotFoundException()
+    }
+    return this.endlessService.getUserStats(competition, user)
+  }
+
   @Get(':season/:level')
   @UseGuards(JwtAuthGuard)
   async level(
