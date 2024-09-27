@@ -50,6 +50,9 @@ export class EndlessProcessor {
       case CompetitionSubType.HTR_PRACTICE:
         scrambleType = ScrambleType.HTR
         break
+      case CompetitionSubType.JZP_PRACTICE:
+        scrambleType = ScrambleType.JZP
+        break
       case CompetitionSubType.REGULAR:
         challenge = this.configService.get<Challenge>('endless.kickoffMoves')
       default:
