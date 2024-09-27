@@ -87,6 +87,9 @@ export class EndlessService {
       case CompetitionSubType.HTR_PRACTICE:
         scramble.scramble = generateScramble(ScrambleType.HTR)
         break
+      case CompetitionSubType.JZP_PRACTICE:
+        scramble.scramble = generateScramble(ScrambleType.JZP)
+        break
       default:
         scramble.scramble = generateScramble()
         break

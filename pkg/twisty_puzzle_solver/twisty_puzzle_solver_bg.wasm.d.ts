@@ -23,6 +23,7 @@ export function cube333mboScramble(a: number, b: number): void;
 export function cube333EOScramble(a: number, b: number, c: number, d: number, e: number): void;
 export function cube333DRScramble(a: number, b: number, c: number, d: number, e: number): void;
 export function cube333HTRScramble(a: number, b: number, c: number, d: number, e: number): void;
+export function cube333JZPScramble(a: number, b: number, c: number, d: number, e: number): void;
 export const __wbindgen_export_0: WebAssembly.Table;
 export function __wbindgen_export_1(a: number, b: number, c: number): void;
 export function __wbindgen_add_to_stack_pointer(a: number): number;

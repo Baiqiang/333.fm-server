@@ -96,3 +96,9 @@ export function cube333DRScramble(prefix: string, suffix: string): string;
 * @returns {string}
 */
 export function cube333HTRScramble(prefix: string, suffix: string): string;
+/**
+* @param {string} prefix
+* @param {string} suffix
+* @returns {string}
+*/
+export function cube333JZPScramble(prefix: string, suffix: string): string;
