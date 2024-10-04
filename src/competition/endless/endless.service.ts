@@ -551,7 +551,7 @@ export class EndlessService {
     result.best = Math.min(...result.values)
     result.average = Math.round(result.values.reduce((a, b) => a + b, 0) / result.values.length)
     await this.resultsRepository.save(result)
-    this.queue.add({
+    await this.queue.add({
       competitionId: competition.id,
       userId: user.id,
       scrambleId: scramble.id,

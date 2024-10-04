@@ -181,24 +181,24 @@ export class IfService {
         return alg
       })
       await this.realInsertionFindersRepository.save(realIF)
-      this.addIFJob(realIF)
+      await this.addIFJob(realIF)
     }
     insertionFinder.realInsertionFinder = realIF
     await this.insertionFindersRepository.save(insertionFinder)
     return insertionFinder
   }
 
-  addIFJob(realIF: RealInsertionFinders) {
+  async addIFJob(realIF: RealInsertionFinders) {
     if (realIF.isSF) {
-      this.sfQueue.add({
+      await this.sfQueue.add({
         hash: realIF.hash,
       })
     } else if (realIF.greedy > 2) {
-      this.ifHGQueue.add({
+      await this.ifHGQueue.add({
         hash: realIF.hash,
       })
     } else {
-      this.ifQueue.add({
+      await this.ifQueue.add({
         hash: realIF.hash,
       })
     }

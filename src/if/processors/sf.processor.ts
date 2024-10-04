@@ -30,7 +30,7 @@ export class SfProcessor extends BaseProcessor {
         },
       })
       for (const realIF of pendings) {
-        this.queue.add({
+        await this.queue.add({
           hash: realIF.hash,
         })
       }

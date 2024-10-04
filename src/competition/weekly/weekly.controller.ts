@@ -1,16 +1,4 @@
-import { CacheInterceptor } from '@nestjs/cache-manager'
-import {
-  Body,
-  Controller,
-  Get,
-  NotFoundException,
-  Param,
-  ParseIntPipe,
-  Post,
-  Query,
-  UseGuards,
-  UseInterceptors,
-} from '@nestjs/common'
+import { Body, Controller, Get, NotFoundException, Param, ParseIntPipe, Post, Query, UseGuards } from '@nestjs/common'
 
 import { CurrentUser } from '@/auth/decorators/current-user.decorator'
 import { JwtAuthGuard } from '@/auth/guards/jwt.guard'
@@ -32,19 +20,16 @@ export class WeeklyController {
   ) {}
 
   @Get()
-  @UseInterceptors(CacheInterceptor)
   public async getCompetitions(@Query() { page, limit }: PaginationDto) {
     return this.weeklyService.getCompetitions({ page, limit })
   }
 
   @Get('on-going')
-  @UseInterceptors(CacheInterceptor)
   public async getOnGoing() {
     return this.weeklyService.getOnGoing()
   }
 
   @Get(':week')
-  @UseInterceptors(CacheInterceptor)
   public async getCompetition(@Param('week') week: string) {
     const competition = await this.weeklyService.getCompetition(week)
     if (!competition) {
@@ -54,7 +39,6 @@ export class WeeklyController {
   }
 
   @Get(':week/results')
-  @UseInterceptors(CacheInterceptor)
   public async getResults(@Param('week') week: string) {
     const competition = await this.weeklyService.getCompetition(week)
     if (!competition) {

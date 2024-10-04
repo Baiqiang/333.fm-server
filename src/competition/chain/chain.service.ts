@@ -269,7 +269,7 @@ export class ChainService {
     submission.cancelMoves = cancelMoves
     submission.cumulativeMoves = cumulativeMoves
     await this.submissionsRepository.save(submission)
-    this.queue.add({
+    await this.queue.add({
       scrambleId: scramble.id,
       submissionId: submission.id,
       userId: user.id,
