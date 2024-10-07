@@ -265,6 +265,11 @@ export function parseWeek(week: string): dayjs.Dayjs {
 }
 
 export function sortResult(a: Results, b: Results): number {
+  const nonZeroValuesA = a.values.filter(value => value > 0)
+  const nonZeroValuesB = b.values.filter(value => value > 0)
+  if (nonZeroValuesA.length !== nonZeroValuesB.length) {
+    return nonZeroValuesB.length - nonZeroValuesA.length
+  }
   if (a.average === b.average) {
     return a.best - b.best
   }

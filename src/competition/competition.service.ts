@@ -4,6 +4,8 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { FindManyOptions, FindOneOptions, Repository } from 'typeorm'
 
 import { Competitions, CompetitionStatus, CompetitionType } from '@/entities/competitions.entity'
+import { Results } from '@/entities/results.entity'
+import { Submissions } from '@/entities/submissions.entity'
 
 import { ChainService } from './chain/chain.service'
 import { EndlessService } from './endless/endless.service'
@@ -14,6 +16,10 @@ export class CompetitionService {
   constructor(
     @InjectRepository(Competitions)
     private readonly competitionsRepository: Repository<Competitions>,
+    @InjectRepository(Submissions)
+    private readonly submissionsRepository: Repository<Submissions>,
+    @InjectRepository(Results)
+    private readonly resultsRepository: Repository<Results>,
     private readonly weeklyService: WeeklyService,
     private readonly endlessService: EndlessService,
     @Inject(forwardRef(() => ChainService))
@@ -81,5 +87,35 @@ export class CompetitionService {
 
   findMany(options: FindManyOptions<Competitions>) {
     return this.competitionsRepository.find(options)
+  }
+
+  async getSubmissions(competition: Competitions) {
+    const submissions = await this.submissionsRepository
+      .createQueryBuilder('s')
+      .leftJoinAndSelect('s.user', 'u')
+      .loadRelationCountAndMap('s.likes', 's.userActivities', 'ual', qb => qb.andWhere('ual.like = 1'))
+      .loadRelationCountAndMap('s.favorites', 's.userActivities', 'uaf', qb => qb.andWhere('uaf.favorite = 1'))
+      .where('s.competition_id = :id', { id: competition.id })
+      .orderBy('s.moves', 'ASC')
+      .getMany()
+    return submissions
+  }
+
+  async getResults(competition: Competitions, where?: FindManyOptions<Results>['where']) {
+    const results = await this.resultsRepository.find({
+      where: {
+        competitionId: competition.id,
+        ...where,
+      },
+      order: {
+        rank: 'ASC',
+        average: 'ASC',
+        best: 'ASC',
+      },
+      relations: {
+        user: true,
+      },
+    })
+    return results
   }
 }
