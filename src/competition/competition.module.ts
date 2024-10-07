@@ -20,6 +20,9 @@ import { CompetitionService } from './competition.service'
 import { EndlessController } from './endless/endless.controller'
 import { EndlessService } from './endless/endless.service'
 import { EndlessProcessor } from './endless/processors/endless.processor'
+import { PracticeController } from './practice/practice.controller'
+import { PracticeService } from './practice/practice.service'
+import { PracticeProcessor } from './practice/processors/practice.processor'
 import { WeeklyController } from './weekly/weekly.controller'
 import { WeeklyService } from './weekly/weekly.service'
 
@@ -32,6 +35,9 @@ import { WeeklyService } from './weekly/weekly.service'
       },
       {
         name: 'chain',
+      },
+      {
+        name: 'practice',
       },
     ),
     UserModule,
@@ -47,7 +53,9 @@ import { WeeklyService } from './weekly/weekly.service'
     EndlessProcessor,
     ChainService,
     ChainProcessor,
+    PracticeService,
+    PracticeProcessor,
   ],
-  controllers: [CompetitionController, WeeklyController, EndlessController, ChainController],
+  controllers: [CompetitionController, WeeklyController, EndlessController, ChainController, PracticeController],
 })
 export class CompetitionModule {}

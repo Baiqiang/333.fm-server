@@ -23,6 +23,7 @@ export enum CompetitionType {
   RANDOM,
   ENDLESS,
   FMC_CHAIN,
+  PERSONAL_PRACTICE,
 }
 
 export enum CompetitionSubType {
@@ -110,8 +111,13 @@ export class Competitions {
   })
   user: Users
 
-  @OneToMany(() => Scrambles, scramble => scramble.competition)
+  @OneToMany(() => Scrambles, scramble => scramble.competition, {
+    cascade: true,
+  })
   scrambles: Scrambles[]
+
+  @OneToMany(() => Submissions, submission => submission.competition)
+  submissions: Submissions[]
 
   @OneToMany(() => Results, result => result.competition)
   results: Promise<Results[]>
@@ -120,6 +126,11 @@ export class Competitions {
 
   levels: Level[]
   challenges?: Challenge[]
+
+  attendees: number
+  ownerResult: Results
+  prevIndex?: number
+  nextIndex?: number
 
   get hasEnded() {
     return this.status === CompetitionStatus.ENDED || (this.endTime !== null && this.endTime <= new Date())

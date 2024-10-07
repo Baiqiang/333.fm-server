@@ -1,6 +1,7 @@
 import { Exclude } from 'class-transformer'
 import { Column, CreateDateColumn, Entity, Index, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm'
 
+import { Competitions } from './competitions.entity'
 import { UserInsertionFinders } from './user-insertion-finders.entity'
 import { UserRoles } from './user-roles.entity'
 
@@ -44,4 +45,10 @@ export class Users {
 
   @OneToMany(() => UserRoles, userRoles => userRoles.user)
   roles: UserRoles[]
+
+  @OneToMany(() => Competitions, competition => competition.user)
+  competitions: Competitions[]
+
+  practices: number
+  practiceAttendees: number
 }

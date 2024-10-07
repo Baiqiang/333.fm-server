@@ -207,23 +207,6 @@ export class WeeklyService {
     })
   }
 
-  async getResults(competition: Competitions, mode: CompetitionMode) {
-    const results = await this.resultsRepository.find({
-      where: {
-        mode,
-        competitionId: competition.id,
-      },
-      order: {
-        average: 'ASC',
-        best: 'ASC',
-      },
-      relations: {
-        user: true,
-      },
-    })
-    return results
-  }
-
   async submitSolution(competition: Competitions, user: Users, solution: SubmitSolutionDto) {
     if (competition.hasEnded) {
       throw new BadRequestException('Competition has ended')
@@ -379,17 +362,5 @@ export class WeeklyService {
     await this.resultsRepository.save(unlimitedResult)
     submission.result = unlimitedResult
     await this.submissionsRepository.save(submission)
-  }
-
-  async getSubmissions(competition: Competitions) {
-    const submissions = await this.submissionsRepository
-      .createQueryBuilder('s')
-      .leftJoinAndSelect('s.user', 'u')
-      .loadRelationCountAndMap('s.likes', 's.userActivities', 'ual', qb => qb.andWhere('ual.like = 1'))
-      .loadRelationCountAndMap('s.favorites', 's.userActivities', 'uaf', qb => qb.andWhere('uaf.favorite = 1'))
-      .where('s.competition_id = :id', { id: competition.id })
-      .orderBy('s.moves', 'ASC')
-      .getMany()
-    return submissions
   }
 }

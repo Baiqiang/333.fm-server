@@ -10,12 +10,14 @@ import { Submissions } from '@/entities/submissions.entity'
 import { Users } from '@/entities/users.entity'
 import { UserService } from '@/user/user.service'
 
+import { CompetitionService } from '../competition.service'
 import { WeeklyService } from './weekly.service'
 
 @Controller('weekly')
 export class WeeklyController {
   constructor(
     private readonly weeklyService: WeeklyService,
+    private readonly competitionService: CompetitionService,
     private readonly userService: UserService,
   ) {}
 
@@ -44,8 +46,8 @@ export class WeeklyController {
     if (!competition) {
       throw new NotFoundException()
     }
-    const regular = await this.weeklyService.getResults(competition, CompetitionMode.REGULAR)
-    const unlimited = await this.weeklyService.getResults(competition, CompetitionMode.UNLIMITED)
+    const regular = await this.competitionService.getResults(competition, { mode: CompetitionMode.REGULAR })
+    const unlimited = await this.competitionService.getResults(competition, { mode: CompetitionMode.UNLIMITED })
     return {
       regular,
       unlimited,
@@ -100,7 +102,7 @@ export class WeeklyController {
     if (!competition) {
       throw new NotFoundException()
     }
-    const submissions = await this.weeklyService.getSubmissions(competition)
+    const submissions = await this.competitionService.getSubmissions(competition)
     const ret: Record<number, Submissions[]> = {}
     const userSubmissions: Record<number, Submissions> = {}
     submissions.forEach(submission => {
