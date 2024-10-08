@@ -27,6 +27,7 @@ export class ProfileService {
       .createQueryBuilder('s')
       .leftJoinAndSelect('s.scramble', 'sc')
       .leftJoinAndSelect('s.competition', 'c')
+      .leftJoinAndSelect('c.user', 'u')
       .loadRelationCountAndMap('s.likes', 's.userActivities', 'ual', qb => qb.andWhere('ual.like = 1'))
       .loadRelationCountAndMap('s.favorites', 's.userActivities', 'uaf', qb => qb.andWhere('uaf.favorite = 1'))
       .where('s.user_id = :userId', { userId: user.id })
