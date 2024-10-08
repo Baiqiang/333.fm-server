@@ -179,6 +179,7 @@ export class PracticeService {
     const count = await this.count(user)
     const competition = new Competitions()
     competition.userId = user.id
+    competition.user = user
     competition.type = CompetitionType.PERSONAL_PRACTICE
     competition.format = dto.format
     competition.name = `Practice #${count + 1}`
