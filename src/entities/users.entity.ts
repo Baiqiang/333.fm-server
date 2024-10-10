@@ -4,6 +4,7 @@ import { Column, CreateDateColumn, Entity, Index, OneToMany, PrimaryGeneratedCol
 import { Competitions } from './competitions.entity'
 import { UserInsertionFinders } from './user-insertion-finders.entity'
 import { UserRoles } from './user-roles.entity'
+import { Submissions } from './submissions.entity'
 
 @Entity()
 @Index(['source', 'sourceId'])
@@ -48,6 +49,9 @@ export class Users {
 
   @OneToMany(() => Competitions, competition => competition.user)
   competitions: Competitions[]
+
+  @OneToMany(() => Submissions, submission => submission.user)
+  submissions: Submissions[]
 
   practices: number
   practiceAttendees: number

@@ -102,8 +102,13 @@ export class PracticeService {
         .getMany(),
       this.usersRepository
         .createQueryBuilder('u')
-        .leftJoin('u.competitions', 'c')
-        .loadRelationCountAndMap('u.practices', 'u.competitions', 'c', qb => qb.andWhere('c.type = :type', { type: CompetitionType.PERSONAL_PRACTICE }))
+        .leftJoin('u.submissions', 's')
+        .leftJoin('s.competition', 'c')
+        .loadRelationCountAndMap('u.practices', 'u.submissions', 's', (qb) => {
+          return qb
+            .leftJoin('s.competition', 'c')
+            .andWhere('c.type = :type', { type: CompetitionType.PERSONAL_PRACTICE })
+        })
         .addSelect('COUNT(c.id)', 'practices')
         .where('c.type = :type', { type: CompetitionType.PERSONAL_PRACTICE })
         .groupBy('u.id')
