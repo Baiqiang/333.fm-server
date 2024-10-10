@@ -1,5 +1,4 @@
 import { BullModule } from '@nestjs/bull'
-import { CacheModule } from '@nestjs/cache-manager'
 import { Module } from '@nestjs/common'
 import { ConfigModule } from '@nestjs/config'
 import { ScheduleModule } from '@nestjs/schedule'
@@ -41,10 +40,6 @@ import { UserModule } from './user/user.module'
       },
     }),
     ScheduleModule.forRoot(),
-    CacheModule.register({
-      isGlobal: true,
-      ttl: 5 * 60 * 1000,
-    }),
     IfModule,
     UserModule,
     AuthModule,

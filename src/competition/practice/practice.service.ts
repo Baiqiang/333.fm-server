@@ -78,7 +78,7 @@ export class PracticeService {
   }
 
   async getIndexInfo() {
-    const [latest, mostAttended] = await Promise.all([
+    const [latest, mostAttended, mostPractices] = await Promise.all([
       this.competitionsRepository
         .createQueryBuilder('c')
         .innerJoinAndSelect('c.user', 'u')
@@ -100,11 +100,23 @@ export class PracticeService {
         .orderBy('attendees', 'DESC')
         .limit(20)
         .getMany(),
+      this.usersRepository
+        .createQueryBuilder('u')
+        .leftJoin('u.competitions', 'c')
+        .loadRelationCountAndMap('u.practices', 'u.competitions', 'c', qb => qb.andWhere('c.type = :type', { type: CompetitionType.PERSONAL_PRACTICE }))
+        .addSelect('COUNT(c.id)', 'practices')
+        .where('c.type = :type', { type: CompetitionType.PERSONAL_PRACTICE })
+        .groupBy('u.id')
+        .orderBy('practices', 'DESC')
+        .having('practices > 0')
+        .limit(20)
+        .getMany(),
     ])
-    await Promise.all(latest.map(competition => this.fetchInfo(competition)))
+    // await Promise.all(latest.map(competition => this.fetchInfo(competition)))
     return {
       latest,
       mostAttended,
+      mostPractices,
     }
   }
 
