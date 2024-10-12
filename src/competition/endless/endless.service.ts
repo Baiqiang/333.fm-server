@@ -489,9 +489,9 @@ export class EndlessService {
   }
 
   async submitSolution(competition: Competitions, user: Users, solution: SubmitSolutionDto) {
-    if (competition.hasEnded) {
-      throw new BadRequestException('Competition has ended')
-    }
+    // if (competition.hasEnded) {
+    //   throw new BadRequestException('Competition has ended')
+    // }
     const scramble = await this.scramblesRepository.findOne({
       where: {
         id: solution.scrambleId,
