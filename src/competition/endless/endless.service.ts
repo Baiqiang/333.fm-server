@@ -128,6 +128,21 @@ export class EndlessService {
     return competitions
   }
 
+  async getEnded(subType?: CompetitionSubType) {
+    const competitions = await this.competitionService.findMany({
+      where: {
+        type: CompetitionType.ENDLESS,
+        subType,
+        status: CompetitionStatus.ENDED,
+      },
+      order: {
+        startTime: 'DESC',
+      },
+    })
+    // await Promise.all(competitions.map(c => this.fetchLevelInfo(c)))
+    return competitions
+  }
+
   async getBySeason(season: string) {
     const competition = await this.competitionService.findOne({
       where: {

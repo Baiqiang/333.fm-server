@@ -41,6 +41,14 @@ export class EndlessController {
     return this.endlessService.getOnGoing(subType)
   }
 
+  @Get('ended')
+  public async getEnded(@Query('type') subType: CompetitionSubType) {
+    if (!subType) {
+      subType = undefined
+    }
+    return this.endlessService.getEnded(subType)
+  }
+
   @Get(':season')
   async getSeason(@Param('season') season: string) {
     const competition = await this.endlessService.getBySeason(season)
