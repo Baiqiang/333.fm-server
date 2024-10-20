@@ -234,17 +234,23 @@ export class WeeklyService {
       }
     }
     const preSubmission = preSubmissions.find(s => s.mode === solution.mode)
-    const submission = preSubmission || new Submissions()
-    submission.competition = competition
-    submission.mode = solution.mode
-    submission.scramble = scramble
-    submission.user = user
-    submission.solution = solution.solution
-    submission.comment = solution.comment
     const moves = calculateMoves(scramble.scramble, solution.solution)
     // check if moves is better than preSubmission
     if (solution.mode === CompetitionMode.UNLIMITED && preSubmissions.some(s => s.moves < moves)) {
       throw new BadRequestException('Solution is not better than previous submission')
+    }
+    let submission = preSubmission
+    if (!submission) {
+      submission = await this.competitionService.createSubmission(competition, scramble, user, solution, {
+        moves,
+      })
+    } else {
+      await this.competitionService.updateSubmission(submission, { ...solution, moves }, [
+        'solution',
+        'moves',
+        'comment',
+        'attachments',
+      ])
     }
     submission.moves = moves
     let result = await this.resultsRepository.findOne({
@@ -281,24 +287,14 @@ export class WeeklyService {
     return submission
   }
 
-  async updateComment(
+  async update(
     competition: Competitions,
     user: Users,
     id: number,
-    solution: Pick<SubmitSolutionDto, 'comment'>,
+    solution: Pick<SubmitSolutionDto, 'comment' | 'attachments'>,
   ) {
-    const submission = await this.submissionsRepository.findOne({
-      where: {
-        id,
-        userId: user.id,
-        competitionId: competition.id,
-      },
-    })
-    if (submission === null) {
-      throw new BadRequestException('Invalid submission')
-    }
-    submission.comment = solution.comment
-    await this.submissionsRepository.save(submission)
+    delete (solution as any).mode
+    return await this.competitionService.updateUserSubmission(competition, user, id, solution)
   }
 
   async turnToUnlimited(competition: Competitions, user: Users, id: number) {

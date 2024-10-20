@@ -3,6 +3,8 @@ import {
   CreateDateColumn,
   Entity,
   Index,
+  JoinTable,
+  ManyToMany,
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
@@ -12,6 +14,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm'
 
+import { Attachments } from './attachment.entity'
 import { CompetitionMode, Competitions } from './competitions.entity'
 import { Results } from './results.entity'
 import { Scrambles } from './scrambles.entity'
@@ -124,6 +127,12 @@ export class Submissions {
 
   @OneToMany(() => UserActivities, userActivities => userActivities.submission)
   userActivities: UserActivities[]
+
+  @ManyToMany(() => Attachments, {
+    eager: true,
+  })
+  @JoinTable()
+  attachments: Attachments[]
 
   @TreeChildren()
   children: Submissions[]

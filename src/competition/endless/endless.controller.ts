@@ -117,7 +117,7 @@ export class EndlessController {
     @Param('season') season: string,
     @Param('id', ParseIntPipe) submissionId: number,
     @CurrentUser() user: Users,
-    @Body() solution: Pick<SubmitSolutionDto, 'comment' | 'mode'>,
+    @Body() solution: Pick<SubmitSolutionDto, 'comment' | 'mode' | 'attachments'>,
   ) {
     const competition = await this.endlessService.getBySeason(season)
     if (!competition) {

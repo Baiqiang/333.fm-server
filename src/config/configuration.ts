@@ -1,5 +1,9 @@
 import { Challenge } from '@/competition/endless/endless.service'
 
+export const UPLOAD_CONFIG = {
+  BASE_URL: '',
+}
+
 function makeBossChallenge(): Challenge[] {
   const challenges: Challenge[] = []
   // 1-40
@@ -118,5 +122,9 @@ export default () => ({
       team: [3000, 3],
     },
     bossChallenges: makeBossChallenge(),
+  },
+  upload: {
+    dest: process.env.UPLOAD_DEST || './uploads',
+    baseURL: (UPLOAD_CONFIG.BASE_URL = process.env.UPLOAD_BASE_URL || 'http://localhost:3001/uploads'),
   },
 })

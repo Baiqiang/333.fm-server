@@ -2,9 +2,9 @@ import { Exclude } from 'class-transformer'
 import { Column, CreateDateColumn, Entity, Index, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm'
 
 import { Competitions } from './competitions.entity'
+import { Submissions } from './submissions.entity'
 import { UserInsertionFinders } from './user-insertion-finders.entity'
 import { UserRoles } from './user-roles.entity'
-import { Submissions } from './submissions.entity'
 
 @Entity()
 @Index(['source', 'sourceId'])

@@ -75,7 +75,7 @@ export class PracticeController {
     @Param('alias') alias: string,
     @Param('id', ParseIntPipe) submissionId: number,
     @CurrentUser() user: Users,
-    @Body() solution: Pick<SubmitSolutionDto, 'comment'>,
+    @Body() solution: Pick<SubmitSolutionDto, 'comment' | 'attachments'>,
   ) {
     const competition = await this.getOrThrow(alias)
     await this.practiceService.update(competition, user, submissionId, solution)

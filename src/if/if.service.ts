@@ -97,7 +97,7 @@ export class IfService {
     dto.algs.sort()
     try {
       dto.scramble = formatAlgorithm(dto.scramble)
-    } catch (e) {
+    } catch {
       throw new BadRequestException('Invalid scramble')
     }
     if (dto.scramble.split(/\s+/).length > config.scrambleLength) {
@@ -107,7 +107,7 @@ export class IfService {
     let bestCube: Cube
     try {
       ;({ bestCube, formattedSkeleton } = formatSkeleton(dto.scramble, dto.skeleton))
-    } catch (e) {
+    } catch {
       throw new BadRequestException('Invalid skeleton')
     }
     if (formattedSkeleton.split(' ').length > config.maxSkeletonLength) {

@@ -17,7 +17,6 @@ import { DNF, DNS, Results } from '@/entities/results.entity'
 import { Scrambles } from '@/entities/scrambles.entity'
 import { Submissions } from '@/entities/submissions.entity'
 import { Users } from '@/entities/users.entity'
-import { calculateMoves } from '@/utils'
 import { generateScrambles } from '@/utils/scramble'
 
 import { CompetitionService } from '../competition.service'
@@ -104,7 +103,7 @@ export class PracticeService {
         .createQueryBuilder('u')
         .leftJoin('u.submissions', 's')
         .leftJoin('s.competition', 'c')
-        .loadRelationCountAndMap('u.practices', 'u.submissions', 's', (qb) => {
+        .loadRelationCountAndMap('u.practices', 'u.submissions', 's', qb => {
           return qb
             .leftJoin('s.competition', 'c')
             .andWhere('c.type = :type', { type: CompetitionType.PERSONAL_PRACTICE })
@@ -126,20 +125,14 @@ export class PracticeService {
   }
 
   async getUserPractices(user: Users) {
-    const competitions = await this.competitionService.findMany({
-      where: {
-        type: CompetitionType.PERSONAL_PRACTICE,
-        userId: user.id,
-      },
-      order: {
-        createdAt: 'DESC',
-      },
-      relations: {
-        user: true,
-      },
-    })
-    await Promise.all(competitions.map(competition => this.fetchInfo(competition)))
-    return competitions
+    return this.competitionsRepository
+      .createQueryBuilder('c')
+      .innerJoinAndSelect('c.user', 'u')
+      .loadRelationCountAndMap('c.attendees', 'c.results')
+      .where('c.type = :type', { type: CompetitionType.PERSONAL_PRACTICE })
+      .andWhere('c.user_id = :userId', { userId: user.id })
+      .orderBy('c.created_at', 'DESC')
+      .getMany()
   }
 
   async fetchInfo(competition: Competitions, siblings = false) {
@@ -240,15 +233,7 @@ export class PracticeService {
       throw new BadRequestException('You have already submitted a solution')
     }
 
-    const submission = new Submissions()
-    submission.competition = competition
-    submission.mode = solution.mode
-    submission.scramble = scramble
-    submission.user = user
-    submission.solution = solution.solution
-    submission.comment = solution.comment
-    const moves = calculateMoves(scramble.scramble, solution.solution)
-    submission.moves = moves
+    const submission = await this.competitionService.createSubmission(competition, scramble, user, solution)
     let result = await this.resultsRepository.findOne({
       where: {
         competitionId: competition.id,
@@ -281,23 +266,17 @@ export class PracticeService {
       scrambleId: scramble.id,
       scrambleNumber: scramble.number,
       submissionId: submission.id,
-      moves,
+      moves: submission.moves,
     })
     return submission
   }
 
-  async update(competition: Competitions, user: Users, id: number, solution: Pick<SubmitSolutionDto, 'comment'>) {
-    const submission = await this.submissionsRepository.findOne({
-      where: {
-        id,
-        userId: user.id,
-        competitionId: competition.id,
-      },
-    })
-    if (submission === null) {
-      throw new BadRequestException('Invalid submission')
-    }
-    submission.comment = solution.comment
-    return await this.submissionsRepository.save(submission)
+  async update(
+    competition: Competitions,
+    user: Users,
+    id: number,
+    solution: Pick<SubmitSolutionDto, 'comment' | 'attachments'>,
+  ) {
+    return await this.competitionService.updateUserSubmission(competition, user, id, solution)
   }
 }

@@ -58,7 +58,10 @@ export function centerLength(centerCycles: number, placement: number): number {
   return centerCycles === 3 ? 6 : centerCycles === 2 ? 4 : [2, 8, 10].includes(placement) ? 4 : 6
 }
 
-export function calculateHash(obj: any) {
+export function calculateHash(obj: object | Buffer | string): string {
+  if (Buffer.isBuffer(obj)) {
+    return createHash('md5').update(obj).digest('hex')
+  }
   return createHash('md5').update(JSON.stringify(obj)).digest('hex')
 }
 
@@ -84,7 +87,7 @@ export function calculateMoves(scramble: string, solution: string, allowNISS = f
     if (moves > 8000) {
       moves = DNF
     }
-  } catch (e) {
+  } catch {
     moves = DNF
   }
   return moves
@@ -94,7 +97,7 @@ export function countMoves(skeleton: string): number {
   try {
     const alg = new Algorithm(skeleton)
     return alg.length * 100
-  } catch (e) {
+  } catch {
     return 0
   }
 }
@@ -142,7 +145,7 @@ export function calculatePhases(scramble: string, dto: SubmitSolutionDto, parent
       moves = dto.insertions.reduce((acc, cur) => acc + countMoves(cur.insertion), 0)
       cumulativeMoves = countMoves(solution)
       cancelMoves = moves + parentSkeletonAlg.length * 100 - cumulativeMoves
-    } catch (e) {}
+    } catch {}
   }
   const { bestCube, formattedSkeleton } = formatSkeleton(scramble, skeleton)
   let phase: SubmissionPhase

@@ -15,6 +15,9 @@ export class SubmitSolutionDto {
   comment: string
 
   @IsOptional()
+  attachments?: number[]
+
+  @IsOptional()
   parentId?: number
 
   @IsOptional()

@@ -70,13 +70,13 @@ export class WeeklyController {
     @Param('week') week: string,
     @Param('id', ParseIntPipe) submissionId: number,
     @CurrentUser() user: Users,
-    @Body() solution: Pick<SubmitSolutionDto, 'comment'>,
+    @Body() solution: Pick<SubmitSolutionDto, 'comment' | 'attachments'>,
   ) {
     const competition = await this.weeklyService.getCompetition(week)
     if (!competition) {
       throw new NotFoundException()
     }
-    await this.weeklyService.updateComment(competition, user, submissionId, solution)
+    await this.weeklyService.update(competition, user, submissionId, solution)
     return true
   }
 

@@ -1,8 +1,8 @@
 import { BullModule } from '@nestjs/bull'
-import { ClassSerializerInterceptor, Module } from '@nestjs/common'
-import { APP_INTERCEPTOR } from '@nestjs/core'
+import { Module } from '@nestjs/common'
 import { TypeOrmModule } from '@nestjs/typeorm'
 
+import { AttachmentModule } from '@/attachment/attachment.module'
 import { Competitions } from '@/entities/competitions.entity'
 import { EndlessKickoffs } from '@/entities/endless-kickoffs.entity'
 import { Results } from '@/entities/results.entity'
@@ -28,6 +28,7 @@ import { WeeklyService } from './weekly/weekly.service'
 
 @Module({
   imports: [
+    AttachmentModule,
     TypeOrmModule.forFeature([Competitions, EndlessKickoffs, Results, Scrambles, Submissions, Users, UserActivities]),
     BullModule.registerQueue(
       {
@@ -43,10 +44,6 @@ import { WeeklyService } from './weekly/weekly.service'
     UserModule,
   ],
   providers: [
-    {
-      provide: APP_INTERCEPTOR,
-      useClass: ClassSerializerInterceptor,
-    },
     CompetitionService,
     WeeklyService,
     EndlessService,

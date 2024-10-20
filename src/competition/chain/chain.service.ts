@@ -200,7 +200,6 @@ export class ChainService {
     if (scramble === null) {
       throw new BadRequestException('Invalid scramble')
     }
-    const submission = new Submissions()
     let parent: Submissions | null = null
     if (dto.parentId) {
       parent = await this.submissionsRepository.findOne({
@@ -214,7 +213,6 @@ export class ChainService {
         throw new BadRequestException('Invalid parent')
       }
       parent = await this.submissionsRepository.findAncestorsTree(parent)
-      submission.parent = parent
       if (parent === null) {
         throw new BadRequestException('Invalid parent')
       }
@@ -224,6 +222,9 @@ export class ChainService {
     if (moves === 0 || dto.solution.toUpperCase().includes('NISS')) {
       throw new BadRequestException('Invalid solution')
     }
+    const submission = await this.competitionService.createSubmission(competition, scramble, user, dto, {
+      moves,
+    })
     switch (phase) {
       case SubmissionPhase.SCRAMBLED:
         throw new BadRequestException('Invalid solution')
@@ -257,15 +258,9 @@ export class ChainService {
     if (duplicate) {
       throw new BadRequestException('Duplicate solution')
     }
-    submission.competition = competition
-    submission.scramble = scramble
-    submission.user = user
-    submission.mode = dto.mode
-    submission.solution = solution
+    submission.parent = parent
     submission.insertions = dto.insertions ?? null
     submission.inverse = dto.inverse
-    submission.comment = dto.comment
-    submission.moves = moves
     submission.cancelMoves = cancelMoves
     submission.cumulativeMoves = cumulativeMoves
     await this.submissionsRepository.save(submission)

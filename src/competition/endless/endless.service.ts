@@ -480,6 +480,7 @@ export class EndlessService {
     const submissions = await this.submissionsRepository
       .createQueryBuilder('s')
       .leftJoinAndSelect('s.user', 'u')
+      .leftJoinAndSelect('s.attachments', 'a')
       .loadRelationCountAndMap('s.likes', 's.userActivities', 'ual', qb => qb.andWhere('ual.like = 1'))
       .loadRelationCountAndMap('s.favorites', 's.userActivities', 'uaf', qb => qb.andWhere('uaf.favorite = 1'))
       .where('s.scramble_id = :id', { id: scramble.id })
@@ -532,14 +533,9 @@ export class EndlessService {
     if (moves === DNF) {
       throw new BadRequestException('DNF')
     }
-    const submission = new Submissions()
-    submission.competition = competition
-    submission.scramble = scramble
-    submission.user = user
-    submission.mode = solution.mode
-    submission.solution = solution.solution
-    submission.comment = solution.comment
-    submission.moves = moves
+    const submission = await this.competitionService.createSubmission(competition, scramble, user, solution, {
+      moves,
+    })
     let result = await this.resultsRepository.findOne({
       where: {
         competition: {
@@ -581,20 +577,8 @@ export class EndlessService {
     competition: Competitions,
     user: Users,
     id: number,
-    solution: Pick<SubmitSolutionDto, 'comment' | 'mode'>,
+    solution: Pick<SubmitSolutionDto, 'comment' | 'mode' | 'attachments'>,
   ) {
-    const submission = await this.submissionsRepository.findOne({
-      where: {
-        id,
-        userId: user.id,
-        competitionId: competition.id,
-      },
-    })
-    if (submission === null) {
-      throw new BadRequestException('Invalid submission')
-    }
-    submission.mode = solution.mode
-    submission.comment = solution.comment
-    return await this.submissionsRepository.save(submission)
+    return await this.competitionService.updateUserSubmission(competition, user, id, solution)
   }
 }
