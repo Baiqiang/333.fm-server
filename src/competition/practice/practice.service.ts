@@ -125,7 +125,7 @@ export class PracticeService {
   }
 
   async getUserPractices(user: Users) {
-    return this.competitionsRepository
+    const created = await this.competitionsRepository
       .createQueryBuilder('c')
       .innerJoinAndSelect('c.user', 'u')
       .loadRelationCountAndMap('c.attendees', 'c.results')
@@ -133,6 +133,21 @@ export class PracticeService {
       .andWhere('c.user_id = :userId', { userId: user.id })
       .orderBy('c.created_at', 'DESC')
       .getMany()
+    const joined = await this.competitionsRepository
+      .createQueryBuilder('c')
+      .leftJoinAndSelect('c.submissions', 's')
+      .innerJoinAndSelect('c.user', 'u')
+      .loadRelationCountAndMap('c.attendees', 'c.results')
+      .where('c.type = :type', { type: CompetitionType.PERSONAL_PRACTICE })
+      .andWhere('s.user_id = :userId', { userId: user.id })
+      .andWhere('c.user_id != :userId', { userId: user.id })
+      .groupBy('c.id')
+      .orderBy('c.id', 'DESC')
+      .getMany()
+    return {
+      created,
+      joined,
+    }
   }
 
   async fetchInfo(competition: Competitions, siblings = false) {
