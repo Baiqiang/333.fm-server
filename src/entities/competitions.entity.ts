@@ -123,6 +123,8 @@ export class Competitions {
   results: Promise<Results[]>
 
   winners: Results[]
+  prevCompetition?: Competitions
+  nextCompetition?: Competitions
 
   levels: Level[]
   challenges?: Challenge[]

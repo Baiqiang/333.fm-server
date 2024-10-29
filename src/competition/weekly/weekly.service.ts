@@ -190,13 +190,13 @@ export class WeeklyService {
     return data
   }
 
-  getCompetition(week: string) {
+  async getCompetition(week: string) {
     // get date from week in format YYYY-ww
     const date = parseWeek(week)
     if (date === null) {
       return null
     }
-    return this.competitionService.findOne({
+    const competition = await this.competitionService.findOne({
       where: {
         type: CompetitionType.WEEKLY,
         startTime: date.toDate(),
@@ -205,6 +205,23 @@ export class WeeklyService {
         scrambles: true,
       },
     })
+    if (competition) {
+      const nextCompetition = await this.competitionService.findOne({
+        where: {
+          type: CompetitionType.WEEKLY,
+          startTime: date.add(1, 'week').toDate(),
+        },
+      })
+      competition.nextCompetition = nextCompetition
+      const prevCompetition = await this.competitionService.findOne({
+        where: {
+          type: CompetitionType.WEEKLY,
+          startTime: date.subtract(1, 'week').toDate(),
+        },
+      })
+      competition.prevCompetition = prevCompetition
+    }
+    return competition
   }
 
   async submitSolution(competition: Competitions, user: Users, solution: SubmitSolutionDto) {

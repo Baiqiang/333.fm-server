@@ -43,7 +43,7 @@ export class AttachmentController {
       new ParseFilePipe({
         validators: [
           new MaxFileSizeValidator({
-            // 10MB max
+            // 20MB max
             maxSize: 20 * 1024 * 1024,
           }),
           new FileTypeValidator({
