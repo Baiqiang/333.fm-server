@@ -169,7 +169,9 @@ export class ProfileService {
         },
       },
       order: {
-        updatedAt: 'DESC',
+        competition: {
+          startTime: 'DESC',
+        },
       },
     })
 
