@@ -25,6 +25,52 @@ export class ProfileController {
     return user
   }
 
+  @Get(':id/records')
+  async records(@Param('id') id: string) {
+    const user = await this.userService.findOne(id)
+    if (!user) {
+      throw new NotFoundException()
+    }
+    return this.profileService.getUserRecords(user)
+  }
+
+  @Get(':id/weekly')
+  async weekly(@Param('id') id: string) {
+    const user = await this.userService.findOne(id)
+    if (!user) {
+      throw new NotFoundException()
+    }
+    return this.profileService.getUserWeeklyResults(user)
+  }
+
+  @Get(':id/practice')
+  async practice(@Param('id') id: string) {
+    const user = await this.userService.findOne(id)
+    if (!user) {
+      throw new NotFoundException()
+    }
+    return this.profileService.getUserPracticeResults(user)
+  }
+
+  @Get(':id/endless')
+  @UseGuards(JwtAuthGuard)
+  async endless(@Param('id') id: string, @Query('challenge') challenge: string, @CurrentUser() currentUser: Users) {
+    const user = await this.userService.findOne(id)
+    if (!user) {
+      throw new NotFoundException()
+    }
+    return this.profileService.getUserEndlessSubmissions(user, currentUser, challenge)
+  }
+
+  @Get(':id/joined-endless')
+  async joinedEndless(@Param('id') id: string) {
+    const user = await this.userService.findOne(id)
+    if (!user) {
+      throw new NotFoundException()
+    }
+    return this.profileService.getUserJoinedEndlesses(user)
+  }
+
   @Get(':id/submissions')
   @UseGuards(JwtAuthGuard)
   @ApiQuery({ type: PaginationDto })
