@@ -100,4 +100,9 @@ export class UserController {
   public async favorites(@CurrentUser() user: Users, @Query() paginationOption: PaginationDto) {
     return this.userService.getActivities(user, { favorite: true }, paginationOption)
   }
+
+  @Get('bot-token')
+  public async getBotToken(@CurrentUser() user: Users) {
+    return this.userService.getBotToken(user)
+  }
 }

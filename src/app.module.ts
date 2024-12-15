@@ -18,6 +18,7 @@ import configuration from './config/configuration'
 import { IfModule } from './if/if.module'
 import { ProfileModule } from './profile/profile.module'
 import { UserModule } from './user/user.module'
+import { BotModule } from './bot/bot.module';
 
 @Module({
   imports: [
@@ -60,6 +61,7 @@ import { UserModule } from './user/user.module'
     CompetitionModule,
     ProfileModule,
     AttachmentModule,
+    BotModule,
   ],
   controllers: [AppController],
   providers: [

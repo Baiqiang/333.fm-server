@@ -6,7 +6,7 @@ import { ExtractJwt, Strategy } from 'passport-jwt'
 import { UserService } from '@/user/user.service'
 
 @Injectable()
-export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
+export class BotStrategy extends PassportStrategy(Strategy, 'bot') {
   constructor(
     private readonly configService: ConfigService,
     private readonly userService: UserService,
@@ -14,11 +14,11 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('jwt.secret'),
+      secretOrKey: configService.get<string>('bot.secret'),
     })
   }
 
-  validate(payload: { id: number }) {
-    return this.userService.findOne(payload.id)
+  validate(payload: { wcaId: string }) {
+    return this.userService.findOne(payload.wcaId)
   }
 }

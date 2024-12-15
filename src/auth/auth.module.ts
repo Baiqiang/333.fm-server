@@ -8,6 +8,7 @@ import { UserModule } from '@/user/user.module'
 
 import { AuthController } from './auth.controller'
 import { AuthService } from './auth.service'
+import { BotStrategy } from './strategies/bot.strategy'
 import { JwtStrategy } from './strategies/jwt.strategy'
 import { WCAStrategy } from './strategies/wca.strategy'
 
@@ -25,6 +26,6 @@ import { WCAStrategy } from './strategies/wca.strategy'
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, WCAStrategy, JwtStrategy],
+  providers: [AuthService, WCAStrategy, JwtStrategy, BotStrategy],
 })
 export class AuthModule {}

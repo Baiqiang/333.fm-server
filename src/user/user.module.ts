@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common'
 import { TypeOrmModule } from '@nestjs/typeorm'
 
+import { BotModule } from '@/bot/bot.module'
 import { Algs } from '@/entities/algs.entity'
+import { BotTokens } from '@/entities/bot-tokens.entity'
 import { Competitions } from '@/entities/competitions.entity'
 import { InsertionFinders } from '@/entities/insertion-finders.entity'
 import { RealInsertionFinders } from '@/entities/real-insertion-finders.entity'
@@ -26,7 +28,9 @@ import { UserService } from './user.service'
       UserInsertionFinders,
       UserRoles,
       UserActivities,
+      BotTokens,
     ]),
+    BotModule,
   ],
   exports: [UserService],
   providers: [UserService],

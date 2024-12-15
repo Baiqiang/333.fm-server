@@ -12,7 +12,7 @@ import {
 
 import { CurrentUser } from '@/auth/decorators/current-user.decorator'
 import { JwtAuthGuard } from '@/auth/guards/jwt.guard'
-import { JwtRequiredGuard } from '@/auth/guards/jwt-required.guard'
+import { JwtOrBotRequiredGuard } from '@/auth/guards/jwt-or-bot-required.guard'
 import { CreateCompetitionDto } from '@/dtos/create-comptition.dto'
 import { SubmitSolutionDto } from '@/dtos/submit-solution.dto'
 import { Submissions } from '@/entities/submissions.entity'
@@ -37,7 +37,7 @@ export class PracticeController {
   }
 
   @Post()
-  @UseGuards(JwtRequiredGuard)
+  @UseGuards(JwtOrBotRequiredGuard)
   async create(@Body() dto: CreateCompetitionDto, @CurrentUser() user: Users) {
     const last = await this.practiceService.getLatest(user)
     if (last && !(await this.practiceService.checkFinished(user, last))) {
@@ -63,14 +63,14 @@ export class PracticeController {
   }
 
   @Post(':alias')
-  @UseGuards(JwtRequiredGuard)
+  @UseGuards(JwtOrBotRequiredGuard)
   public async submit(@Param('alias') alias: string, @CurrentUser() user: Users, @Body() solution: SubmitSolutionDto) {
     const competition = await this.getOrThrow(alias)
     return await this.practiceService.submitSolution(competition, user, solution)
   }
 
   @Post(':alias/:id')
-  @UseGuards(JwtRequiredGuard)
+  @UseGuards(JwtOrBotRequiredGuard)
   public async update(
     @Param('alias') alias: string,
     @Param('id', ParseIntPipe) submissionId: number,

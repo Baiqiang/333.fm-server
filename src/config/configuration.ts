@@ -97,6 +97,9 @@ export default () => ({
   jwt: {
     secret: process.env.JWT_SECRET ?? '333.fm test secret',
   },
+  bot: {
+    secret: process.env.BOT_SECRET ?? '333.fm test bot secret',
+  },
   oauth: {
     wca: {
       clientID: 'BHRDKfu7CguB9D9ijTtoZV67A46m2mQ0VMEZhe-h1ak',

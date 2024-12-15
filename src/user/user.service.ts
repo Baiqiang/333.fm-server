@@ -4,6 +4,7 @@ import { IPaginationOptions, paginate, Pagination } from 'nestjs-typeorm-paginat
 import { FindOptionsWhere, In, Repository } from 'typeorm'
 
 import { WCAProfile } from '@/auth/strategies/wca.strategy'
+import { BotService } from '@/bot/bot.service'
 import { InsertionFinders } from '@/entities/insertion-finders.entity'
 import { Submissions } from '@/entities/submissions.entity'
 import { UserActivities } from '@/entities/user-activities.entity'
@@ -24,6 +25,7 @@ export class UserService {
     private readonly userActivitiesRepository: Repository<UserActivities>,
     @InjectRepository(Submissions)
     private readonly submissionsRepository: Repository<Submissions>,
+    private readonly botService: BotService,
   ) {}
 
   async findOrCreate(profile: WCAProfile) {
@@ -252,5 +254,9 @@ export class UserService {
       }),
       meta: data.meta,
     }
+  }
+
+  async getBotToken(user: Users) {
+    return this.botService.getOrGenerateToken(user)
   }
 }
