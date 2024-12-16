@@ -5,6 +5,7 @@ import { Roles } from '@/auth/decorators/roles.decorator'
 import { Role } from '@/auth/enums/role.enum'
 import { JwtOrBotRequiredGuard } from '@/auth/guards/jwt-or-bot-required.guard'
 import { RolesGuard } from '@/auth/guards/roles.guard'
+import { BindBotDto } from '@/dtos/bind-bot.dto'
 
 import { BotService } from './bot.service'
 
@@ -27,7 +28,7 @@ export class BotController {
     },
   })
   @ApiBearerAuth()
-  public async bind(@Body('token') token: string) {
+  public async bind(@Body() { token }: BindBotDto) {
     return this.botService.bind(token)
   }
 }
