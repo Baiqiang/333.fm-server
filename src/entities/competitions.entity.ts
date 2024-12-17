@@ -1,4 +1,4 @@
-import { Exclude } from 'class-transformer'
+import { Exclude, Expose } from 'class-transformer'
 import {
   Column,
   CreateDateColumn,
@@ -136,5 +136,23 @@ export class Competitions {
 
   get hasEnded() {
     return this.status === CompetitionStatus.ENDED || (this.endTime !== null && this.endTime <= new Date())
+  }
+
+  @Expose()
+  get url() {
+    const { alias, type, user } = this
+    switch (type) {
+      case CompetitionType.WEEKLY:
+        return `/weekly/${alias}`
+      case CompetitionType.ENDLESS:
+        return `/endless/${alias}`
+      case CompetitionType.FMC_CHAIN:
+        return `/chain`
+      case CompetitionType.PERSONAL_PRACTICE:
+        if (!user) return '/practice'
+        return `/practice/${user.wcaId || user.id}/${alias.split('-').pop()}`
+      default:
+        return ''
+    }
   }
 }
