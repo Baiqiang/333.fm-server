@@ -203,7 +203,7 @@ export class PracticeService {
   async create(user: Users, dto: CreateCompetitionDto) {
     const count = await this.count(user)
     const competition = new Competitions()
-    const format = competition.format === CompetitionFormat.MO3 ? CompetitionFormat.MO3 : CompetitionFormat.BO1
+    const format = dto.format === CompetitionFormat.MO3 ? CompetitionFormat.MO3 : CompetitionFormat.BO1
     competition.userId = user.id
     competition.user = user
     competition.type = CompetitionType.PERSONAL_PRACTICE
