@@ -9,6 +9,7 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common'
+import { ApiBearerAuth } from '@nestjs/swagger'
 
 import { CurrentUser } from '@/auth/decorators/current-user.decorator'
 import { JwtAuthGuard } from '@/auth/guards/jwt.guard'
@@ -37,6 +38,7 @@ export class PracticeController {
   }
 
   @Post()
+  @ApiBearerAuth()
   @UseGuards(JwtOrBotRequiredGuard)
   async create(@Body() dto: CreateCompetitionDto, @CurrentUser() user: Users) {
     const last = await this.practiceService.getLatest(user)
@@ -63,6 +65,7 @@ export class PracticeController {
   }
 
   @Post(':alias')
+  @ApiBearerAuth()
   @UseGuards(JwtOrBotRequiredGuard)
   public async submit(@Param('alias') alias: string, @CurrentUser() user: Users, @Body() solution: SubmitSolutionDto) {
     const competition = await this.getOrThrow(alias)
@@ -70,6 +73,7 @@ export class PracticeController {
   }
 
   @Post(':alias/:id')
+  @ApiBearerAuth()
   @UseGuards(JwtOrBotRequiredGuard)
   public async update(
     @Param('alias') alias: string,

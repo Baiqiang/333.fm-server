@@ -203,16 +203,17 @@ export class PracticeService {
   async create(user: Users, dto: CreateCompetitionDto) {
     const count = await this.count(user)
     const competition = new Competitions()
+    const format = competition.format === CompetitionFormat.MO3 ? CompetitionFormat.MO3 : CompetitionFormat.BO1
     competition.userId = user.id
     competition.user = user
     competition.type = CompetitionType.PERSONAL_PRACTICE
-    competition.format = dto.format
+    competition.format = format
     competition.name = `Practice #${count + 1}`
     competition.alias = `practice-${user.id}-${count + 1}`
     competition.startTime = new Date()
     competition.status = CompetitionStatus.ON_GOING
     await this.competitionsRepository.save(competition)
-    const scrambleNum = competition.format === CompetitionFormat.MO3 ? 3 : 1
+    const scrambleNum = format === CompetitionFormat.MO3 ? 3 : 1
     const scrambles = generateScrambles(scrambleNum).map((str, number) => {
       const scramble = new Scrambles()
       scramble.number = number + 1
