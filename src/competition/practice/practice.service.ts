@@ -186,6 +186,7 @@ export class PracticeService {
     }
     const submissions = await this.submissionsRepository.findBy({
       scrambleId: In(scrambles.map(s => s.id)),
+      userId: user.id,
     })
     if (scrambles.every(({ id }) => submissions.some(({ scrambleId }) => scrambleId === id))) {
       return true
