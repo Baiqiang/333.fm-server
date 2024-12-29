@@ -16,11 +16,13 @@ import { JwtAuthGuard } from '@/auth/guards/jwt.guard'
 import { JwtOrBotRequiredGuard } from '@/auth/guards/jwt-or-bot-required.guard'
 import { CreateCompetitionDto } from '@/dtos/create-comptition.dto'
 import { SubmitSolutionDto } from '@/dtos/submit-solution.dto'
+import { CompetitionFormat } from '@/entities/competitions.entity'
 import { Submissions } from '@/entities/submissions.entity'
 import { Users } from '@/entities/users.entity'
 import { UserService } from '@/user/user.service'
 
 import { CompetitionService } from '../competition.service'
+import { DailyService } from '../daily/daily.service'
 import { PracticeService } from './practice.service'
 
 @Controller('practice')
@@ -29,6 +31,7 @@ export class PracticeController {
     private readonly practiceService: PracticeService,
     private readonly competitionService: CompetitionService,
     private readonly userService: UserService,
+    private readonly dailyService: DailyService,
   ) {}
 
   @Get()
@@ -42,8 +45,18 @@ export class PracticeController {
   @UseGuards(JwtOrBotRequiredGuard)
   async create(@Body() dto: CreateCompetitionDto, @CurrentUser() user: Users) {
     const last = await this.practiceService.getLatest(user)
-    if (last && !(await this.practiceService.checkFinished(user, last))) {
-      throw new BadRequestException('Finish current practice before creating new one')
+    if (last) {
+      const [finished, validSolution] = await this.practiceService.checkFinished(user, last)
+      if (!finished) {
+        throw new BadRequestException('Finish current practice before creating new one')
+      }
+      // try to create daily comp
+      if (validSolution && dto.format === CompetitionFormat.BO1) {
+        const daily = await this.dailyService.generateCompetition(user)
+        if (daily) {
+          return daily
+        }
+      }
     }
     const competition = await this.practiceService.create(user, dto)
     return competition
