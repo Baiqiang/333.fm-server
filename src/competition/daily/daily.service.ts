@@ -62,7 +62,7 @@ export class DailyService {
     scramble.scramble = generateScramble()
     scramble.competitionId = competition.id
     await this.scramblesRepository.save(scramble)
-    competition.scramble = scramble
+    competition.scrambles = [scramble]
     return competition
   }
 
