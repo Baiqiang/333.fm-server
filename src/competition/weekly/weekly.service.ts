@@ -37,7 +37,7 @@ export class WeeklyService {
     private readonly competitionService: CompetitionService,
   ) {}
 
-  @Cron('0 0 * * 1')
+  @Cron('* 0 * * 1')
   // generate weekly competition on Monday 00:00
   async generateCompetition() {
     const competition = new Competitions()
@@ -49,8 +49,8 @@ export class WeeklyService {
     if (count > 0) {
       return
     }
-    competition.name = `Weekly ${week.format('YYYY-ww')}`
-    competition.alias = week.format('YYYY-ww')
+    competition.name = `Weekly ${week.format('gggg-ww')}`
+    competition.alias = week.format('gggg-ww')
     competition.startTime = week.toDate()
     competition.endTime = week.add(1, 'week').toDate()
     competition.type = CompetitionType.WEEKLY

@@ -2,6 +2,7 @@ import { createHash } from 'crypto'
 import dayjs from 'dayjs'
 import advancedFormat from 'dayjs/plugin/advancedFormat'
 import weekOfYear from 'dayjs/plugin/weekOfYear'
+import weekYear from 'dayjs/plugin/weekYear'
 import { Algorithm, Cube } from 'insertionfinder'
 
 import { SubmitSolutionDto } from '@/dtos/submit-solution.dto'
@@ -10,6 +11,7 @@ import { SolutionMode, SubmissionPhase, Submissions } from '@/entities/submissio
 
 dayjs.extend(advancedFormat)
 dayjs.extend(weekOfYear)
+dayjs.extend(weekYear)
 
 export function replaceQuote(string: string): string {
   return string.replace(/[‘’`]/g, "'")
