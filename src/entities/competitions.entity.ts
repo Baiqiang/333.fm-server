@@ -24,6 +24,7 @@ export enum CompetitionType {
   ENDLESS,
   FMC_CHAIN,
   PERSONAL_PRACTICE,
+  DAILY,
 }
 
 export enum CompetitionSubType {
@@ -144,6 +145,8 @@ export class Competitions {
     switch (type) {
       case CompetitionType.WEEKLY:
         return `/weekly/${alias}`
+      case CompetitionType.DAILY:
+        return `/daily/${alias}`
       case CompetitionType.ENDLESS:
         return `/endless/${alias}`
       case CompetitionType.FMC_CHAIN:

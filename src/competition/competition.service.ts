@@ -46,6 +46,7 @@ export class CompetitionService {
         competition.status = CompetitionStatus.ENDED
         switch (competition.type) {
           case CompetitionType.WEEKLY:
+          case CompetitionType.DAILY:
             await this.weeklyService.calculateResults(competition)
             break
 

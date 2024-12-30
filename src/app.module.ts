@@ -13,12 +13,12 @@ import { AppController } from './app.controller'
 import { AppService } from './app.service'
 import { AttachmentModule } from './attachment/attachment.module'
 import { AuthModule } from './auth/auth.module'
+import { BotModule } from './bot/bot.module'
 import { CompetitionModule } from './competition/competition.module'
 import configuration from './config/configuration'
 import { IfModule } from './if/if.module'
 import { ProfileModule } from './profile/profile.module'
 import { UserModule } from './user/user.module'
-import { BotModule } from './bot/bot.module';
 
 @Module({
   imports: [

@@ -177,21 +177,26 @@ export class PracticeService {
     }
   }
 
-  async checkFinished(user: Users, competition: Competitions) {
-    const scrambles = await this.scramblesRepository.findBy({
-      competitionId: competition.id,
-    })
+  async checkFinished(user: Users, competition: Competitions): Promise<[boolean, boolean]> {
+    const scrambles = competition.scrambles
     if (scrambles.length === 0) {
-      return false
+      return [false, false]
     }
     const submissions = await this.submissionsRepository.findBy({
       scrambleId: In(scrambles.map(s => s.id)),
       userId: user.id,
     })
-    if (scrambles.every(({ id }) => submissions.some(({ scrambleId }) => scrambleId === id))) {
-      return true
+    const submissionsMap = submissions.reduce(
+      (acc, sub) => {
+        acc[sub.scrambleId] = sub
+        return acc
+      },
+      {} as Record<number, Submissions>,
+    )
+    if (scrambles.every(({ id }) => id in submissionsMap)) {
+      return [true, submissions.some(s => s.moves > 0 && s.moves !== DNF && s.moves !== DNS)]
     }
-    return false
+    return [false, false]
   }
 
   async count(user: Users) {
