@@ -2,7 +2,7 @@ import { forwardRef, Inject, Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import dayjs from 'dayjs'
 import { IPaginationOptions, paginate, Pagination } from 'nestjs-typeorm-paginate'
-import { Repository } from 'typeorm'
+import { LessThan, MoreThan, Repository } from 'typeorm'
 
 import {
   CompetitionFormat,
@@ -125,14 +125,20 @@ export class DailyService {
       const nextCompetition = await this.competitionService.findOne({
         where: {
           type: CompetitionType.DAILY,
-          startTime: date.add(1, 'day').toDate(),
+          startTime: LessThan(date.toDate()),
+        },
+        order: {
+          startTime: 'DESC',
         },
       })
       competition.nextCompetition = nextCompetition
       const prevCompetition = await this.competitionService.findOne({
         where: {
           type: CompetitionType.DAILY,
-          startTime: date.subtract(1, 'day').toDate(),
+          startTime: MoreThan(date.toDate()),
+        },
+        order: {
+          startTime: 'ASC',
         },
       })
       competition.prevCompetition = prevCompetition
