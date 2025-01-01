@@ -125,20 +125,20 @@ export class DailyService {
       const nextCompetition = await this.competitionService.findOne({
         where: {
           type: CompetitionType.DAILY,
-          startTime: LessThan(date.toDate()),
+          startTime: MoreThan(date.toDate()),
         },
         order: {
-          startTime: 'DESC',
+          startTime: 'ASC',
         },
       })
       competition.nextCompetition = nextCompetition
       const prevCompetition = await this.competitionService.findOne({
         where: {
           type: CompetitionType.DAILY,
-          startTime: MoreThan(date.toDate()),
+          startTime: LessThan(date.toDate()),
         },
         order: {
-          startTime: 'ASC',
+          startTime: 'DESC',
         },
       })
       competition.prevCompetition = prevCompetition
