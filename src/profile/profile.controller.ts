@@ -4,6 +4,7 @@ import { ApiQuery } from '@nestjs/swagger'
 import { CurrentUser } from '@/auth/decorators/current-user.decorator'
 import { JwtAuthGuard } from '@/auth/guards/jwt.guard'
 import { PaginationDto } from '@/dtos/pagination.dto'
+import { CompetitionType } from '@/entities/competitions.entity'
 import { Users } from '@/entities/users.entity'
 import { UserService } from '@/user/user.service'
 
@@ -40,7 +41,16 @@ export class ProfileController {
     if (!user) {
       throw new NotFoundException()
     }
-    return this.profileService.getUserWeeklyResults(user)
+    return this.profileService.getUserResultsByType(user, CompetitionType.WEEKLY)
+  }
+
+  @Get(':id/daily')
+  async daily(@Param('id') id: string) {
+    const user = await this.userService.findOne(id)
+    if (!user) {
+      throw new NotFoundException()
+    }
+    return this.profileService.getUserResultsByType(user, CompetitionType.DAILY)
   }
 
   @Get(':id/practice')

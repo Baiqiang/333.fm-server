@@ -32,6 +32,7 @@ export class ProfileService {
 
   async getUserRecords(user: Users) {
     const weeklyRecord = await this.getRecordByType(user, CompetitionType.WEEKLY, true)
+    const dailyRecord = await this.getRecordByType(user, CompetitionType.DAILY, true)
     const practiceRecord = await this.getRecordByType(user, CompetitionType.PERSONAL_PRACTICE)
     const endlessCompetitions = await this.competitionsRepository.find({
       where: {
@@ -80,6 +81,10 @@ export class ProfileService {
         {
           type: 'weekly',
           record: weeklyRecord,
+        },
+        {
+          type: 'daily',
+          record: dailyRecord,
         },
         {
           type: 'practice',
@@ -149,16 +154,16 @@ export class ProfileService {
       single,
       mean,
       bestSingles: bestSingles.map(s => s.result),
-      bestMeans: bestMeans.filter(r => r.submissions.length > 0),
+      bestMeans: bestMeans.filter(r => r.submissions.length > 1),
     }
   }
 
-  async getUserWeeklyResults(user: Users) {
+  async getUserResultsByType(user: Users, type: CompetitionType) {
     const results = await this.resultsRepository.find({
       where: {
         userId: user.id,
         competition: {
-          type: CompetitionType.WEEKLY,
+          type,
           status: CompetitionStatus.ENDED,
         },
       },

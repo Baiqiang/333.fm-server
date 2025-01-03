@@ -30,7 +30,11 @@ export class DailyController {
 
   @Get('on-going')
   public async getOnGoing() {
-    return this.dailyService.getOnGoing()
+    const competition = await this.dailyService.getOnGoing()
+    if (!competition) {
+      throw new NotFoundException()
+    }
+    return competition
   }
 
   @Get(':day')

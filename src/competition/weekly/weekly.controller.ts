@@ -28,7 +28,11 @@ export class WeeklyController {
 
   @Get('on-going')
   public async getOnGoing() {
-    return this.weeklyService.getOnGoing()
+    const competition = await this.weeklyService.getOnGoing()
+    if (!competition) {
+      throw new NotFoundException()
+    }
+    return competition
   }
 
   @Get(':week')
