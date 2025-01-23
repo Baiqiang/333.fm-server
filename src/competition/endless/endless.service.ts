@@ -6,6 +6,7 @@ import { Queue } from 'bull'
 import { Repository } from 'typeorm'
 
 import { SubmitSolutionDto } from '@/dtos/submit-solution.dto'
+import { Challenges } from '@/entities/challenges.entity'
 import { Competitions, CompetitionStatus, CompetitionSubType, CompetitionType } from '@/entities/competitions.entity'
 import { EndlessKickoffs } from '@/entities/endless-kickoffs.entity'
 import { DNF, Results } from '@/entities/results.entity'
@@ -49,14 +50,6 @@ export interface UserBest extends UserLevel {
   best: number
 }
 
-export interface Challenge {
-  startLevel?: number
-  endLevel?: number
-  levels?: number[]
-  single: number
-  team: [number, number]
-}
-
 @Injectable()
 export class EndlessService {
   constructor(
@@ -66,6 +59,8 @@ export class EndlessService {
     private readonly submissionsRepository: Repository<Submissions>,
     @InjectRepository(Results)
     private readonly resultsRepository: Repository<Results>,
+    @InjectRepository(Challenges)
+    private readonly challengesRepository: Repository<Challenges>,
     @Inject(forwardRef(() => CompetitionService))
     private readonly competitionService: CompetitionService,
     @InjectQueue('endless')
@@ -214,14 +209,14 @@ export class EndlessService {
         }
       }),
     )
-    switch (competition.subType) {
-      case CompetitionSubType.REGULAR:
-        competition.challenges = [this.configService.get<Challenge>('endless.kickoffMoves')]
-        break
-      case CompetitionSubType.BOSS_CHALLENGE:
-        competition.challenges = this.configService.get<Challenge[]>('endless.bossChallenges')
-        break
-    }
+    competition.challenges = await this.challengesRepository.find({
+      where: {
+        competitionId: competition.id,
+      },
+      order: {
+        id: 'DESC',
+      },
+    })
   }
 
   handleScramble(scramble: Scrambles, competition: Competitions) {
