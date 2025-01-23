@@ -5,13 +5,14 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { Job } from 'bull'
 import { LessThanOrEqual, Repository } from 'typeorm'
 
+import { Challenges, defaultChallenge } from '@/entities/challenges.entity'
 import { Competitions, CompetitionSubType } from '@/entities/competitions.entity'
 import { EndlessKickoffs } from '@/entities/endless-kickoffs.entity'
 import { Scrambles } from '@/entities/scrambles.entity'
 import { Submissions } from '@/entities/submissions.entity'
 import { generateScramble, ScrambleType } from '@/utils/scramble'
 
-import { Challenge, EndlessJob } from '../endless.service'
+import { EndlessJob } from '../endless.service'
 
 @Processor('endless')
 export class EndlessProcessor {
@@ -31,19 +32,19 @@ export class EndlessProcessor {
   @Process()
   async process(job: Job<EndlessJob>) {
     const { competitionId, userId, scrambleId, scrambleNumber, submissionId, moves } = job.data
-    let challenge: Challenge = {
-      single: 8000,
-      team: [8000, 1],
-    }
-    let scrambleType: ScrambleType = ScrambleType.NORMAL
-    const competition = await this.competitionsRepository.findOneBy({ id: competitionId })
+    const competition = await this.competitionsRepository.findOne({
+      where: {
+        id: competitionId,
+      },
+      relations: {
+        challenges: true,
+      },
+    })
     if (competition.hasEnded) {
       return
     }
+    let scrambleType: ScrambleType = ScrambleType.NORMAL
     switch (competition.subType) {
-      case CompetitionSubType.BOSS_CHALLENGE:
-        challenge = this.getBossChallenge(scrambleNumber)
-        break
       case CompetitionSubType.EO_PRACTICE:
         scrambleType = ScrambleType.EO
         break
@@ -56,11 +57,8 @@ export class EndlessProcessor {
       case CompetitionSubType.JZP_PRACTICE:
         scrambleType = ScrambleType.JZP
         break
-      case CompetitionSubType.REGULAR:
-        challenge = this.configService.get<Challenge>('endless.kickoffMoves')
-      default:
-        break
     }
+    const challenge = this.getChallenge(moves, competition.challenges)
     const { single, team } = challenge
     // if the result is greater than 30, nothing to do
     if (moves > team[0]) {
@@ -124,12 +122,14 @@ export class EndlessProcessor {
     await this.kickoffsRepository.save(kickoffs)
   }
 
-  getBossChallenge(level: number): Challenge {
-    const bossChallenges = this.configService.get<Challenge[]>('endless.bossChallenges')
-    let bossChallenge = bossChallenges.find(c => c.levels?.includes(level))
-    if (bossChallenge === undefined) {
-      bossChallenge = bossChallenges.find(c => c.startLevel <= level && c.endLevel >= level)
+  getChallenge(level: number, challenges: Challenges[]): Challenges {
+    if (challenges.length === 0) {
+      return defaultChallenge
     }
-    return bossChallenge ?? bossChallenges[bossChallenges.length - (level % 10 === 0 ? 1 : 2)]
+    let challenge = challenges.find(c => c.levels?.includes(level))
+    if (challenge === undefined) {
+      challenge = challenges.find(c => c.startLevel <= level && c.endLevel >= level)
+    }
+    return challenge ?? challenges[challenges.length - 1]
   }
 }

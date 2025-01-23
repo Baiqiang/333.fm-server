@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common'
 import { TypeOrmModule } from '@nestjs/typeorm'
 
 import { AttachmentModule } from '@/attachment/attachment.module'
+import { Challenges } from '@/entities/challenges.entity'
 import { Competitions } from '@/entities/competitions.entity'
 import { EndlessKickoffs } from '@/entities/endless-kickoffs.entity'
 import { Results } from '@/entities/results.entity'
@@ -31,7 +32,16 @@ import { WeeklyService } from './weekly/weekly.service'
 @Module({
   imports: [
     AttachmentModule,
-    TypeOrmModule.forFeature([Competitions, EndlessKickoffs, Results, Scrambles, Submissions, Users, UserActivities]),
+    TypeOrmModule.forFeature([
+      Competitions,
+      Challenges,
+      EndlessKickoffs,
+      Results,
+      Scrambles,
+      Submissions,
+      Users,
+      UserActivities,
+    ]),
     BullModule.registerQueue(
       {
         name: 'endless',
