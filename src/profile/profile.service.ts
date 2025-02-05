@@ -111,6 +111,7 @@ export class ProfileService {
     const averageQb = bestQb
       .clone()
       .andWhere('c.format = :format', { format: CompetitionFormat.MO3 })
+      .andWhere('!JSON_CONTAINS(`values`, "0")')
       .select(['MIN(r.average) AS mean'])
     const { single } = await bestQb.getRawOne<{ single: number }>()
     const { mean } = await averageQb.getRawOne<{ mean: number }>()
@@ -327,7 +328,10 @@ export class ProfileService {
       }
       for (const submission of data.items) {
         submission.hideSolution = !submittedMap[submission.scrambleId]
-        if (submission.competition.type === CompetitionType.WEEKLY && submission.competition.hasEnded) {
+        if (
+          [CompetitionType.WEEKLY, CompetitionType.DAILY].includes(submission.competition.type) &&
+          submission.competition.hasEnded
+        ) {
           submission.hideSolution = false
         }
         if (submission.hideSolution) {
