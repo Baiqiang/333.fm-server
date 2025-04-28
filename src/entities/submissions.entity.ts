@@ -79,6 +79,9 @@ export class Submissions {
   @Column({ default: 0 })
   cancelMoves: number
 
+  @Column({ default: 0 })
+  damage: number
+
   @Column()
   competitionId: number
 

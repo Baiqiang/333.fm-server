@@ -2,6 +2,22 @@ import { Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn, Up
 
 import { Competitions } from './competitions.entity'
 
+export enum ChallengeType {
+  REGULAR,
+  BOSS,
+}
+
+export interface RegularChallenge {
+  single: number
+  team: [number, number]
+}
+
+export interface BossChallenge {
+  instantKill: number
+  minHitPoints: number
+  maxHitPoints: number
+}
+
 @Entity()
 export class Challenges {
   @PrimaryGeneratedColumn()
@@ -9,6 +25,9 @@ export class Challenges {
 
   @Column()
   competitionId: number
+
+  @Column()
+  type: ChallengeType
 
   @Column({ nullable: true })
   startLevel?: number
@@ -19,11 +38,8 @@ export class Challenges {
   @Column({ nullable: true, type: 'json' })
   levels?: number[]
 
-  @Column()
-  single: number
-
   @Column({ type: 'json' })
-  team: [number, number]
+  challenge: RegularChallenge | BossChallenge
 
   @CreateDateColumn()
   createdAt: Date
@@ -36,8 +52,24 @@ export class Challenges {
     onUpdate: 'CASCADE',
   })
   competition: Competitions
+
+  get isBoss(): boolean {
+    return this.type === ChallengeType.BOSS
+  }
+
+  get isRegular(): boolean {
+    return this.type === ChallengeType.REGULAR
+  }
 }
 
 export const defaultChallenge = new Challenges()
-defaultChallenge.single = 8000
-defaultChallenge.team = [8000, 1]
+defaultChallenge.type = ChallengeType.REGULAR
+defaultChallenge.challenge = { single: 8000, team: [8000, 1] }
+
+export function getDamage(moves: number) {
+  if (moves > 30) {
+    return 0
+  }
+  const n = 30 - moves
+  return 5 * ((n * (n + 1)) / 2)
+}
