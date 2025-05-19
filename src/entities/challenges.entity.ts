@@ -60,6 +60,15 @@ export class Challenges {
   get isRegular(): boolean {
     return this.type === ChallengeType.REGULAR
   }
+
+  // syntax sugar
+  get regularChallenge(): RegularChallenge {
+    return this.challenge as RegularChallenge
+  }
+
+  get bossChallenge(): BossChallenge {
+    return this.challenge as BossChallenge
+  }
 }
 
 export const defaultChallenge = new Challenges()

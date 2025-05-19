@@ -5,7 +5,7 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { Job } from 'bull'
 import { LessThanOrEqual, Repository } from 'typeorm'
 
-import { BossChallenge, Challenges, defaultChallenge, getDamage, RegularChallenge } from '@/entities/challenges.entity'
+import { Challenges, defaultChallenge, getDamage } from '@/entities/challenges.entity'
 import { Competitions, CompetitionSubType } from '@/entities/competitions.entity'
 import { EndlessKickoffs } from '@/entities/endless-kickoffs.entity'
 import { Scrambles } from '@/entities/scrambles.entity'
@@ -73,7 +73,7 @@ export class EndlessProcessor {
     let singleKickedOff = false
     let goodSubmissions: Submissions[] = []
     if (challenge.isRegular) {
-      const { single, team } = challenge.challenge as RegularChallenge
+      const { single, team } = challenge.regularChallenge
       // if the result is greater than team required, do nothing
       if (moves > team[0]) {
         return
@@ -96,7 +96,7 @@ export class EndlessProcessor {
         return
       }
     } else if (challenge.isBoss) {
-      const { instantKill } = challenge.challenge as BossChallenge
+      const { instantKill } = challenge.bossChallenge
       if (moves <= instantKill) {
         generateNext = true
         singleKickedOff = true
@@ -142,7 +142,7 @@ export class EndlessProcessor {
     scramble.number = scrambleNumber + 1
     scramble.scramble = generateScramble(scrambleType)
     if (challenge.isBoss) {
-      const { minHitPoints, maxHitPoints } = nextChallenge.challenge as BossChallenge
+      const { minHitPoints, maxHitPoints } = nextChallenge.bossChallenge
       const hitPoints = Math.floor(Math.random() * (maxHitPoints - minHitPoints + 1)) + minHitPoints
       scramble.currentHP = hitPoints
     }
