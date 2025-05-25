@@ -3,8 +3,14 @@ import { Module } from '@nestjs/common'
 import { TypeOrmModule } from '@nestjs/typeorm'
 
 import { AttachmentModule } from '@/attachment/attachment.module'
+import { AuthModule } from '@/auth/auth.module'
 import { Competitions } from '@/entities/competitions.entity'
 import { EndlessKickoffs } from '@/entities/endless-kickoffs.entity'
+import { LeagueDuels } from '@/entities/league-duels.entity'
+import { LeaguePlayers } from '@/entities/league-players.entity'
+import { LeagueSessions } from '@/entities/league-sessions.entity'
+import { LeagueStandings } from '@/entities/league-standings.entity'
+import { LeagueTiers } from '@/entities/league-tiers.entity'
 import { Results } from '@/entities/results.entity'
 import { Scrambles } from '@/entities/scrambles.entity'
 import { Submissions } from '@/entities/submissions.entity'
@@ -22,16 +28,32 @@ import { DailyService } from './daily/daily.service'
 import { EndlessController } from './endless/endless.controller'
 import { EndlessService } from './endless/endless.service'
 import { EndlessProcessor } from './endless/processors/endless.processor'
+import { AdminController } from './league/admin/admin.controller'
+import { LeagueController } from './league/league.controller'
+import { LeagueService } from './league/league.service'
+import { LeagueProcessor } from './league/processors/league.processor'
 import { PracticeController } from './practice/practice.controller'
 import { PracticeService } from './practice/practice.service'
 import { PracticeProcessor } from './practice/processors/practice.processor'
 import { WeeklyController } from './weekly/weekly.controller'
 import { WeeklyService } from './weekly/weekly.service'
-
 @Module({
   imports: [
     AttachmentModule,
-    TypeOrmModule.forFeature([Competitions, EndlessKickoffs, Results, Scrambles, Submissions, Users, UserActivities]),
+    TypeOrmModule.forFeature([
+      Competitions,
+      EndlessKickoffs,
+      Results,
+      Scrambles,
+      Submissions,
+      Users,
+      UserActivities,
+      LeagueSessions,
+      LeagueTiers,
+      LeaguePlayers,
+      LeagueDuels,
+      LeagueStandings,
+    ]),
     BullModule.registerQueue(
       {
         name: 'endless',
@@ -42,8 +64,12 @@ import { WeeklyService } from './weekly/weekly.service'
       {
         name: 'practice',
       },
+      {
+        name: 'league',
+      },
     ),
     UserModule,
+    AuthModule,
   ],
   exports: [WeeklyService],
   providers: [
@@ -56,6 +82,8 @@ import { WeeklyService } from './weekly/weekly.service'
     ChainProcessor,
     PracticeService,
     PracticeProcessor,
+    LeagueService,
+    LeagueProcessor,
   ],
   controllers: [
     CompetitionController,
@@ -64,6 +92,8 @@ import { WeeklyService } from './weekly/weekly.service'
     EndlessController,
     ChainController,
     PracticeController,
+    LeagueController,
+    AdminController,
   ],
 })
 export class CompetitionModule {}

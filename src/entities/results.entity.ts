@@ -19,6 +19,7 @@ export const DNF = 99999998
 export const DNS = 99999999
 
 @Entity()
+@Index(['competitionId', 'userId'])
 @Index(['competitionId', 'best'])
 @Index(['competitionId', 'average', 'best'])
 export class Results {

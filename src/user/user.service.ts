@@ -67,6 +67,19 @@ export class UserService {
     return user
   }
 
+  async createDummyUser(wcaId: string, name: string, avatarThumb?: string) {
+    const user = new Users()
+    user.wcaId = wcaId
+    user.name = name
+    user.source = 'WCA'
+    user.sourceId = wcaId
+    user.email = `${wcaId}@333.fm`
+    user.avatar = ''
+    user.avatarThumb = avatarThumb || ''
+    await this.usersRepository.save(user)
+    return user
+  }
+
   async findOne(id: number | string) {
     if (typeof id === 'string') {
       if (/^\d{4}[A-Z]{4}\d{2}$/.test(id)) {
