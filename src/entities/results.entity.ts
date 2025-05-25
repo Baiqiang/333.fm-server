@@ -62,6 +62,7 @@ export class Results {
   @ManyToOne(() => Users, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE',
+    eager: true,
   })
   user: Users
 

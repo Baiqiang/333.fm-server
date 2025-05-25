@@ -301,16 +301,17 @@ export class LeagueService {
       for (let i = 0; i < count - 1; i++) {
         const competition = competitions[competitionIndex % competitions.length]
         for (let j = 0; j < count / 2; j++) {
-          const player = players[j]
-          const opponent = players[count - 1 - j]
+          const player = players[j].user
+          const opponent = players[count - 1 - j].user
           const isHome = false //j === 0 && i % 2 === 1
           const duel = new LeagueDuels()
-          duel.player1 = isHome ? player : opponent
-          duel.player2 = isHome ? opponent : player
+          duel.user1 = isHome ? player : opponent
+          duel.user2 = isHome ? opponent : player
+          duel.sessionId = session.id
           duel.tierId = tier.id
           duel.competitionId = competition.id
-          duel.player1Id = duel.player1?.id
-          duel.player2Id = duel.player2?.id
+          duel.user1Id = duel.user1?.id
+          duel.user2Id = duel.user2?.id
           schedules.push(duel)
           competitionIndex++
         }
@@ -468,12 +469,8 @@ export class LeagueService {
         tierId: tier.id,
       },
       relations: {
-        player1: {
-          user: true,
-        },
-        player2: {
-          user: true,
-        },
+        user1: true,
+        user2: true,
         competition: true,
       },
     })
@@ -492,7 +489,7 @@ export class LeagueService {
   async loadDuelsResults(duels: LeagueDuels[]) {
     const results = await this.resultsRepository.find({
       where: {
-        userId: In([...duels.map(d => d.player1?.userId), ...duels.map(d => d.player2?.userId)].filter(Boolean)),
+        userId: In([...duels.map(d => d.user1Id), ...duels.map(d => d.user2Id)].filter(Boolean)),
         competitionId: In(duels.map(d => d.competitionId)),
       },
     })
@@ -505,40 +502,40 @@ export class LeagueService {
       {} as Record<number, Record<number, Results>>,
     )
     for (const duel of duels) {
-      duel.player1Result = resultMap[duel.competitionId]?.[duel.player1?.userId]
-      duel.player2Result = resultMap[duel.competitionId]?.[duel.player2?.userId]
+      duel.user1Result = resultMap[duel.competitionId]?.[duel.user1Id]
+      duel.user2Result = resultMap[duel.competitionId]?.[duel.user2Id]
       if (duel.competition.hasEnded) {
         continue
       }
       // hide results if any player hasn't completed the competition
       if (
-        !duel.player1Result ||
-        !duel.player2Result ||
-        duel.player1Result.values.some(v => v === 0) ||
-        duel.player2Result.values.some(v => v === 0)
+        !duel.user1Result ||
+        !duel.user2Result ||
+        duel.user1Result.values.some(v => v === 0) ||
+        duel.user2Result.values.some(v => v === 0)
       ) {
-        duel.player1Result = null
-        duel.player2Result = null
+        duel.user1Result = null
+        duel.user2Result = null
       }
     }
     return duels
   }
 
-  async getWeekDuel(competition: Competitions, player: LeaguePlayers) {
+  async getWeekDuel(competition: Competitions, user: Users) {
     return this.leagueDuelsRepository.findOne({
       where: [
         {
           competitionId: competition.id,
-          player1Id: player.id,
+          user1Id: user.id,
         },
         {
           competitionId: competition.id,
-          player2Id: player.id,
+          user2Id: user.id,
         },
       ],
       relations: {
-        player1: true,
-        player2: true,
+        user1: true,
+        user2: true,
       },
     })
   }
@@ -641,8 +638,8 @@ export class LeagueService {
         competitionId: competition.id,
       },
       relations: {
-        player1: true,
-        player2: true,
+        user1: true,
+        user2: true,
       },
     })
     const competitionResults = await this.resultsRepository.find({
@@ -654,15 +651,15 @@ export class LeagueService {
     const mappedStandings = await this.getMappedStandings(session)
     for (const duel of duels) {
       // @todo how to handle points for a bye player?
-      if (duel.player1 === null || duel.player2 === null) {
+      if (duel.user1 === null || duel.user2 === null) {
         continue
       }
       // if points are already set, skip
       if (duel.ended) {
         continue
       }
-      duel.player1Result = playerResults[duel.player1.userId]
-      duel.player2Result = playerResults[duel.player2.userId]
+      duel.user1Result = playerResults[duel.user1Id]
+      duel.user2Result = playerResults[duel.user2Id]
       this.calculateDuelPoints(duel, mappedStandings)
     }
     await this.leagueDuelsRepository.save(duels)
@@ -670,53 +667,53 @@ export class LeagueService {
   }
 
   calculateDuelPoints(duel: LeagueDuels, mappedStandings: Record<number, LeagueStandings>) {
-    if (!duel.player1Result && !duel.player2Result) {
+    if (!duel.user1Result && !duel.user2Result) {
       return
     }
-    const result1 = duel.player1Result?.values || [DNS, DNS, DNS]
-    const result2 = duel.player2Result?.values || [DNS, DNS, DNS]
-    let player1Points = 0
-    let player2Points = 0
+    const result1 = duel.user1Result?.values || [DNS, DNS, DNS]
+    const result2 = duel.user2Result?.values || [DNS, DNS, DNS]
+    let user1Points = 0
+    let user2Points = 0
     for (let i = 0; i < 3; i++) {
       if (betterThan(result1[i], result2[i])) {
-        player1Points++
+        user1Points++
       } else if (betterThan(result2[i], result1[i])) {
-        player2Points++
+        user2Points++
       } else {
-        player1Points += 0.5
-        player2Points += 0.5
+        user1Points += 0.5
+        user2Points += 0.5
       }
     }
-    duel.player1Points = player1Points
-    duel.player2Points = player2Points
-    const player1Standing = mappedStandings[duel.player1.userId]
-    const player2Standing = mappedStandings[duel.player2.userId]
+    duel.user1Points = user1Points
+    duel.user2Points = user2Points
+    const user1Standing = mappedStandings[duel.user1Id]
+    const user2Standing = mappedStandings[duel.user2Id]
     // win 2 points, draw 1 point, loss 0 point
-    if (player1Points > player2Points) {
-      player1Standing.points += 2
-      player1Standing.wins++
-      player2Standing.losses++
-    } else if (player1Points < player2Points) {
-      player2Standing.points += 2
-      player2Standing.wins++
-      player1Standing.losses++
+    if (user1Points > user2Points) {
+      user1Standing.points += 2
+      user1Standing.wins++
+      user2Standing.losses++
+    } else if (user1Points < user2Points) {
+      user2Standing.points += 2
+      user2Standing.wins++
+      user1Standing.losses++
     } else {
-      player1Standing.points++
-      player2Standing.points++
-      player1Standing.draws++
-      player2Standing.draws++
+      user1Standing.points++
+      user2Standing.points++
+      user1Standing.draws++
+      user2Standing.draws++
     }
     if (
-      duel.player1Result?.average > 0 &&
-      (duel.player1Result?.average < player1Standing.bestMo3 || player1Standing.bestMo3 === 0)
+      duel.user1Result?.average > 0 &&
+      (duel.user1Result?.average < user1Standing.bestMo3 || user1Standing.bestMo3 === 0)
     ) {
-      player1Standing.bestMo3 = duel.player1Result.average
+      user1Standing.bestMo3 = duel.user1Result.average
     }
     if (
-      duel.player2Result?.average > 0 &&
-      (duel.player2Result?.average < player2Standing.bestMo3 || player2Standing.bestMo3 === 0)
+      duel.user2Result?.average > 0 &&
+      (duel.user2Result?.average < user2Standing.bestMo3 || user2Standing.bestMo3 === 0)
     ) {
-      player2Standing.bestMo3 = duel.player2Result.average
+      user2Standing.bestMo3 = duel.user2Result.average
     }
   }
 }

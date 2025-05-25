@@ -7,6 +7,7 @@ import { LeagueDuels } from '@/entities/league-duels.entity'
 import { LeaguePlayers } from '@/entities/league-players.entity'
 import { LeagueStandings } from '@/entities/league-standings.entity'
 import { Results } from '@/entities/results.entity'
+import { UserService } from '@/user/user.service'
 
 import { LeagueJob, LeagueService } from '../league.service'
 
@@ -22,6 +23,7 @@ export class LeagueProcessor {
     @InjectRepository(Results)
     private readonly resultsRepository: Repository<Results>,
     private readonly leagueService: LeagueService,
+    private readonly userService: UserService,
   ) {}
 
   @Process()
@@ -35,39 +37,37 @@ export class LeagueProcessor {
       return
     }
     try {
-      const player = await this.leaguePlayersRepository.findOneBy({
-        userId,
-      })
+      const user = await this.userService.findOne(userId)
       const duel = await this.leagueDuelsRepository.findOne({
         where: [
           {
             competitionId,
-            player1Id: player.id,
+            user1Id: user.id,
           },
           {
             competitionId,
-            player2Id: player.id,
+            user2Id: user.id,
           },
         ],
         relations: {
           competition: {
             leagueSession: true,
           },
-          player1: true,
-          player2: true,
+          user1: true,
+          user2: true,
         },
       })
-      const opponent = duel.getOpponent(player)
+      const opponent = duel.getOpponent(user)
       const opponentResult = await this.resultsRepository.findOneBy({
         competitionId,
-        userId: opponent.userId,
+        userId: opponent.id,
       })
       console.log(opponentResult?.values)
       if (!opponentResult || opponentResult.values.some(v => v === 0)) {
         return
       }
-      duel.player1Result = duel.player1Id === player.id ? result : opponentResult
-      duel.player2Result = duel.player2Id === player.id ? result : opponentResult
+      duel.user1Result = duel.user1Id === user.id ? result : opponentResult
+      duel.user2Result = duel.user2Id === user.id ? result : opponentResult
       const mappedStandings = await this.leagueService.getMappedStandings(duel.competition.leagueSession)
       await this.leagueService.calculateDuelPoints(duel, mappedStandings)
       await this.leagueDuelsRepository.save(duel)

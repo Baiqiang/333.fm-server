@@ -1,14 +1,5 @@
-import {
-  Column,
-  CreateDateColumn,
-  Entity,
-  ManyToOne,
-  OneToMany,
-  PrimaryGeneratedColumn,
-  UpdateDateColumn,
-} from 'typeorm'
+import { Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm'
 
-import { LeagueDuels } from './league-duels.entity'
 import { LeagueSessions } from './league-sessions.entity'
 import { LeagueTiers } from './league-tiers.entity'
 import { Users } from './users.entity'
@@ -47,10 +38,4 @@ export class LeaguePlayers {
     onDelete: 'CASCADE',
   })
   user: Users
-
-  @OneToMany(() => LeagueDuels, duel => duel.player1)
-  duelsAsPlayer1: LeagueDuels[]
-
-  @OneToMany(() => LeagueDuels, duel => duel.player2)
-  duelsAsPlayer2: LeagueDuels[]
 }

@@ -104,12 +104,11 @@ export class LeagueController {
     }
     let submissions = await this.competitionService.getSubmissions(competition)
     if (!competition.hasEnded) {
-      const player = await this.leagueService.getPlayer(session, user)
-      const duel = await this.leagueService.getWeekDuel(competition, player)
+      const duel = await this.leagueService.getWeekDuel(competition, user)
       // filter out your opponent's solutions if duel hasn't ended
       if (!duel.ended) {
-        const opponent = duel.getOpponent(player)
-        submissions = submissions.filter(s => s.userId !== opponent.userId)
+        const opponent = duel.getOpponent(user)
+        submissions = submissions.filter(s => s.userId !== opponent.id)
       }
     }
     const ret: Record<number, Submissions[]> = {}

@@ -10,9 +10,10 @@ import {
 } from 'typeorm'
 
 import { Competitions } from './competitions.entity'
-import { LeaguePlayers } from './league-players.entity'
+import { LeagueSessions } from './league-sessions.entity'
 import { LeagueTiers } from './league-tiers.entity'
 import { Results } from './results.entity'
+import { Users } from './users.entity'
 
 @Entity()
 export class LeagueDuels {
@@ -20,23 +21,26 @@ export class LeagueDuels {
   id: number
 
   @Column()
+  sessionId: number
+
+  @Column()
   competitionId: number
 
   @Column()
   tierId: number
 
-  @Column({ nullable: true })
-  player1Id: number
+  @Column()
+  user1Id: number
 
   // for odd number of players, the last player will be the bye player
-  @Column({ nullable: true })
-  player2Id: number
+  @Column()
+  user2Id: number
 
   @Column({ default: 0 })
-  player1Points: number
+  user1Points: number
 
   @Column({ default: 0 })
-  player2Points: number
+  user2Points: number
 
   @CreateDateColumn()
   createdAt: Date
@@ -44,11 +48,19 @@ export class LeagueDuels {
   @UpdateDateColumn()
   updatedAt: Date
 
+  @ManyToOne(() => LeagueSessions, {
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE',
+  })
+  session: LeagueSessions
+
   @ManyToOne(() => Competitions, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE',
   })
-  @JoinColumn({})
+  @JoinColumn({
+    name: 'competition_id',
+  })
   competition: Competitions
 
   @ManyToOne(() => LeagueTiers, {
@@ -57,25 +69,31 @@ export class LeagueDuels {
   })
   tier: LeagueTiers
 
-  @ManyToOne(() => LeaguePlayers, {
-    onDelete: 'SET NULL',
+  @ManyToOne(() => Users, {
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE',
   })
-  player1?: LeaguePlayers
+  user1: Users
 
-  @ManyToOne(() => LeaguePlayers, {
-    onDelete: 'SET NULL',
+  @ManyToOne(() => Users, {
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE',
   })
-  player2?: LeaguePlayers
+  user2: Users
 
-  player1Result?: Results
-  player2Result?: Results
+  user1Result?: Results
+  user2Result?: Results
 
   @Expose()
   get ended() {
-    return this.player1Points + this.player2Points > 0
+    return this.user1Points + this.user2Points > 0
   }
 
-  getOpponent(player: LeaguePlayers) {
-    return this.player1Id === player.id ? this.player2 : this.player1
+  getOpponent(user: Users) {
+    return this.user1Id === user.id ? this.user2 : this.user1
+  }
+
+  getUserResult(user: Users) {
+    return this.user1Id === user.id ? this.user1Result : this.user2Result
   }
 }
