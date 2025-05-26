@@ -9,6 +9,8 @@ import {
   UpdateDateColumn,
 } from 'typeorm'
 
+import { ColumnNumericTransformer } from '@/utils'
+
 import { Competitions } from './competitions.entity'
 import { LeagueSessions } from './league-sessions.entity'
 import { LeagueTiers } from './league-tiers.entity'
@@ -36,10 +38,10 @@ export class LeagueDuels {
   @Column()
   user2Id: number
 
-  @Column({ default: 0 })
+  @Column({ default: 0, type: 'decimal', precision: 10, scale: 1, transformer: new ColumnNumericTransformer() })
   user1Points: number
 
-  @Column({ default: 0 })
+  @Column({ default: 0, type: 'decimal', precision: 10, scale: 1, transformer: new ColumnNumericTransformer() })
   user2Points: number
 
   @CreateDateColumn()

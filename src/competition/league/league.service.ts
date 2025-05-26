@@ -370,6 +370,11 @@ export class LeagueService {
       where: {
         sessionId: session.id,
       },
+      relations: {
+        players: {
+          user: true,
+        },
+      },
     })
   }
 
