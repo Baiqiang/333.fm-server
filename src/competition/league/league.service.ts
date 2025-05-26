@@ -297,6 +297,8 @@ export class LeagueService {
       if (players.length % 2 === 1) {
         players.push(null)
       }
+      // shuffle players
+      players.sort(() => Math.random() - 0.5)
       const count = players.length
       for (let i = 0; i < count - 1; i++) {
         const competition = competitions[competitionIndex % competitions.length]
