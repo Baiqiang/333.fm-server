@@ -676,50 +676,15 @@ export class LeagueService {
       mappedDuels[duel.user2Id][duel.user1Id] = duel
     }
 
-    standings.sort((a, b) => {
-      if (a.points != b.points) {
-        return b.points - a.points
-      }
-      if (a.wins != b.wins) {
-        return b.wins - a.wins
-      }
-      if (a.bestMo3 != b.bestMo3) {
-        return a.bestMo3 - b.bestMo3
-      }
-      return -1
-    })
-    // find small tables
-    const pointsMappedStandings: Record<number, LeagueStandings[]> = {}
-    standings.forEach((standing, i) => {
-      standing.position = i + 1
-      pointsMappedStandings[standing.points] = pointsMappedStandings[standing.points] || []
-      pointsMappedStandings[standing.points].push(standing)
-    })
-    for (const smallTables of Object.values(pointsMappedStandings)) {
-      const count = smallTables.length
-      if (count === 1) {
-        continue
-      }
-      const wins = Object.fromEntries(smallTables.map(s => [s.userId, 0]))
-      const minPosition = smallTables[0].position
-      // check all head to head
-      for (let i = 0; i < count - 1; i++) {
-        for (let j = i + 1; j < count; j++) {
-          const a = smallTables[i]
-          const b = smallTables[j]
-          const duel = mappedDuels[a.userId][b.userId]
-          const aPoints = duel.getUserPoints(a.user)
-          const bPoints = duel.getUserPoints(duel.getOpponent(a.user))
-          if (aPoints > bPoints) {
-            wins[a.userId]++
-          } else if (aPoints < bPoints) {
-            wins[b.userId]++
-          }
-        }
-      }
-      smallTables.sort((a, b) => {
-        if (wins[a.userId] !== wins[b.userId]) {
-          return wins[b.userId] - wins[a.userId]
+    const tierMappedStandings: Record<number, LeagueStandings[]> = {}
+    for (const standing of standings) {
+      tierMappedStandings[standing.tierId] = tierMappedStandings[standing.tierId] || []
+      tierMappedStandings[standing.tierId].push(standing)
+    }
+    for (const standings of Object.values(tierMappedStandings)) {
+      standings.sort((a, b) => {
+        if (a.points != b.points) {
+          return b.points - a.points
         }
         if (a.wins != b.wins) {
           return b.wins - a.wins
@@ -727,8 +692,53 @@ export class LeagueService {
         if (a.bestMo3 != b.bestMo3) {
           return a.bestMo3 - b.bestMo3
         }
+        return -1
       })
-      smallTables.forEach((s, i) => (s.position = minPosition + i))
+      // find small tables
+      const pointsMappedStandings: Record<number, LeagueStandings[]> = {}
+      standings.forEach((standing, i) => {
+        standing.position = i + 1
+        pointsMappedStandings[standing.points] = pointsMappedStandings[standing.points] || []
+        pointsMappedStandings[standing.points].push(standing)
+      })
+      for (const smallTables of Object.values(pointsMappedStandings)) {
+        const count = smallTables.length
+        if (count === 1) {
+          continue
+        }
+        const wins = Object.fromEntries(smallTables.map(s => [s.userId, 0]))
+        const minPosition = smallTables[0].position
+        // check all head to head
+        for (let i = 0; i < count - 1; i++) {
+          for (let j = i + 1; j < count; j++) {
+            const a = smallTables[i]
+            const b = smallTables[j]
+            const duel = mappedDuels[a.userId][b.userId]
+            if (!duel) {
+              continue
+            }
+            const aPoints = duel.getUserPoints(a.user)
+            const bPoints = duel.getUserPoints(duel.getOpponent(a.user))
+            if (aPoints > bPoints) {
+              wins[a.userId]++
+            } else if (aPoints < bPoints) {
+              wins[b.userId]++
+            }
+          }
+        }
+        smallTables.sort((a, b) => {
+          if (wins[a.userId] !== wins[b.userId]) {
+            return wins[b.userId] - wins[a.userId]
+          }
+          if (a.wins != b.wins) {
+            return b.wins - a.wins
+          }
+          if (a.bestMo3 != b.bestMo3) {
+            return a.bestMo3 - b.bestMo3
+          }
+        })
+        smallTables.forEach((s, i) => (s.position = minPosition + i))
+      }
     }
 
     await this.leagueDuelsRepository.save(duels)
