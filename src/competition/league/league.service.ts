@@ -690,6 +690,12 @@ export class LeagueService {
           return b.wins - a.wins
         }
         if (a.bestMo3 != b.bestMo3) {
+          if (a.bestMo3 === 0) {
+            return 1
+          }
+          if (b.bestMo3 === 0) {
+            return -1
+          }
           return a.bestMo3 - b.bestMo3
         }
         return -1
@@ -734,6 +740,12 @@ export class LeagueService {
             return b.wins - a.wins
           }
           if (a.bestMo3 != b.bestMo3) {
+            if (a.bestMo3 === 0) {
+              return 1
+            }
+            if (b.bestMo3 === 0) {
+              return -1
+            }
             return a.bestMo3 - b.bestMo3
           }
         })
