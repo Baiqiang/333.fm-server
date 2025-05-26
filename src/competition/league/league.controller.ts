@@ -69,6 +69,16 @@ export class LeagueController {
     return standings
   }
 
+  @Get('session/:number/tiers')
+  async getTiers(@Param('number', ParseIntPipe) number: number) {
+    const session = await this.leagueService.getSession(number)
+    if (!session) {
+      throw new NotFoundException('Session not found')
+    }
+    const tiers = await this.leagueService.getTiers(session)
+    return tiers
+  }
+
   @Get('session/:number/:week/schedules')
   async getWeekSchedules(@Param('number', ParseIntPipe) number: number, @Param('week', ParseIntPipe) week: number) {
     const session = await this.leagueService.getSession(number)
@@ -103,14 +113,6 @@ export class LeagueController {
       return []
     }
     let submissions = await this.competitionService.getSubmissions(competition)
-    if (!competition.hasEnded) {
-      const duel = await this.leagueService.getWeekDuel(competition, user)
-      // filter out your opponent's solutions if duel hasn't ended
-      if (!duel.ended) {
-        const opponent = duel.getOpponent(user)
-        submissions = submissions.filter(s => s.userId !== opponent.id)
-      }
-    }
     const ret: Record<number, Submissions[]> = {}
     const userSubmissions: Record<number, Submissions> = {}
     submissions.forEach(submission => {
@@ -124,6 +126,14 @@ export class LeagueController {
         }
       }
     })
+    if (!competition.hasEnded) {
+      const duel = await this.leagueService.getWeekDuel(competition, user)
+      const opponent = duel.getOpponent(user)
+      const opponentSubmissions = submissions.filter(submission => submission.userId === opponent.id)
+      if (opponentSubmissions.length < 3 || Object.values(userSubmissions).length < 3) {
+        submissions = submissions.filter(s => s.userId !== opponent.id)
+      }
+    }
     submissions.forEach(submission => {
       if (userSubmissions[submission.scrambleId] || competition.hasEnded) {
         submission.hideSolution = false

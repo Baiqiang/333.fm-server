@@ -655,7 +655,9 @@ export class LeagueService {
       },
     })
     const playerResults = Object.fromEntries(competitionResults.map(r => [r.userId, r]))
-    const mappedStandings = await this.getMappedStandings(session)
+    const standings = await this.getStandings(session)
+    const mappedStandings = Object.fromEntries(standings.map(s => [s.userId, s]))
+    const mappedDuels: Record<number, Record<number, LeagueDuels>> = {}
     for (const duel of duels) {
       // @todo how to handle points for a bye player?
       if (duel.user1 === null || duel.user2 === null) {
@@ -668,9 +670,69 @@ export class LeagueService {
       duel.user1Result = playerResults[duel.user1Id]
       duel.user2Result = playerResults[duel.user2Id]
       this.calculateDuelPoints(duel, mappedStandings)
+      mappedDuels[duel.user1Id] = mappedDuels[duel.user1Id] || {}
+      mappedDuels[duel.user1Id][duel.user2Id] = duel
+      mappedDuels[duel.user2Id] = mappedDuels[duel.user2Id] || {}
+      mappedDuels[duel.user2Id][duel.user1Id] = duel
     }
+
+    standings.sort((a, b) => {
+      if (a.points != b.points) {
+        return b.points - a.points
+      }
+      if (a.wins != b.wins) {
+        return b.wins - a.wins
+      }
+      if (a.bestMo3 != b.bestMo3) {
+        return a.bestMo3 - b.bestMo3
+      }
+      return -1
+    })
+    // find small tables
+    const pointsMappedStandings: Record<number, LeagueStandings[]> = {}
+    standings.forEach((standing, i) => {
+      standing.position = i + 1
+      pointsMappedStandings[standing.points] = pointsMappedStandings[standing.points] || []
+      pointsMappedStandings[standing.points].push(standing)
+    })
+    for (const smallTables of Object.values(pointsMappedStandings)) {
+      const count = smallTables.length
+      if (count === 1) {
+        continue
+      }
+      const wins = Object.fromEntries(smallTables.map(s => [s.userId, 0]))
+      const minPosition = smallTables[0].position
+      // check all head to head
+      for (let i = 0; i < count - 1; i++) {
+        for (let j = i + 1; j < count; j++) {
+          const a = smallTables[i]
+          const b = smallTables[j]
+          const duel = mappedDuels[a.userId][b.userId]
+          const aPoints = duel.getUserPoints(a.user)
+          const bPoints = duel.getUserPoints(duel.getOpponent(a.user))
+          if (aPoints > bPoints) {
+            wins[a.userId]++
+          } else if (aPoints < bPoints) {
+            wins[b.userId]++
+          }
+        }
+      }
+      smallTables.sort((a, b) => {
+        if (wins[a.userId] !== wins[b.userId]) {
+          return wins[b.userId] - wins[a.userId]
+        }
+        if (a.wins != b.wins) {
+          return b.wins - a.wins
+        }
+        if (a.bestMo3 != b.bestMo3) {
+          return a.bestMo3 - b.bestMo3
+        }
+      })
+      smallTables.forEach((s, i) => (s.position = minPosition + i))
+    }
+
     await this.leagueDuelsRepository.save(duels)
-    await this.leagueStandingsRepository.save(Object.values(mappedStandings))
+    await this.leagueStandingsRepository.save(standings)
   }
 
   calculateDuelPoints(duel: LeagueDuels, mappedStandings: Record<number, LeagueStandings>) {

@@ -19,6 +19,9 @@ export class LeagueStandings {
   userId: number
 
   @Column({ default: 0 })
+  position: number
+
+  @Column({ default: 0 })
   points: number
 
   @Column({ default: 0 })

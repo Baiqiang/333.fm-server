@@ -91,6 +91,10 @@ export class LeagueDuels {
     return this.user1Points + this.user2Points > 0
   }
 
+  getUserPoints(user: Users) {
+    return this.user1Id === user.id ? this.user1Points : this.user2Points
+  }
+
   getOpponent(user: Users) {
     return this.user1Id === user.id ? this.user2 : this.user1
   }
