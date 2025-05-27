@@ -758,9 +758,6 @@ export class LeagueService {
   }
 
   calculateDuelPoints(duel: LeagueDuels, mappedStandings: Record<number, LeagueStandings>) {
-    if (!duel.user1Result && !duel.user2Result) {
-      return
-    }
     const result1 = duel.user1Result?.values || [DNS, DNS, DNS]
     const result2 = duel.user2Result?.values || [DNS, DNS, DNS]
     let user1Points = 0
