@@ -1,7 +1,5 @@
-import { InjectQueue } from '@nestjs/bull'
 import { BadRequestException, forwardRef, Inject, Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { Queue } from 'bull'
 import { FindOneOptions, In, Repository } from 'typeorm'
 
 import { LeaguePlayerDto } from '@/dtos/league-player.dto'
@@ -63,8 +61,6 @@ export class LeagueService {
     @Inject(forwardRef(() => CompetitionService))
     private readonly competitionService: CompetitionService,
     private readonly userService: UserService,
-    @InjectQueue('league')
-    private readonly queue: Queue<LeagueJob>,
   ) {}
 
   async getSessions() {
@@ -103,7 +99,7 @@ export class LeagueService {
   }
 
   async findSession(options: FindOneOptions<LeagueSessions>) {
-    return this.leagueSessionsRepository.findOne({
+    const session = await this.leagueSessionsRepository.findOne({
       ...options,
       relations: {
         tiers: {
@@ -118,6 +114,17 @@ export class LeagueService {
         ...options.relations,
       },
     })
+    if (session) {
+      session.competitions.forEach((competition, i) => {
+        competition.prevCompetition = session.competitions[i - 1]
+          ? Object.assign(new Competitions(), session.competitions[i - 1])
+          : null
+        competition.nextCompetition = session.competitions[i + 1]
+          ? Object.assign(new Competitions(), session.competitions[i + 1])
+          : null
+      })
+    }
+    return session
   }
 
   async createSession(number: number, startTimeStr: string, weeks: number) {
@@ -565,9 +572,6 @@ export class LeagueService {
         sessionId: competition.leagueSessionId,
       },
     })
-    if (player === null) {
-      throw new BadRequestException('You are not a player in this league')
-    }
     const scramble = await this.scramblesRepository.findOne({
       where: {
         id: solution.scrambleId,
@@ -586,7 +590,7 @@ export class LeagueService {
     if (preSubmission !== null) {
       throw new BadRequestException('You have already submitted a solution')
     }
-
+    solution.mode = player ? CompetitionMode.REGULAR : CompetitionMode.UNLIMITED
     const submission = await this.competitionService.createSubmission(competition, scramble, user, solution)
     let result = await this.resultsRepository.findOne({
       where: {
@@ -596,7 +600,7 @@ export class LeagueService {
     })
     if (result === null) {
       result = new Results()
-      result.mode = CompetitionMode.REGULAR
+      result.mode = solution.mode
       result.competition = competition
       result.user = user
       result.values = competition.scrambles.map(() => 0)
@@ -614,14 +618,6 @@ export class LeagueService {
       result.average = DNF
     }
     await this.resultsRepository.save(result)
-    await this.queue.add({
-      competitionId: competition.id,
-      userId: user.id,
-      scrambleId: scramble.id,
-      scrambleNumber: scramble.number,
-      submissionId: submission.id,
-      moves: submission.moves,
-    })
     return submission
   }
 
@@ -719,7 +715,7 @@ export class LeagueService {
           for (let j = i + 1; j < count; j++) {
             const a = smallTables[i]
             const b = smallTables[j]
-            const duel = mappedDuels[a.userId][b.userId]
+            const duel = mappedDuels[a.userId]?.[b.userId]
             if (!duel) {
               continue
             }

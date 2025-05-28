@@ -31,7 +31,6 @@ import { EndlessProcessor } from './endless/processors/endless.processor'
 import { AdminController } from './league/admin/admin.controller'
 import { LeagueController } from './league/league.controller'
 import { LeagueService } from './league/league.service'
-import { LeagueProcessor } from './league/processors/league.processor'
 import { PracticeController } from './practice/practice.controller'
 import { PracticeService } from './practice/practice.service'
 import { PracticeProcessor } from './practice/processors/practice.processor'
@@ -64,9 +63,6 @@ import { WeeklyService } from './weekly/weekly.service'
       {
         name: 'practice',
       },
-      {
-        name: 'league',
-      },
     ),
     UserModule,
     AuthModule,
@@ -83,7 +79,6 @@ import { WeeklyService } from './weekly/weekly.service'
     PracticeService,
     PracticeProcessor,
     LeagueService,
-    LeagueProcessor,
   ],
   controllers: [
     CompetitionController,

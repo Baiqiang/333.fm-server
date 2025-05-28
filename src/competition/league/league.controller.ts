@@ -5,6 +5,7 @@ import { CurrentUser } from '@/auth/decorators/current-user.decorator'
 import { JwtAuthGuard } from '@/auth/guards/jwt.guard'
 import { JwtRequiredGuard } from '@/auth/guards/jwt-required.guard'
 import { SubmitSolutionDto } from '@/dtos/submit-solution.dto'
+import { CompetitionMode } from '@/entities/competitions.entity'
 import { Submissions } from '@/entities/submissions.entity'
 import { Users } from '@/entities/users.entity'
 import { UserService } from '@/user/user.service'
@@ -148,6 +149,24 @@ export class LeagueController {
     return ret
   }
 
+  @Get('session/:number/:week/results')
+  async getWeekResults(@Param('number', ParseIntPipe) number: number, @Param('week', ParseIntPipe) week: number) {
+    const session = await this.leagueService.getSession(number)
+    if (!session) {
+      throw new NotFoundException('Session not found')
+    }
+    const competition = await this.leagueService.getSessionCompetition(session, week)
+    if (!competition) {
+      throw new NotFoundException('Competition not found')
+    }
+    const regular = await this.competitionService.getResults(competition, { mode: CompetitionMode.REGULAR })
+    const unlimited = await this.competitionService.getResults(competition, { mode: CompetitionMode.UNLIMITED })
+    return {
+      regular,
+      unlimited,
+    }
+  }
+
   @Get('session/:number/:week')
   async getSessionCompetition(
     @Param('number', ParseIntPipe) number: number,
@@ -178,10 +197,10 @@ export class LeagueController {
       throw new NotFoundException('Competition not found')
     }
     // check player
-    const player = await this.leagueService.getPlayer(session, user)
-    if (!player) {
-      throw new NotFoundException('Player not found')
-    }
+    // const player = await this.leagueService.getPlayer(session, user)
+    // if (!player) {
+    //   throw new NotFoundException('Player not found')
+    // }
     return await this.leagueService.submitSolution(competition, user, solution)
   }
 
