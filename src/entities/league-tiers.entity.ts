@@ -20,7 +20,7 @@ export class LeagueTiers {
   id: number
 
   @Column()
-  level: string
+  level: number
 
   @Column()
   sessionId: number

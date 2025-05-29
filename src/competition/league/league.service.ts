@@ -236,7 +236,7 @@ export class LeagueService {
     for (let i = 0; i < num; i++) {
       const tier = new LeagueTiers()
       tier.sessionId = session.id
-      tier.level = (i + 1).toString()
+      tier.level = i + 1
       tiers.push(tier)
     }
     return this.leagueTiersRepository.save(tiers)
@@ -413,7 +413,7 @@ export class LeagueService {
       }
       tmp[player.tierId].players.push(player)
     }
-    return Object.values(tmp).sort((a, b) => a.tier.level.localeCompare(b.tier.level))
+    return Object.values(tmp).sort((a, b) => a.tier.level - b.tier.level)
   }
 
   async getPlayer(session: LeagueSessions, user: Users) {
