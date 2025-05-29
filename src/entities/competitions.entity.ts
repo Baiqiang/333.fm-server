@@ -146,8 +146,6 @@ export class Competitions {
 
   attendees: number
   ownerResult: Results
-  prevIndex?: number
-  nextIndex?: number
 
   get hasEnded() {
     return this.status === CompetitionStatus.ENDED || (this.endTime !== null && this.endTime <= new Date())

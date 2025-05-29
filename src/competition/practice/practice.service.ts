@@ -163,17 +163,25 @@ export class PracticeService {
     competition.attendees = attendees
     competition.ownerResult = ownerResult
     if (siblings) {
-      const count = await this.competitionsRepository.countBy({
-        type: CompetitionType.PERSONAL_PRACTICE,
-        userId: competition.userId,
-      })
       const index = parseInt(competition.alias.split('-').pop(), 10)
-      if (index > 1) {
-        competition.prevIndex = index - 1
-      }
-      if (index < count) {
-        competition.nextIndex = index + 1
-      }
+      const prev = await this.competitionsRepository.findOne({
+        where: {
+          alias: `practice-${competition.userId}-${index - 1}`,
+        },
+        relations: {
+          user: true,
+        },
+      })
+      const next = await this.competitionsRepository.findOne({
+        where: {
+          alias: `practice-${competition.userId}-${index + 1}`,
+        },
+        relations: {
+          user: true,
+        },
+      })
+      competition.prevCompetition = prev
+      competition.nextCompetition = next
     }
   }
 
