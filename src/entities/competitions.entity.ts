@@ -13,6 +13,8 @@ import {
 import { Challenge } from '@/competition/endless/endless.service'
 
 import { EndlessKickoffs } from './endless-kickoffs.entity'
+import { LeagueDuels } from './league-duels.entity'
+import { LeagueSessions } from './league-sessions.entity'
 import { Results } from './results.entity'
 import { Scrambles } from './scrambles.entity'
 import { Submissions } from './submissions.entity'
@@ -25,6 +27,7 @@ export enum CompetitionType {
   FMC_CHAIN,
   PERSONAL_PRACTICE,
   DAILY,
+  LEAGUE,
 }
 
 export enum CompetitionSubType {
@@ -98,6 +101,9 @@ export class Competitions {
   @Column()
   userId: number
 
+  @Column({ nullable: true })
+  leagueSessionId: number
+
   @CreateDateColumn()
   @Exclude()
   createdAt: Date
@@ -106,11 +112,16 @@ export class Competitions {
   @Exclude()
   updatedAt: Date
 
-  @ManyToOne(() => Users, users => users.roles, {
+  @ManyToOne(() => Users, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE',
   })
   user: Users
+
+  @ManyToOne(() => LeagueSessions, session => session.competitions, {
+    onDelete: 'CASCADE',
+  })
+  leagueSession: LeagueSessions
 
   @OneToMany(() => Scrambles, scramble => scramble.competition, {
     cascade: true,
@@ -123,6 +134,9 @@ export class Competitions {
   @OneToMany(() => Results, result => result.competition)
   results: Promise<Results[]>
 
+  @OneToMany(() => LeagueDuels, duel => duel.competition)
+  leagueDuels: LeagueDuels[]
+
   winners: Results[]
   prevCompetition?: Competitions
   nextCompetition?: Competitions
@@ -132,11 +146,13 @@ export class Competitions {
 
   attendees: number
   ownerResult: Results
-  prevIndex?: number
-  nextIndex?: number
 
   get hasEnded() {
     return this.status === CompetitionStatus.ENDED || (this.endTime !== null && this.endTime <= new Date())
+  }
+
+  get hasStarted() {
+    return this.status === CompetitionStatus.ON_GOING || (this.startTime !== null && this.startTime <= new Date())
   }
 
   @Expose()
@@ -154,6 +170,13 @@ export class Competitions {
       case CompetitionType.PERSONAL_PRACTICE:
         if (!user) return '/practice'
         return `/practice/${user.wcaId || user.id}/${alias.split('-').pop()}`
+      case CompetitionType.LEAGUE: {
+        const matches = alias.match(/^league-(\d+)-(\d+)$/)
+        if (matches) {
+          return `/league/${matches[1]}/week/${matches[2]}`
+        }
+        return `/league`
+      }
       default:
         return ''
     }

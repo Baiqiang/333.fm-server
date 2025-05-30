@@ -6,7 +6,7 @@ import weekYear from 'dayjs/plugin/weekYear'
 import { Algorithm, Cube } from 'insertionfinder'
 
 import { SubmitSolutionDto } from '@/dtos/submit-solution.dto'
-import { DNF, Results } from '@/entities/results.entity'
+import { DNF, DNS, Results } from '@/entities/results.entity'
 import { SolutionMode, SubmissionPhase, Submissions } from '@/entities/submissions.entity'
 
 dayjs.extend(advancedFormat)
@@ -93,6 +93,14 @@ export function calculateMoves(scramble: string, solution: string, allowNISS = f
     moves = DNF
   }
   return moves
+}
+
+export function betterThan(a: number, b: number): boolean {
+  // DNF and DNS are same
+  if (a === DNF || a === DNS) {
+    return false
+  }
+  return a < b
 }
 
 export function countMoves(skeleton: string): number {
@@ -365,4 +373,13 @@ export function getTopDistinctN<T extends Rankable>(
 
 export interface Rankable {
   rank: number
+}
+
+export class ColumnNumericTransformer {
+  to(data: number): number {
+    return data
+  }
+  from(data: string): number {
+    return parseFloat(data)
+  }
 }

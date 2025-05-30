@@ -329,7 +329,9 @@ export class ProfileService {
       for (const submission of data.items) {
         submission.hideSolution = !submittedMap[submission.scrambleId]
         if (
-          [CompetitionType.WEEKLY, CompetitionType.DAILY].includes(submission.competition.type) &&
+          [CompetitionType.WEEKLY, CompetitionType.DAILY, CompetitionType.LEAGUE].includes(
+            submission.competition.type,
+          ) &&
           submission.competition.hasEnded
         ) {
           submission.hideSolution = false
