@@ -114,6 +114,16 @@ export class LeagueController {
       return []
     }
     let submissions = await this.competitionService.getSubmissions(competition)
+    if (!competition.hasEnded) {
+      const duel = await this.leagueService.getWeekDuel(competition, user)
+      if (duel) {
+        const opponent = duel.getOpponent(user)
+        const opponentSubmissions = submissions.filter(submission => submission.userId === opponent.id)
+        if (opponentSubmissions.length < 3 || submissions.filter(s => s.userId === user.id).length < 3) {
+          submissions = submissions.filter(s => s.userId !== opponent.id)
+        }
+      }
+    }
     const ret: Record<number, Submissions[]> = {}
     const userSubmissions: Record<number, Submissions> = {}
     submissions.forEach(submission => {
@@ -127,14 +137,6 @@ export class LeagueController {
         }
       }
     })
-    if (!competition.hasEnded) {
-      const duel = await this.leagueService.getWeekDuel(competition, user)
-      const opponent = duel.getOpponent(user)
-      const opponentSubmissions = submissions.filter(submission => submission.userId === opponent.id)
-      if (opponentSubmissions.length < 3 || Object.values(userSubmissions).length < 3) {
-        submissions = submissions.filter(s => s.userId !== opponent.id)
-      }
-    }
     submissions.forEach(submission => {
       if (userSubmissions[submission.scrambleId] || competition.hasEnded) {
         submission.hideSolution = false
