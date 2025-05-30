@@ -15,6 +15,7 @@ import { AuthService } from '@/auth/auth.service'
 import { CurrentUser } from '@/auth/decorators/current-user.decorator'
 import { Roles } from '@/auth/decorators/roles.decorator'
 import { Role } from '@/auth/enums/role.enum'
+import { DevGuard } from '@/auth/guards/dev.guard'
 import { JwtRequiredGuard } from '@/auth/guards/jwt-required.guard'
 import { RolesGuard } from '@/auth/guards/roles.guard'
 import { LeaguePlayerDto } from '@/dtos/league-player.dto'
@@ -36,6 +37,7 @@ export class AdminController {
   ) {}
 
   @Post('signin-as')
+  @UseGuards(DevGuard)
   async signInAs(@Body('wcaId') wcaId: string) {
     const user = await this.userService.findOne(wcaId)
     if (!user) {
@@ -71,6 +73,7 @@ export class AdminController {
   }
 
   @Delete('session/:number')
+  @UseGuards(DevGuard)
   async deleteSession(@Param('number', ParseIntPipe) number: number) {
     const session = await this.leagueService.getSession(number)
     if (!session) {
@@ -149,6 +152,7 @@ export class AdminController {
   }
 
   @Post('session/:number/:week/start')
+  @UseGuards(DevGuard)
   async startSessionCompetition(
     @Param('number', ParseIntPipe) number: number,
     @Param('week', ParseIntPipe) week: number,
@@ -167,6 +171,7 @@ export class AdminController {
   }
 
   @Post('session/:number/:week/end')
+  @UseGuards(DevGuard)
   async endSessionCompetition(
     @Param('number', ParseIntPipe) number: number,
     @Param('week', ParseIntPipe) week: number,
