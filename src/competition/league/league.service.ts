@@ -101,20 +101,37 @@ export class LeagueService {
   async findSession(options: FindOneOptions<LeagueSessions>) {
     const session = await this.leagueSessionsRepository.findOne({
       ...options,
-      relations: {
-        tiers: {
-          players: {
-            user: true,
-          },
-        },
-        competitions: {
-          scrambles: true,
-        },
-        standings: true,
-        ...options.relations,
-      },
     })
     if (session) {
+      // load relations manually
+      const [tiers, competitions, standings] = await Promise.all([
+        this.leagueTiersRepository.find({
+          where: {
+            sessionId: session.id,
+          },
+          relations: {
+            players: {
+              user: true,
+            },
+          },
+        }),
+        this.competitionsRepository.find({
+          where: {
+            leagueSessionId: session.id,
+          },
+          relations: {
+            scrambles: true,
+          },
+        }),
+        this.leagueStandingsRepository.find({
+          where: {
+            sessionId: session.id,
+          },
+        }),
+      ])
+      session.tiers = tiers
+      session.competitions = competitions
+      session.standings = standings
       session.competitions.forEach((competition, i) => {
         competition.prevCompetition = session.competitions[i - 1]
           ? Object.assign(new Competitions(), session.competitions[i - 1])
