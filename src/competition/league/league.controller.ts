@@ -118,8 +118,7 @@ export class LeagueController {
       const duel = await this.leagueService.getWeekDuel(competition, user)
       if (duel) {
         const opponent = duel.getOpponent(user)
-        const opponentSubmissions = submissions.filter(submission => submission.userId === opponent.id)
-        if (opponentSubmissions.length < 3 || submissions.filter(s => s.userId === user.id).length < 3) {
+        if (submissions.filter(s => s.userId === user.id).length < 3) {
           submissions = submissions.filter(s => s.userId !== opponent.id)
         }
       }
