@@ -13,6 +13,7 @@ import {
 } from '@/entities/competitions.entity'
 import { LeagueDuels } from '@/entities/league-duels.entity'
 import { LeaguePlayers } from '@/entities/league-players.entity'
+import { LeagueResults } from '@/entities/league-results.entity'
 import { LeagueSessions, LeagueSessionStatus } from '@/entities/league-sessions.entity'
 import { LeagueStandings } from '@/entities/league-standings.entity'
 import { LeagueTiers } from '@/entities/league-tiers.entity'
@@ -50,6 +51,8 @@ export class LeagueService {
     private readonly leagueDuelsRepository: Repository<LeagueDuels>,
     @InjectRepository(LeagueStandings)
     private readonly leagueStandingsRepository: Repository<LeagueStandings>,
+    @InjectRepository(LeagueResults)
+    private readonly leagueResultsRepository: Repository<LeagueResults>,
     @InjectRepository(Competitions)
     private readonly competitionsRepository: Repository<Competitions>,
     @InjectRepository(Scrambles)
@@ -266,6 +269,11 @@ export class LeagueService {
 
   async pickPlayers(tier: LeagueTiers, playerInfos: LeaguePlayerDto[]) {
     const players = []
+    // remove current players
+    await this.leaguePlayersRepository.delete({
+      sessionId: tier.sessionId,
+      tierId: tier.id,
+    })
     for (const { wcaId, name, avatarThumb } of playerInfos) {
       // find user by wcaId
       let user = await this.userService.findOne(wcaId)
@@ -484,6 +492,14 @@ export class LeagueService {
     return Object.fromEntries(standings.map(s => [s.userId, s]))
   }
 
+  async getResults(session: LeagueSessions) {
+    return this.leagueResultsRepository.find({
+      where: {
+        sessionId: session.id,
+      },
+    })
+  }
+
   async getSchedules(session: LeagueSessions) {
     const tiers = await this.getTiers(session)
     const schedules: { tier: LeagueTiers; schedules: LeagueDuels[] }[] = []
@@ -671,6 +687,7 @@ export class LeagueService {
     const standings = await this.getStandings(session)
     const mappedStandings = Object.fromEntries(standings.map(s => [s.userId, s]))
     const mappedDuels: Record<number, Record<number, LeagueDuels>> = {}
+    const leagueResults: LeagueResults[] = []
     for (const duel of duels) {
       // @todo how to handle points for a bye player?
       if (duel.user1 === null || duel.user2 === null) {
@@ -682,7 +699,9 @@ export class LeagueService {
       }
       duel.user1Result = playerResults[duel.user1Id]
       duel.user2Result = playerResults[duel.user2Id]
-      this.calculateDuelPoints(duel, mappedStandings)
+      // so that competition is not null
+      duel.competition = competition
+      this.calculateDuelPoints(duel, mappedStandings, leagueResults)
       mappedDuels[duel.user1Id] = mappedDuels[duel.user1Id] || {}
       mappedDuels[duel.user1Id][duel.user2Id] = duel
       mappedDuels[duel.user2Id] = mappedDuels[duel.user2Id] || {}
@@ -745,6 +764,7 @@ export class LeagueService {
             }
           }
         }
+        // sort in small tables
         smallTables.sort((a, b) => {
           if (wins[a.userId] !== wins[b.userId]) {
             return wins[b.userId] - wins[a.userId]
@@ -762,15 +782,24 @@ export class LeagueService {
             return a.bestMo3 - b.bestMo3
           }
         })
+        // update positions
         smallTables.forEach((s, i) => (s.position = minPosition + i))
       }
     }
 
-    await this.leagueDuelsRepository.save(duels)
-    await this.leagueStandingsRepository.save(standings)
+    // start a transaction
+    await this.leagueDuelsRepository.manager.transaction(async transactionalEntityManager => {
+      await transactionalEntityManager.save(duels)
+      await transactionalEntityManager.save(standings)
+      await transactionalEntityManager.save(leagueResults)
+    })
   }
 
-  calculateDuelPoints(duel: LeagueDuels, mappedStandings: Record<number, LeagueStandings>) {
+  calculateDuelPoints(
+    duel: LeagueDuels,
+    mappedStandings: Record<number, LeagueStandings>,
+    leagueResults: LeagueResults[],
+  ) {
     const result1 = duel.user1Result?.values || [DNS, DNS, DNS]
     const result2 = duel.user2Result?.values || [DNS, DNS, DNS]
     let user1Points = 0
@@ -789,20 +818,35 @@ export class LeagueService {
     duel.user2Points = user2Points
     const user1Standing = mappedStandings[duel.user1Id]
     const user2Standing = mappedStandings[duel.user2Id]
+    const week = parseInt(duel.competition.alias.split('-').pop() || '0', 10)
+    const user1Result = new LeagueResults()
+    user1Result.userId = duel.user1Id
+    user1Result.sessionId = duel.sessionId
+    user1Result.competitionId = duel.competitionId
+    user1Result.week = week
+    const user2Result = new LeagueResults()
+    user2Result.userId = duel.user2Id
+    user2Result.sessionId = duel.sessionId
+    user2Result.competitionId = duel.competitionId
+    user2Result.week = week
     // win 2 points, draw 1 point, loss 0 point
     if (user1Points > user2Points) {
       user1Standing.points += 2
       user1Standing.wins++
       user2Standing.losses++
+      user1Result.points = 2
     } else if (user1Points < user2Points) {
       user2Standing.points += 2
       user2Standing.wins++
       user1Standing.losses++
+      user2Result.points = 2
     } else {
       user1Standing.points++
       user2Standing.points++
       user1Standing.draws++
       user2Standing.draws++
+      user1Result.points = 1
+      user2Result.points = 1
     }
     if (
       duel.user1Result?.average > 0 &&
@@ -816,5 +860,6 @@ export class LeagueService {
     ) {
       user2Standing.bestMo3 = duel.user2Result.average
     }
+    leagueResults.push(user1Result, user2Result)
   }
 }
