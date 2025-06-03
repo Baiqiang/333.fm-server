@@ -660,7 +660,10 @@ export class LeagueService {
     id: number,
     solution: Pick<SubmitSolutionDto, 'comment' | 'attachments'>,
   ) {
-    return await this.competitionService.updateUserSubmission(competition, user, id, solution)
+    return await this.competitionService.updateUserSubmission(competition, user, id, solution, [
+      'comment',
+      'attachments',
+    ])
   }
 
   async calculatePoints(competition: Competitions) {

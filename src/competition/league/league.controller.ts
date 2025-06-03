@@ -215,12 +215,12 @@ export class LeagueController {
     return await this.leagueService.submitSolution(competition, user, solution)
   }
 
-  @Post('session/:number/:week/:id')
+  @Post('session/:number/:alias/:id')
   @ApiBearerAuth()
   @UseGuards(JwtRequiredGuard)
   public async update(
     @Param('number', ParseIntPipe) number: number,
-    @Param('week', ParseIntPipe) week: number,
+    @Param('alias') alias: string,
     @Param('id', ParseIntPipe) submissionId: number,
     @CurrentUser() user: Users,
     @Body() solution: Pick<SubmitSolutionDto, 'comment' | 'attachments'>,
@@ -229,7 +229,7 @@ export class LeagueController {
     if (!session) {
       throw new NotFoundException('Session not found')
     }
-    const competition = await this.leagueService.getSessionCompetition(session, week)
+    const competition = await this.leagueService.getSessionCompetitionByAlias(session, alias)
     if (!competition) {
       throw new NotFoundException('Competition not found')
     }
