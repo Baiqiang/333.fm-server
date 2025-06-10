@@ -141,6 +141,7 @@ export class Submissions {
   parent: Submissions
 
   removeSolution() {
+    this.moves = 0
     this.solution = ''
     this.comment = ''
   }

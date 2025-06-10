@@ -76,6 +76,18 @@ export class ProfileService {
     }
     const endlessRecords = Object.values(endlessStatsMap)
     endlessRecords.sort((a, b) => b.competition.id - a.competition.id)
+    const submissionsCount = await this.submissionsRepository
+      .createQueryBuilder('s')
+      .select([
+        'c.type as type',
+        'COUNT(s.id) as count',
+        'COUNT(DISTINCT s.scramble_id) as scrambleCount',
+        'COUNT(DISTINCT c.id) as competitionCount',
+      ])
+      .leftJoin('s.competition', 'c')
+      .where('s.user_id = :userId', { userId: user.id })
+      .groupBy('c.type')
+      .getRawMany<{ type: CompetitionType; count: number; scrambleCount: number; competitionCount: number }>()
     return {
       competitionRecords: [
         {
@@ -92,6 +104,7 @@ export class ProfileService {
         },
       ].filter(({ record }) => record.single > 0),
       endlessRecords,
+      submissionsCount,
     }
   }
 
@@ -334,8 +347,8 @@ export class ProfileService {
         ) {
           submission.hideSolution = false
         }
-        if (submission.competition.type === CompetitionType.LEAGUE && !submission.competition.hasEnded) {
-          submission.hideSolution = true
+        if (submission.competition.type === CompetitionType.LEAGUE) {
+          submission.hideSolution = !submission.competition.hasEnded
         }
         if (submission.hideSolution) {
           submission.removeSolution()

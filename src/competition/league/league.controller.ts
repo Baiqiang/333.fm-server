@@ -170,6 +170,12 @@ export class LeagueController {
     if (!competition) {
       throw new NotFoundException('Competition not found')
     }
+    if (!competition.hasEnded) {
+      return {
+        regular: [],
+        unlimited: [],
+      }
+    }
     const regular = await this.competitionService.getResults(competition, { mode: CompetitionMode.REGULAR })
     const unlimited = await this.competitionService.getResults(competition, { mode: CompetitionMode.UNLIMITED })
     return {

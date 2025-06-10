@@ -568,6 +568,27 @@ export class LeagueService {
     return duels
   }
 
+  async getMappedDuels(competition: Competitions) {
+    const duels = await this.getWeekDuels(competition)
+    const ret: Record<number, LeagueDuels> = {}
+    for (const duel of duels) {
+      ret[duel.user1Id] = ret[duel.user2Id] = duel
+    }
+    return ret
+  }
+
+  async getWeekDuels(competition: Competitions) {
+    return this.leagueDuelsRepository.find({
+      where: {
+        competitionId: competition.id,
+      },
+      relations: {
+        user1: true,
+        user2: true,
+      },
+    })
+  }
+
   async getWeekDuel(competition: Competitions, user: Users) {
     return this.leagueDuelsRepository.findOne({
       where: [
