@@ -193,7 +193,7 @@ export class LeagueController {
     if (!session) {
       throw new NotFoundException()
     }
-    return this.leagueService.getSessionCompetition(session, week)
+    return session.competitions.find(c => c.alias === `league-${number}-${week}`)
   }
 
   @Post('session/:number/:alias')
