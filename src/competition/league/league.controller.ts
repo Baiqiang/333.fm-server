@@ -193,6 +193,7 @@ export class LeagueController {
     if (!session) {
       throw new NotFoundException()
     }
+    this.leagueService.hideScrambles(session)
     return session.competitions.find(c => c.alias === `league-${number}-${week}`)
   }
 
