@@ -12,6 +12,7 @@ import {
   CompetitionType,
 } from '@/entities/competitions.entity'
 import { LeagueDuels } from '@/entities/league-duels.entity'
+import { LeagueParticipants } from '@/entities/league-participants.entity'
 import { LeaguePlayers } from '@/entities/league-players.entity'
 import { LeagueResults } from '@/entities/league-results.entity'
 import { LeagueSessions, LeagueSessionStatus } from '@/entities/league-sessions.entity'
@@ -53,6 +54,8 @@ export class LeagueService {
     private readonly leagueStandingsRepository: Repository<LeagueStandings>,
     @InjectRepository(LeagueResults)
     private readonly leagueResultsRepository: Repository<LeagueResults>,
+    @InjectRepository(LeagueParticipants)
+    private readonly leagueParticipantsRepository: Repository<LeagueParticipants>,
     @InjectRepository(Competitions)
     private readonly competitionsRepository: Repository<Competitions>,
     @InjectRepository(Scrambles)
@@ -439,6 +442,40 @@ export class LeagueService {
       tmp[player.tierId].players.push(player)
     }
     return Object.values(tmp).sort((a, b) => a.tier.level - b.tier.level)
+  }
+
+  async getParticipant(session: LeagueSessions, user: Users) {
+    return this.leagueParticipantsRepository.findOne({
+      where: {
+        userId: user.id,
+        sessionId: session.id,
+      },
+    })
+  }
+
+  async getParticipants(session: LeagueSessions) {
+    return this.leagueParticipantsRepository.find({
+      where: {
+        sessionId: session.id,
+      },
+      relations: {
+        user: true,
+      },
+    })
+  }
+
+  async participate(session: LeagueSessions, user: Users) {
+    const participant = new LeagueParticipants()
+    participant.userId = user.id
+    participant.sessionId = session.id
+    return this.leagueParticipantsRepository.save(participant)
+  }
+
+  async unparticipate(session: LeagueSessions, user: Users) {
+    await this.leagueParticipantsRepository.delete({
+      userId: user.id,
+      sessionId: session.id,
+    })
   }
 
   async getPlayer(session: LeagueSessions, user: Users) {

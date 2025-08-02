@@ -7,6 +7,7 @@ import { AuthModule } from '@/auth/auth.module'
 import { Competitions } from '@/entities/competitions.entity'
 import { EndlessKickoffs } from '@/entities/endless-kickoffs.entity'
 import { LeagueDuels } from '@/entities/league-duels.entity'
+import { LeagueParticipants } from '@/entities/league-participants.entity'
 import { LeaguePlayers } from '@/entities/league-players.entity'
 import { LeagueResults } from '@/entities/league-results.entity'
 import { LeagueSessions } from '@/entities/league-sessions.entity'
@@ -54,6 +55,7 @@ import { WeeklyService } from './weekly/weekly.service'
       LeagueDuels,
       LeagueStandings,
       LeagueResults,
+      LeagueParticipants,
     ]),
     BullModule.registerQueue(
       {

@@ -90,6 +90,42 @@ export class LeagueController {
     return tiers
   }
 
+  @Get('session/:number/participated')
+  @ApiBearerAuth()
+  @UseGuards(JwtRequiredGuard)
+  async getParticipated(@Param('number', ParseIntPipe) number: number, @CurrentUser() user: Users) {
+    const session = await this.leagueService.getSession(number)
+    if (!session) {
+      throw new NotFoundException('Session not found')
+    }
+    const participant = await this.leagueService.getParticipant(session, user)
+    return participant
+  }
+
+  @Post('session/:number/participate')
+  @ApiBearerAuth()
+  @UseGuards(JwtRequiredGuard)
+  async participate(@Param('number', ParseIntPipe) number: number, @CurrentUser() user: Users) {
+    const session = await this.leagueService.getSession(number)
+    if (!session) {
+      throw new NotFoundException('Session not found')
+    }
+    await this.leagueService.participate(session, user)
+    return true
+  }
+
+  @Post('session/:number/unparticipate')
+  @ApiBearerAuth()
+  @UseGuards(JwtRequiredGuard)
+  async unparticipate(@Param('number', ParseIntPipe) number: number, @CurrentUser() user: Users) {
+    const session = await this.leagueService.getSession(number)
+    if (!session) {
+      throw new NotFoundException('Session not found')
+    }
+    await this.leagueService.unparticipate(session, user)
+    return true
+  }
+
   @Get('session/:number/:week/schedules')
   async getWeekSchedules(@Param('number', ParseIntPipe) number: number, @Param('week', ParseIntPipe) week: number) {
     const session = await this.leagueService.getSession(number)

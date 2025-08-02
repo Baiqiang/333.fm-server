@@ -135,6 +135,17 @@ export class AdminController {
     return schedules
   }
 
+  @Get('session/:number/participants')
+  @UseGuards(DevGuard)
+  async getParticipants(@Param('number', ParseIntPipe) number: number) {
+    const session = await this.leagueService.getSession(number)
+    if (!session) {
+      throw new NotFoundException('Session not found')
+    }
+    const participants = await this.leagueService.getParticipants(session)
+    return participants
+  }
+
   @Get('session/:number/:week')
   async getSessionCompetition(
     @Param('number', ParseIntPipe) number: number,
