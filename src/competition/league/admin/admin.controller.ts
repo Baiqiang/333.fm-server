@@ -136,7 +136,6 @@ export class AdminController {
   }
 
   @Get('session/:number/participants')
-  @UseGuards(DevGuard)
   async getParticipants(@Param('number', ParseIntPipe) number: number) {
     const session = await this.leagueService.getSession(number)
     if (!session) {
