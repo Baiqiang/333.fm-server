@@ -80,6 +80,16 @@ export class LeagueController {
     return results
   }
 
+  @Get('session/:number/solves')
+  async getSolves(@Param('number', ParseIntPipe) number: number) {
+    const session = await this.leagueService.getSession(number)
+    if (!session) {
+      throw new NotFoundException('Session not found')
+    }
+    const solves = await this.leagueService.getSolves(session)
+    return solves
+  }
+
   @Get('session/:number/tiers')
   async getTiers(@Param('number', ParseIntPipe) number: number) {
     const session = await this.leagueService.getSession(number)

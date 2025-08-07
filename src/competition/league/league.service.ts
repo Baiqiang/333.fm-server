@@ -537,6 +537,23 @@ export class LeagueService {
     })
   }
 
+  async getSolves(session: LeagueSessions) {
+    const competitions = await this.competitionsRepository.find({
+      where: {
+        leagueSessionId: session.id,
+        status: CompetitionStatus.ENDED,
+      },
+    })
+    return this.resultsRepository.find({
+      where: {
+        competitionId: In(competitions.map(c => c.id)),
+      },
+      relations: {
+        user: true,
+      },
+    })
+  }
+
   async getSchedules(session: LeagueSessions) {
     const tiers = await this.getTiers(session)
     const schedules: { tier: LeagueTiers; schedules: LeagueDuels[] }[] = []
