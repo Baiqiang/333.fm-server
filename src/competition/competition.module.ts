@@ -10,7 +10,7 @@ import { LeagueDuels } from '@/entities/league-duels.entity'
 import { LeagueParticipants } from '@/entities/league-participants.entity'
 import { LeaguePlayers } from '@/entities/league-players.entity'
 import { LeagueResults } from '@/entities/league-results.entity'
-import { LeagueSessions } from '@/entities/league-sessions.entity'
+import { LeagueSeasons } from '@/entities/league-seasons.entity'
 import { LeagueStandings } from '@/entities/league-standings.entity'
 import { LeagueTiers } from '@/entities/league-tiers.entity'
 import { Results } from '@/entities/results.entity'
@@ -49,7 +49,7 @@ import { WeeklyService } from './weekly/weekly.service'
       Submissions,
       Users,
       UserActivities,
-      LeagueSessions,
+      LeagueSeasons,
       LeagueTiers,
       LeaguePlayers,
       LeagueDuels,

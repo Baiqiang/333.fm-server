@@ -14,7 +14,7 @@ import { Challenge } from '@/competition/endless/endless.service'
 
 import { EndlessKickoffs } from './endless-kickoffs.entity'
 import { LeagueDuels } from './league-duels.entity'
-import { LeagueSessions } from './league-sessions.entity'
+import { LeagueSeasons } from './league-seasons.entity'
 import { Results } from './results.entity'
 import { Scrambles } from './scrambles.entity'
 import { Submissions } from './submissions.entity'
@@ -102,7 +102,7 @@ export class Competitions {
   userId: number
 
   @Column({ nullable: true })
-  leagueSessionId: number
+  leagueSeasonId: number
 
   @CreateDateColumn()
   @Exclude()
@@ -118,10 +118,10 @@ export class Competitions {
   })
   user: Users
 
-  @ManyToOne(() => LeagueSessions, session => session.competitions, {
+  @ManyToOne(() => LeagueSeasons, season => season.competitions, {
     onDelete: 'CASCADE',
   })
-  leagueSession: LeagueSessions
+  leagueSeason: LeagueSeasons
 
   @OneToMany(() => Scrambles, scramble => scramble.competition, {
     cascade: true,

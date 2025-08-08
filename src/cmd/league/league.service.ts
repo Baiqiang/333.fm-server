@@ -14,7 +14,7 @@ import {
 import { LeagueDuels } from '@/entities/league-duels.entity'
 import { LeaguePlayers } from '@/entities/league-players.entity'
 import { LeagueResults } from '@/entities/league-results.entity'
-import { LeagueSessions, LeagueSessionStatus } from '@/entities/league-sessions.entity'
+import { LeagueSeasons, LeagueSeasonStatus } from '@/entities/league-seasons.entity'
 import { LeagueStandings } from '@/entities/league-standings.entity'
 import { LeagueTiers } from '@/entities/league-tiers.entity'
 import { DNF, DNS } from '@/entities/results.entity'
@@ -28,8 +28,8 @@ import { EloCalculator } from '@/utils/elo-calculator'
 @Injectable()
 export class LeagueService {
   constructor(
-    @InjectRepository(LeagueSessions)
-    private readonly leagueSessionsRepository: Repository<LeagueSessions>,
+    @InjectRepository(LeagueSeasons)
+    private readonly leagueSeasonsRepository: Repository<LeagueSeasons>,
     @InjectRepository(LeagueTiers)
     private readonly leagueTiersRepository: Repository<LeagueTiers>,
     @InjectRepository(LeaguePlayers)
@@ -52,7 +52,7 @@ export class LeagueService {
     private readonly usersRepository: Repository<Users>,
   ) {}
 
-  async import(filename: string, sessionNumber: string) {
+  async import(filename: string, seasonNumber: string) {
     // read from xlsx file
     const xlsx = await readFile(filename)
     const scrambleSheetName = xlsx.SheetNames.find(s => s.toLowerCase().includes('scramble'))
@@ -101,7 +101,7 @@ export class LeagueService {
           // submission.moves = movesCount
           // submission.comment = comment
           // submission.valid = valid
-          // submission.sessionNumber = sessionNumber
+          // submission.seasonNumber = seasonNumber
           row++
           // break
         }
@@ -109,9 +109,9 @@ export class LeagueService {
     }
   }
 
-  async updateElo(filename: string, sessionNumber: string) {
+  async updateElo(filename: string, seasonNumber: string) {
     const calculator = new EloCalculator(filename)
-    const eloList = calculator.updateWeeks(Number(sessionNumber))
+    const eloList = calculator.updateWeeks(Number(seasonNumber))
     console.log(eloList)
   }
 }

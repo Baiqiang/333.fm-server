@@ -1,7 +1,7 @@
 import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm'
 
 import { Competitions } from './competitions.entity'
-import { LeagueSessions } from './league-sessions.entity'
+import { LeagueSeasons } from './league-seasons.entity'
 import { Users } from './users.entity'
 
 @Entity()
@@ -10,7 +10,7 @@ export class LeagueResults {
   id: number
 
   @Column()
-  sessionId: number
+  seasonId: number
 
   @Column()
   competitionId: number
@@ -24,9 +24,8 @@ export class LeagueResults {
   @Column({ default: 0 })
   points: number
 
-  @ManyToOne(() => LeagueSessions, { onDelete: 'CASCADE', onUpdate: 'CASCADE' })
-  @JoinColumn({ name: 'sessionId' })
-  session: LeagueSessions
+  @ManyToOne(() => LeagueSeasons, { onDelete: 'CASCADE', onUpdate: 'CASCADE' })
+  season: LeagueSeasons
 
   @ManyToOne(() => Competitions, { onDelete: 'CASCADE', onUpdate: 'CASCADE' })
   competition: Competitions

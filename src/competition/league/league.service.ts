@@ -15,7 +15,7 @@ import { LeagueDuels } from '@/entities/league-duels.entity'
 import { LeagueParticipants } from '@/entities/league-participants.entity'
 import { LeaguePlayers } from '@/entities/league-players.entity'
 import { LeagueResults } from '@/entities/league-results.entity'
-import { LeagueSessions, LeagueSessionStatus } from '@/entities/league-sessions.entity'
+import { LeagueSeasons, LeagueSeasonStatus } from '@/entities/league-seasons.entity'
 import { LeagueStandings } from '@/entities/league-standings.entity'
 import { LeagueTiers } from '@/entities/league-tiers.entity'
 import { DNF, DNS } from '@/entities/results.entity'
@@ -42,8 +42,8 @@ export const ONE_WEEK = 7 * 24 * 60 * 60 * 1000
 @Injectable()
 export class LeagueService {
   constructor(
-    @InjectRepository(LeagueSessions)
-    private readonly leagueSessionsRepository: Repository<LeagueSessions>,
+    @InjectRepository(LeagueSeasons)
+    private readonly leagueSeasonsRepository: Repository<LeagueSeasons>,
     @InjectRepository(LeagueTiers)
     private readonly leagueTiersRepository: Repository<LeagueTiers>,
     @InjectRepository(LeaguePlayers)
@@ -69,16 +69,16 @@ export class LeagueService {
     private readonly userService: UserService,
   ) {}
 
-  async getSessions() {
-    return this.leagueSessionsRepository.find({
+  async getSeasons() {
+    return this.leagueSeasonsRepository.find({
       order: {
         startTime: 'DESC',
       },
     })
   }
 
-  async getSession(number: number) {
-    return this.findSession({
+  async getSeason(number: number) {
+    return this.findSeason({
       where: {
         number,
       },
@@ -86,17 +86,17 @@ export class LeagueService {
   }
 
   async getOnGoing() {
-    return this.findSession({
+    return this.findSeason({
       where: {
-        status: LeagueSessionStatus.ON_GOING,
+        status: LeagueSeasonStatus.ON_GOING,
       },
     })
   }
 
   async getNext() {
-    return this.findSession({
+    return this.findSeason({
       where: {
-        status: In([LeagueSessionStatus.NOT_STARTED, LeagueSessionStatus.ON_GOING]),
+        status: In([LeagueSeasonStatus.NOT_STARTED, LeagueSeasonStatus.ON_GOING]),
       },
       order: {
         number: 'DESC',
@@ -104,16 +104,16 @@ export class LeagueService {
     })
   }
 
-  async findSession(options: FindOneOptions<LeagueSessions>) {
-    const session = await this.leagueSessionsRepository.findOne({
+  async findSeason(options: FindOneOptions<LeagueSeasons>) {
+    const season = await this.leagueSeasonsRepository.findOne({
       ...options,
     })
-    if (session) {
+    if (season) {
       // load relations manually
       const [tiers, competitions, standings] = await Promise.all([
         this.leagueTiersRepository.find({
           where: {
-            sessionId: session.id,
+            seasonId: season.id,
           },
           relations: {
             players: {
@@ -123,7 +123,7 @@ export class LeagueService {
         }),
         this.competitionsRepository.find({
           where: {
-            leagueSessionId: session.id,
+            leagueSeasonId: season.id,
           },
           relations: {
             scrambles: true,
@@ -131,61 +131,61 @@ export class LeagueService {
         }),
         this.leagueStandingsRepository.find({
           where: {
-            sessionId: session.id,
+            seasonId: season.id,
           },
         }),
       ])
-      session.tiers = tiers
-      session.competitions = competitions
-      session.standings = standings
-      session.competitions.forEach((competition, i) => {
-        competition.prevCompetition = session.competitions[i - 1]
-          ? Object.assign(new Competitions(), session.competitions[i - 1])
+      season.tiers = tiers
+      season.competitions = competitions
+      season.standings = standings
+      season.competitions.forEach((competition, i) => {
+        competition.prevCompetition = season.competitions[i - 1]
+          ? Object.assign(new Competitions(), season.competitions[i - 1])
           : null
-        competition.nextCompetition = session.competitions[i + 1]
-          ? Object.assign(new Competitions(), session.competitions[i + 1])
+        competition.nextCompetition = season.competitions[i + 1]
+          ? Object.assign(new Competitions(), season.competitions[i + 1])
           : null
       })
     }
-    return session
+    return season
   }
 
-  async createSession(number: number, startTimeStr: string, weeks: number) {
+  async createSeason(number: number, startTimeStr: string, weeks: number) {
     const startTime = new Date(startTimeStr)
-    const session = new LeagueSessions()
-    session.number = number
-    session.startTime = startTime
-    session.endTime = new Date(startTime.getTime() + ONE_WEEK * weeks)
-    session.status = LeagueSessionStatus.NOT_STARTED
-    return this.leagueSessionsRepository.save(session)
+    const season = new LeagueSeasons()
+    season.number = number
+    season.startTime = startTime
+    season.endTime = new Date(startTime.getTime() + ONE_WEEK * weeks)
+    season.status = LeagueSeasonStatus.NOT_STARTED
+    return this.leagueSeasonsRepository.save(season)
   }
 
-  async deleteSession(session: LeagueSessions) {
-    await this.leagueSessionsRepository.delete(session.id)
+  async deleteSeason(season: LeagueSeasons) {
+    await this.leagueSeasonsRepository.delete(season.id)
   }
 
-  async updateSession(session: LeagueSessions, attributes: Partial<LeagueSessions>) {
-    Object.assign(session, attributes)
-    return this.leagueSessionsRepository.save(session)
+  async updateSeason(season: LeagueSeasons, attributes: Partial<LeagueSeasons>) {
+    Object.assign(season, attributes)
+    return this.leagueSeasonsRepository.save(season)
   }
 
-  async createCompetitions(session: LeagueSessions, user: Users, weeks: number, firstStartTime: string) {
+  async createCompetitions(season: LeagueSeasons, user: Users, weeks: number, firstStartTime: string) {
     const competitions: Competitions[] = []
     let startTime = new Date(firstStartTime)
     for (let i = 0; i < weeks; i++) {
       const endTime = new Date(startTime.getTime() + 7 * 24 * 60 * 60 * 1000)
-      const competition = await this.createCompetition(session, user, i + 1, startTime.toString(), endTime.toString())
+      const competition = await this.createCompetition(season, user, i + 1, startTime.toString(), endTime.toString())
       competitions.push(competition)
       startTime = endTime
     }
     return competitions
   }
 
-  async createCompetition(session: LeagueSessions, user: Users, week: number, startTime: string, endTime: string) {
+  async createCompetition(season: LeagueSeasons, user: Users, week: number, startTime: string, endTime: string) {
     const competition = new Competitions()
-    competition.name = `League S${session.number} Week ${week}`
-    competition.alias = `league-${session.number}-${week}`
-    competition.leagueSessionId = session.id
+    competition.name = `League S${season.number} Week ${week}`
+    competition.alias = `league-${season.number}-${week}`
+    competition.leagueSeasonId = season.id
     competition.type = CompetitionType.LEAGUE
     competition.format = CompetitionFormat.MO3
     competition.userId = user.id
@@ -208,9 +208,9 @@ export class LeagueService {
     return CompetitionStatus.NOT_STARTED
   }
 
-  async startSession(session: LeagueSessions) {
-    session.status = LeagueSessionStatus.ON_GOING
-    await this.leagueSessionsRepository.save(session)
+  async startSeason(season: LeagueSeasons) {
+    season.status = LeagueSeasonStatus.ON_GOING
+    await this.leagueSeasonsRepository.save(season)
   }
 
   async startCompetition(competition: Competitions) {
@@ -254,11 +254,11 @@ export class LeagueService {
     return this.scramblesRepository.save(scrambles)
   }
 
-  async createTiers(session: LeagueSessions, num: number) {
+  async createTiers(season: LeagueSeasons, num: number) {
     const tiers = []
     for (let i = 0; i < num; i++) {
       const tier = new LeagueTiers()
-      tier.sessionId = session.id
+      tier.seasonId = season.id
       tier.level = i + 1
       tiers.push(tier)
     }
@@ -274,7 +274,7 @@ export class LeagueService {
     const players = []
     // remove current players
     await this.leaguePlayersRepository.delete({
-      sessionId: tier.sessionId,
+      seasonId: tier.seasonId,
       tierId: tier.id,
     })
     for (const { wcaId, name, avatarThumb } of playerInfos) {
@@ -286,7 +286,7 @@ export class LeagueService {
       }
       let player = await this.leaguePlayersRepository.findOne({
         where: {
-          sessionId: tier.sessionId,
+          seasonId: tier.seasonId,
           userId: user.id,
         },
       })
@@ -294,7 +294,7 @@ export class LeagueService {
       if (player === null) {
         player = new LeaguePlayers()
         player.userId = user.id
-        player.sessionId = tier.sessionId
+        player.seasonId = tier.seasonId
         player.user = user
       }
       // update tier for existing player
@@ -310,19 +310,19 @@ export class LeagueService {
     await this.leaguePlayersRepository.save(player)
   }
 
-  async clearSchedules(session: LeagueSessions) {
+  async clearSchedules(season: LeagueSeasons) {
     await this.leagueDuelsRepository.delete({
-      competitionId: In(session.competitions.map(c => c.id)),
+      competitionId: In(season.competitions.map(c => c.id)),
     })
   }
 
-  async generateSchedules(session: LeagueSessions) {
+  async generateSchedules(season: LeagueSeasons) {
     // remove all duels
-    await this.clearSchedules(session)
-    const tierPlayers = await this.getTierPlayers(session)
+    await this.clearSchedules(season)
+    const tierPlayers = await this.getTierPlayers(season)
     const competitions = await this.competitionsRepository.find({
       where: {
-        leagueSessionId: session.id,
+        leagueSeasonId: season.id,
       },
     })
     let competitionIndex = 0
@@ -344,7 +344,7 @@ export class LeagueService {
           const duel = new LeagueDuels()
           duel.user1 = isHome ? player : opponent
           duel.user2 = isHome ? opponent : player
-          duel.sessionId = session.id
+          duel.seasonId = season.id
           duel.tierId = tier.id
           duel.competitionId = competition.id
           duel.user1Id = duel.user1?.id
@@ -358,10 +358,10 @@ export class LeagueService {
     }
   }
 
-  async getSessionCompetition(session: LeagueSessions, week: number) {
+  async getSeasonCompetition(season: LeagueSeasons, week: number) {
     return this.competitionService.findOne({
       where: {
-        alias: `league-${session.number}-${week}`,
+        alias: `league-${season.number}-${week}`,
       },
       relations: {
         scrambles: true,
@@ -369,10 +369,10 @@ export class LeagueService {
     })
   }
 
-  async getSessionCompetitionByAlias(session: LeagueSessions, alias: string) {
+  async getSeasonCompetitionByAlias(season: LeagueSeasons, alias: string) {
     return this.competitionService.findOne({
       where: {
-        leagueSessionId: session.id,
+        leagueSeasonId: season.id,
         alias,
       },
       relations: {
@@ -381,11 +381,11 @@ export class LeagueService {
     })
   }
 
-  hideScrambles(session?: LeagueSessions) {
-    if (!session || !session.competitions) {
+  hideScrambles(season?: LeagueSeasons) {
+    if (!season || !season.competitions) {
       return
     }
-    session.competitions.map(competition => {
+    season.competitions.map(competition => {
       // hide scrambles if competition hasn't started
       if (!competition.hasStarted && !competition.hasEnded) {
         competition.scrambles = []
@@ -393,19 +393,19 @@ export class LeagueService {
     })
   }
 
-  async getTier(session: LeagueSessions, id: number) {
+  async getTier(season: LeagueSeasons, id: number) {
     return this.leagueTiersRepository.findOne({
       where: {
         id,
-        sessionId: session.id,
+        seasonId: season.id,
       },
     })
   }
 
-  async getTiers(session: LeagueSessions) {
+  async getTiers(season: LeagueSeasons) {
     return this.leagueTiersRepository.find({
       where: {
-        sessionId: session.id,
+        seasonId: season.id,
       },
       relations: {
         players: {
@@ -415,10 +415,10 @@ export class LeagueService {
     })
   }
 
-  async getTierPlayers(session: LeagueSessions) {
+  async getTierPlayers(season: LeagueSeasons) {
     const players = await this.leaguePlayersRepository.find({
       where: {
-        sessionId: session.id,
+        seasonId: season.id,
       },
       relations: {
         tier: true,
@@ -444,19 +444,19 @@ export class LeagueService {
     return Object.values(tmp).sort((a, b) => a.tier.level - b.tier.level)
   }
 
-  async getParticipant(session: LeagueSessions, user: Users) {
+  async getParticipant(season: LeagueSeasons, user: Users) {
     return this.leagueParticipantsRepository.findOne({
       where: {
         userId: user.id,
-        sessionId: session.id,
+        seasonId: season.id,
       },
     })
   }
 
-  async getParticipants(session: LeagueSessions) {
+  async getParticipants(season: LeagueSeasons) {
     return this.leagueParticipantsRepository.find({
       where: {
-        sessionId: session.id,
+        seasonId: season.id,
       },
       relations: {
         user: true,
@@ -464,33 +464,33 @@ export class LeagueService {
     })
   }
 
-  async participate(session: LeagueSessions, user: Users) {
+  async participate(season: LeagueSeasons, user: Users) {
     const participant = new LeagueParticipants()
     participant.userId = user.id
-    participant.sessionId = session.id
+    participant.seasonId = season.id
     return this.leagueParticipantsRepository.save(participant)
   }
 
-  async unparticipate(session: LeagueSessions, user: Users) {
+  async unparticipate(season: LeagueSeasons, user: Users) {
     await this.leagueParticipantsRepository.delete({
       userId: user.id,
-      sessionId: session.id,
+      seasonId: season.id,
     })
   }
 
-  async getPlayer(session: LeagueSessions, user: Users) {
+  async getPlayer(season: LeagueSeasons, user: Users) {
     return this.leaguePlayersRepository.findOne({
       where: {
         userId: user.id,
-        sessionId: session.id,
+        seasonId: season.id,
       },
     })
   }
 
-  async getStandings(session: LeagueSessions) {
+  async getStandings(season: LeagueSeasons) {
     return this.leagueStandingsRepository.find({
       where: {
-        sessionId: session.id,
+        seasonId: season.id,
       },
       relations: {
         user: true,
@@ -505,15 +505,15 @@ export class LeagueService {
     })
   }
 
-  async getOrCreateStandings(session: LeagueSessions) {
-    const standings = await this.getStandings(session)
+  async getOrCreateStandings(season: LeagueSeasons) {
+    const standings = await this.getStandings(season)
     if (standings.length === 0) {
       // all players have a standing
-      const tierPlayers = await this.getTierPlayers(session)
+      const tierPlayers = await this.getTierPlayers(season)
       for (const { players } of tierPlayers) {
         for (const player of players) {
           const standing = new LeagueStandings()
-          standing.sessionId = session.id
+          standing.seasonId = season.id
           standing.userId = player.userId
           standing.tierId = player.tierId
           standings.push(standing)
@@ -524,23 +524,23 @@ export class LeagueService {
     return standings
   }
 
-  async getMappedStandings(session: LeagueSessions) {
-    const standings = await this.getStandings(session)
+  async getMappedStandings(season: LeagueSeasons) {
+    const standings = await this.getStandings(season)
     return Object.fromEntries(standings.map(s => [s.userId, s]))
   }
 
-  async getResults(session: LeagueSessions) {
+  async getResults(season: LeagueSeasons) {
     return this.leagueResultsRepository.find({
       where: {
-        sessionId: session.id,
+        seasonId: season.id,
       },
     })
   }
 
-  async getSolves(session: LeagueSessions) {
+  async getSolves(season: LeagueSeasons) {
     const competitions = await this.competitionsRepository.find({
       where: {
-        leagueSessionId: session.id,
+        leagueSeasonId: season.id,
         status: CompetitionStatus.ENDED,
       },
     })
@@ -554,8 +554,8 @@ export class LeagueService {
     })
   }
 
-  async getSchedules(session: LeagueSessions) {
-    const tiers = await this.getTiers(session)
+  async getSchedules(season: LeagueSeasons) {
+    const tiers = await this.getTiers(season)
     const schedules: { tier: LeagueTiers; schedules: LeagueDuels[] }[] = []
     for (const tier of tiers) {
       const tierSchedules = await this.getTierSchedules(tier)
@@ -579,8 +579,8 @@ export class LeagueService {
     return duels
   }
 
-  async getWeekSchedules(session: LeagueSessions, competition: Competitions) {
-    const schedules = await this.getSchedules(session)
+  async getWeekSchedules(season: LeagueSeasons, competition: Competitions) {
+    const schedules = await this.getSchedules(season)
     schedules.forEach(s => {
       s.schedules = s.schedules.filter(s => s.competitionId === competition.id)
     })
@@ -662,10 +662,10 @@ export class LeagueService {
     })
   }
 
-  async getStatistics(session: LeagueSessions) {
+  async getStatistics(season: LeagueSeasons) {
     return this.leagueStandingsRepository.find({
       where: {
-        sessionId: session.id,
+        seasonId: season.id,
       },
     })
   }
@@ -677,7 +677,7 @@ export class LeagueService {
     const player = await this.leaguePlayersRepository.findOne({
       where: {
         userId: user.id,
-        sessionId: competition.leagueSessionId,
+        seasonId: competition.leagueSeasonId,
       },
     })
     const scramble = await this.scramblesRepository.findOne({
@@ -742,9 +742,9 @@ export class LeagueService {
   }
 
   async calculatePoints(competition: Competitions) {
-    const session = await this.leagueSessionsRepository.findOne({
+    const season = await this.leagueSeasonsRepository.findOne({
       where: {
-        id: competition.leagueSessionId,
+        id: competition.leagueSeasonId,
       },
     })
     const duels = await this.leagueDuelsRepository.find({
@@ -762,7 +762,7 @@ export class LeagueService {
       },
     })
     const playerResults = Object.fromEntries(competitionResults.map(r => [r.userId, r]))
-    const standings = await this.getStandings(session)
+    const standings = await this.getStandings(season)
     const mappedStandings = Object.fromEntries(standings.map(s => [s.userId, s]))
     const mappedDuels: Record<number, Record<number, LeagueDuels>> = {}
     const leagueResults: LeagueResults[] = []
@@ -899,12 +899,12 @@ export class LeagueService {
     const week = parseInt(duel.competition.alias.split('-').pop() || '0', 10)
     const user1Result = new LeagueResults()
     user1Result.userId = duel.user1Id
-    user1Result.sessionId = duel.sessionId
+    user1Result.seasonId = duel.seasonId
     user1Result.competitionId = duel.competitionId
     user1Result.week = week
     const user2Result = new LeagueResults()
     user2Result.userId = duel.user2Id
-    user2Result.sessionId = duel.sessionId
+    user2Result.seasonId = duel.seasonId
     user2Result.competitionId = duel.competitionId
     user2Result.week = week
     // win 2 points, draw 1 point, loss 0 point

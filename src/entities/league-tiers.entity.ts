@@ -11,7 +11,7 @@ import {
 
 import { LeagueDuels } from './league-duels.entity'
 import { LeaguePlayers } from './league-players.entity'
-import { LeagueSessions } from './league-sessions.entity'
+import { LeagueSeasons } from './league-seasons.entity'
 import { LeagueStandings } from './league-standings.entity'
 
 @Entity()
@@ -23,7 +23,7 @@ export class LeagueTiers {
   level: number
 
   @Column()
-  sessionId: number
+  seasonId: number
 
   @CreateDateColumn()
   createdAt: Date
@@ -31,10 +31,10 @@ export class LeagueTiers {
   @UpdateDateColumn()
   updatedAt: Date
 
-  @ManyToOne(() => LeagueSessions, session => session.tiers, {
+  @ManyToOne(() => LeagueSeasons, season => season.tiers, {
     onDelete: 'CASCADE',
   })
-  session: LeagueSessions
+  season: LeagueSeasons
 
   @OneToMany(() => LeaguePlayers, player => player.tier)
   players: LeaguePlayers[]

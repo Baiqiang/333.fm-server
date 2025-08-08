@@ -1,6 +1,6 @@
 import { Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm'
 
-import { LeagueSessions } from './league-sessions.entity'
+import { LeagueSeasons } from './league-seasons.entity'
 import { Users } from './users.entity'
 
 @Entity()
@@ -9,7 +9,7 @@ export class LeagueParticipants {
   id: number
 
   @Column()
-  sessionId: number
+  seasonId: number
 
   @Column()
   userId: number
@@ -20,11 +20,11 @@ export class LeagueParticipants {
   @UpdateDateColumn()
   updatedAt: Date
 
-  @ManyToOne(() => LeagueSessions, {
+  @ManyToOne(() => LeagueSeasons, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE',
   })
-  session: LeagueSessions
+  season: LeagueSeasons
 
   @ManyToOne(() => Users, {
     onDelete: 'CASCADE',

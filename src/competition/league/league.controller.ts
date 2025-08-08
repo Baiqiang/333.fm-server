@@ -21,147 +21,147 @@ export class LeagueController {
     private readonly userService: UserService,
   ) {}
 
-  @Get('sessions')
-  async getSessions() {
-    return this.leagueService.getSessions()
+  @Get('seasons')
+  async getSeasons() {
+    return this.leagueService.getSeasons()
   }
 
-  @Get('session/on-going')
-  async getOnGoingSession() {
-    const session = await this.leagueService.getOnGoing()
-    this.leagueService.hideScrambles(session)
-    return session
+  @Get('season/on-going')
+  async getOnGoingSeason() {
+    const season = await this.leagueService.getOnGoing()
+    this.leagueService.hideScrambles(season)
+    return season
   }
 
-  @Get('session/next')
-  async getNextSession() {
-    const session = await this.leagueService.getNext()
-    this.leagueService.hideScrambles(session)
-    return session
+  @Get('season/next')
+  async getNextSeason() {
+    const season = await this.leagueService.getNext()
+    this.leagueService.hideScrambles(season)
+    return season
   }
 
-  @Get('session/:number')
-  async getSession(@Param('number', ParseIntPipe) number: number) {
-    const session = await this.leagueService.getSession(number)
-    if (!session) {
-      throw new NotFoundException('Session not found')
+  @Get('season/:number')
+  async getSeason(@Param('number', ParseIntPipe) number: number) {
+    const season = await this.leagueService.getSeason(number)
+    if (!season) {
+      throw new NotFoundException('Season not found')
     }
-    this.leagueService.hideScrambles(session)
-    return session
+    this.leagueService.hideScrambles(season)
+    return season
   }
 
-  @Get('session/:number/schedules')
+  @Get('season/:number/schedules')
   async getSchedules(@Param('number', ParseIntPipe) number: number) {
-    const session = await this.leagueService.getSession(number)
-    if (!session) {
-      throw new NotFoundException('Session not found')
+    const season = await this.leagueService.getSeason(number)
+    if (!season) {
+      throw new NotFoundException('Season not found')
     }
-    const schedules = await this.leagueService.getSchedules(session)
+    const schedules = await this.leagueService.getSchedules(season)
     return schedules
   }
 
-  @Get('session/:number/standings')
+  @Get('season/:number/standings')
   async getStandings(@Param('number', ParseIntPipe) number: number) {
-    const session = await this.leagueService.getSession(number)
-    if (!session) {
-      throw new NotFoundException('Session not found')
+    const season = await this.leagueService.getSeason(number)
+    if (!season) {
+      throw new NotFoundException('Season not found')
     }
-    const standings = await this.leagueService.getStandings(session)
+    const standings = await this.leagueService.getStandings(season)
     return standings
   }
 
-  @Get('session/:number/results')
+  @Get('season/:number/results')
   async getResults(@Param('number', ParseIntPipe) number: number) {
-    const session = await this.leagueService.getSession(number)
-    if (!session) {
-      throw new NotFoundException('Session not found')
+    const season = await this.leagueService.getSeason(number)
+    if (!season) {
+      throw new NotFoundException('Season not found')
     }
-    const results = await this.leagueService.getResults(session)
+    const results = await this.leagueService.getResults(season)
     return results
   }
 
-  @Get('session/:number/solves')
+  @Get('season/:number/solves')
   async getSolves(@Param('number', ParseIntPipe) number: number) {
-    const session = await this.leagueService.getSession(number)
-    if (!session) {
-      throw new NotFoundException('Session not found')
+    const season = await this.leagueService.getSeason(number)
+    if (!season) {
+      throw new NotFoundException('Season not found')
     }
-    const solves = await this.leagueService.getSolves(session)
+    const solves = await this.leagueService.getSolves(season)
     return solves
   }
 
-  @Get('session/:number/tiers')
+  @Get('season/:number/tiers')
   async getTiers(@Param('number', ParseIntPipe) number: number) {
-    const session = await this.leagueService.getSession(number)
-    if (!session) {
-      throw new NotFoundException('Session not found')
+    const season = await this.leagueService.getSeason(number)
+    if (!season) {
+      throw new NotFoundException('Season not found')
     }
-    const tiers = await this.leagueService.getTiers(session)
+    const tiers = await this.leagueService.getTiers(season)
     return tiers
   }
 
-  @Get('session/:number/participated')
+  @Get('season/:number/participated')
   @ApiBearerAuth()
   @UseGuards(JwtRequiredGuard)
   async getParticipated(@Param('number', ParseIntPipe) number: number, @CurrentUser() user: Users) {
-    const session = await this.leagueService.getSession(number)
-    if (!session) {
-      throw new NotFoundException('Session not found')
+    const season = await this.leagueService.getSeason(number)
+    if (!season) {
+      throw new NotFoundException('Season not found')
     }
-    const participant = await this.leagueService.getParticipant(session, user)
+    const participant = await this.leagueService.getParticipant(season, user)
     return participant
   }
 
-  @Post('session/:number/participate')
+  @Post('season/:number/participate')
   @ApiBearerAuth()
   @UseGuards(JwtRequiredGuard)
   async participate(@Param('number', ParseIntPipe) number: number, @CurrentUser() user: Users) {
-    const session = await this.leagueService.getSession(number)
-    if (!session) {
-      throw new NotFoundException('Session not found')
+    const season = await this.leagueService.getSeason(number)
+    if (!season) {
+      throw new NotFoundException('Season not found')
     }
-    await this.leagueService.participate(session, user)
+    await this.leagueService.participate(season, user)
     return true
   }
 
-  @Post('session/:number/unparticipate')
+  @Post('season/:number/unparticipate')
   @ApiBearerAuth()
   @UseGuards(JwtRequiredGuard)
   async unparticipate(@Param('number', ParseIntPipe) number: number, @CurrentUser() user: Users) {
-    const session = await this.leagueService.getSession(number)
-    if (!session) {
-      throw new NotFoundException('Session not found')
+    const season = await this.leagueService.getSeason(number)
+    if (!season) {
+      throw new NotFoundException('Season not found')
     }
-    await this.leagueService.unparticipate(session, user)
+    await this.leagueService.unparticipate(season, user)
     return true
   }
 
-  @Get('session/:number/:week/schedules')
+  @Get('season/:number/:week/schedules')
   async getWeekSchedules(@Param('number', ParseIntPipe) number: number, @Param('week', ParseIntPipe) week: number) {
-    const session = await this.leagueService.getSession(number)
-    if (!session) {
-      throw new NotFoundException('Session not found')
+    const season = await this.leagueService.getSeason(number)
+    if (!season) {
+      throw new NotFoundException('Season not found')
     }
-    const competition = await this.leagueService.getSessionCompetition(session, week)
+    const competition = await this.leagueService.getSeasonCompetition(season, week)
     if (!competition) {
       throw new NotFoundException('Competition not found')
     }
-    const schedules = await this.leagueService.getWeekSchedules(session, competition)
+    const schedules = await this.leagueService.getWeekSchedules(season, competition)
     return schedules
   }
 
-  @Get('session/:number/:week/submissions')
+  @Get('season/:number/:week/submissions')
   @UseGuards(JwtAuthGuard)
   async getWeekSubmissions(
     @Param('number', ParseIntPipe) number: number,
     @Param('week', ParseIntPipe) week: number,
     @CurrentUser() user: Users,
   ) {
-    const session = await this.leagueService.getSession(number)
-    if (!session) {
-      throw new NotFoundException('Session not found')
+    const season = await this.leagueService.getSeason(number)
+    if (!season) {
+      throw new NotFoundException('Season not found')
     }
-    const competition = await this.leagueService.getSessionCompetition(session, week)
+    const competition = await this.leagueService.getSeasonCompetition(season, week)
     if (!competition) {
       throw new NotFoundException('Competition not found')
     }
@@ -206,13 +206,13 @@ export class LeagueController {
     return ret
   }
 
-  @Get('session/:number/:week/results')
+  @Get('season/:number/:week/results')
   async getWeekResults(@Param('number', ParseIntPipe) number: number, @Param('week', ParseIntPipe) week: number) {
-    const session = await this.leagueService.getSession(number)
-    if (!session) {
-      throw new NotFoundException('Session not found')
+    const season = await this.leagueService.getSeason(number)
+    if (!season) {
+      throw new NotFoundException('Season not found')
     }
-    const competition = await this.leagueService.getSessionCompetition(session, week)
+    const competition = await this.leagueService.getSeasonCompetition(season, week)
     if (!competition) {
       throw new NotFoundException('Competition not found')
     }
@@ -230,20 +230,17 @@ export class LeagueController {
     }
   }
 
-  @Get('session/:number/:week')
-  async getSessionCompetition(
-    @Param('number', ParseIntPipe) number: number,
-    @Param('week', ParseIntPipe) week: number,
-  ) {
-    const session = await this.leagueService.getSession(number)
-    if (!session) {
+  @Get('season/:number/:week')
+  async getSeasonCompetition(@Param('number', ParseIntPipe) number: number, @Param('week', ParseIntPipe) week: number) {
+    const season = await this.leagueService.getSeason(number)
+    if (!season) {
       throw new NotFoundException()
     }
-    this.leagueService.hideScrambles(session)
-    return session.competitions.find(c => c.alias === `league-${number}-${week}`)
+    this.leagueService.hideScrambles(season)
+    return season.competitions.find(c => c.alias === `league-${number}-${week}`)
   }
 
-  @Post('session/:number/:alias')
+  @Post('season/:number/:alias')
   @ApiBearerAuth()
   @UseGuards(JwtRequiredGuard)
   public async submit(
@@ -252,23 +249,23 @@ export class LeagueController {
     @CurrentUser() user: Users,
     @Body() solution: SubmitSolutionDto,
   ) {
-    const session = await this.leagueService.getSession(number)
-    if (!session) {
-      throw new NotFoundException('Session not found')
+    const season = await this.leagueService.getSeason(number)
+    if (!season) {
+      throw new NotFoundException('Season not found')
     }
-    const competition = await this.leagueService.getSessionCompetitionByAlias(session, alias)
+    const competition = await this.leagueService.getSeasonCompetitionByAlias(season, alias)
     if (!competition) {
       throw new NotFoundException('Competition not found')
     }
     // check player
-    // const player = await this.leagueService.getPlayer(session, user)
+    // const player = await this.leagueService.getPlayer(season, user)
     // if (!player) {
     //   throw new NotFoundException('Player not found')
     // }
     return await this.leagueService.submitSolution(competition, user, solution)
   }
 
-  @Post('session/:number/:alias/:id')
+  @Post('season/:number/:alias/:id')
   @ApiBearerAuth()
   @UseGuards(JwtRequiredGuard)
   public async update(
@@ -278,11 +275,11 @@ export class LeagueController {
     @CurrentUser() user: Users,
     @Body() solution: Pick<SubmitSolutionDto, 'comment' | 'attachments'>,
   ) {
-    const session = await this.leagueService.getSession(number)
-    if (!session) {
-      throw new NotFoundException('Session not found')
+    const season = await this.leagueService.getSeason(number)
+    if (!season) {
+      throw new NotFoundException('Season not found')
     }
-    const competition = await this.leagueService.getSessionCompetitionByAlias(session, alias)
+    const competition = await this.leagueService.getSeasonCompetitionByAlias(season, alias)
     if (!competition) {
       throw new NotFoundException('Competition not found')
     }

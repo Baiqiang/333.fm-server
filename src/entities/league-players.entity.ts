@@ -1,16 +1,16 @@
 import { Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm'
 
-import { LeagueSessions } from './league-sessions.entity'
+import { LeagueSeasons } from './league-seasons.entity'
 import { LeagueTiers } from './league-tiers.entity'
 import { Users } from './users.entity'
 
-@Entity('league_players')
+@Entity()
 export class LeaguePlayers {
   @PrimaryGeneratedColumn()
   id: number
 
   @Column()
-  sessionId: number
+  seasonId: number
 
   @Column()
   tierId: number
@@ -24,10 +24,10 @@ export class LeaguePlayers {
   @UpdateDateColumn()
   updatedAt: Date
 
-  @ManyToOne(() => LeagueSessions, session => session.players, {
+  @ManyToOne(() => LeagueSeasons, season => season.players, {
     onDelete: 'CASCADE',
   })
-  session: LeagueSessions
+  season: LeagueSeasons
 
   @ManyToOne(() => LeagueTiers, tier => tier.players, {
     onDelete: 'CASCADE',

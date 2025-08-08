@@ -20,7 +20,7 @@ import { JwtRequiredGuard } from '@/auth/guards/jwt-required.guard'
 import { RolesGuard } from '@/auth/guards/roles.guard'
 import { LeaguePlayerDto } from '@/dtos/league-player.dto'
 import { CompetitionStatus } from '@/entities/competitions.entity'
-import { LeagueSessionStatus } from '@/entities/league-sessions.entity'
+import { LeagueSeasonStatus } from '@/entities/league-seasons.entity'
 import { Users } from '@/entities/users.entity'
 import { UserService } from '@/user/user.service'
 
@@ -46,56 +46,56 @@ export class AdminController {
     return this.authService.wcaSignIn(user)
   }
 
-  @Get('sessions')
-  async getSessions() {
-    return this.leagueService.getSessions()
+  @Get('seasons')
+  async getSeasons() {
+    return this.leagueService.getSeasons()
   }
 
-  @Get('session/:number')
-  async getSession(@Param('number', ParseIntPipe) number: number) {
-    return this.leagueService.getSession(number)
+  @Get('season/:number')
+  async getSeason(@Param('number', ParseIntPipe) number: number) {
+    return this.leagueService.getSeason(number)
   }
 
-  @Post('session')
-  async createSession(
+  @Post('season')
+  async createSeason(
     @Body('number') number: number,
     @Body('startTime') startTime: string,
     @Body('weeks') weeks: number,
     @Body('numTiers') numTiers: number,
     @CurrentUser() user: Users,
   ) {
-    const session = await this.leagueService.createSession(number, startTime, weeks)
-    const competitions = await this.leagueService.createCompetitions(session, user, weeks, startTime)
-    const tiers = await this.leagueService.createTiers(session, numTiers)
-    session.competitions = competitions
-    session.tiers = tiers
-    return session
+    const season = await this.leagueService.createSeason(number, startTime, weeks)
+    const competitions = await this.leagueService.createCompetitions(season, user, weeks, startTime)
+    const tiers = await this.leagueService.createTiers(season, numTiers)
+    season.competitions = competitions
+    season.tiers = tiers
+    return season
   }
 
-  @Delete('session/:number')
+  @Delete('season/:number')
   @UseGuards(DevGuard)
-  async deleteSession(@Param('number', ParseIntPipe) number: number) {
-    const session = await this.leagueService.getSession(number)
-    if (!session) {
-      throw new NotFoundException('Session not found')
+  async deleteSeason(@Param('number', ParseIntPipe) number: number) {
+    const season = await this.leagueService.getSeason(number)
+    if (!season) {
+      throw new NotFoundException('Season not found')
     }
-    await this.leagueService.deleteSession(session)
+    await this.leagueService.deleteSeason(season)
     return {
-      message: 'Session deleted',
+      message: 'Season deleted',
     }
   }
 
-  @Post('session/:number/players')
+  @Post('season/:number/players')
   async pickPlayers(
     @Param('number', ParseIntPipe) number: number,
     @Body('tierId') tierId: number,
     @Body('players') players: LeaguePlayerDto[],
   ) {
-    const session = await this.leagueService.getSession(number)
-    if (!session) {
-      throw new NotFoundException('Session not found')
+    const season = await this.leagueService.getSeason(number)
+    if (!season) {
+      throw new NotFoundException('Season not found')
     }
-    const tier = await this.leagueService.getTier(session, tierId)
+    const tier = await this.leagueService.getTier(season, tierId)
     if (!tier) {
       throw new NotFoundException('Tier not found')
     }
@@ -106,91 +106,85 @@ export class AdminController {
     }
   }
 
-  @Get('session/:number/schedules')
+  @Get('season/:number/schedules')
   async getSchedules(@Param('number', ParseIntPipe) number: number) {
-    const session = await this.leagueService.getSession(number)
-    if (!session) {
-      throw new NotFoundException('Session not found')
+    const season = await this.leagueService.getSeason(number)
+    if (!season) {
+      throw new NotFoundException('Season not found')
     }
-    const schedules = await this.leagueService.getSchedules(session)
+    const schedules = await this.leagueService.getSchedules(season)
     return schedules
   }
 
-  @Post('session/:number/schedules')
+  @Post('season/:number/schedules')
   async generateSchedules(@Param('number', ParseIntPipe) number: number) {
-    const session = await this.leagueService.getSession(number)
-    if (!session) {
-      throw new NotFoundException('Session not found')
+    const season = await this.leagueService.getSeason(number)
+    if (!season) {
+      throw new NotFoundException('Season not found')
     }
-    const currentSchedules = await this.leagueService.getSchedules(session)
+    const currentSchedules = await this.leagueService.getSchedules(season)
     if (
       currentSchedules.length !== 0 &&
-      (session.status !== LeagueSessionStatus.NOT_STARTED ||
-        session.competitions.some(competition => competition.status !== CompetitionStatus.NOT_STARTED))
+      (season.status !== LeagueSeasonStatus.NOT_STARTED ||
+        season.competitions.some(competition => competition.status !== CompetitionStatus.NOT_STARTED))
     ) {
       throw new BadRequestException('Schedules exist and can not regenerate')
     }
-    await this.leagueService.getOrCreateStandings(session)
-    const schedules = await this.leagueService.generateSchedules(session)
+    await this.leagueService.getOrCreateStandings(season)
+    const schedules = await this.leagueService.generateSchedules(season)
     return schedules
   }
 
-  @Get('session/:number/participants')
+  @Get('season/:number/participants')
   async getParticipants(@Param('number', ParseIntPipe) number: number) {
-    const session = await this.leagueService.getSession(number)
-    if (!session) {
-      throw new NotFoundException('Session not found')
+    const season = await this.leagueService.getSeason(number)
+    if (!season) {
+      throw new NotFoundException('Season not found')
     }
-    const participants = await this.leagueService.getParticipants(session)
+    const participants = await this.leagueService.getParticipants(season)
     return participants
   }
 
-  @Get('session/:number/:week')
-  async getSessionCompetition(
-    @Param('number', ParseIntPipe) number: number,
-    @Param('week', ParseIntPipe) week: number,
-  ) {
-    const session = await this.leagueService.getSession(number)
-    if (!session) {
-      throw new NotFoundException('Session not found')
+  @Get('season/:number/:week')
+  async getSeasonCompetition(@Param('number', ParseIntPipe) number: number, @Param('week', ParseIntPipe) week: number) {
+    const season = await this.leagueService.getSeason(number)
+    if (!season) {
+      throw new NotFoundException('Season not found')
     }
-    const competition = await this.leagueService.getSessionCompetition(session, week)
+    const competition = await this.leagueService.getSeasonCompetition(season, week)
     if (!competition) {
       throw new NotFoundException('Competition not found')
     }
     return competition
   }
 
-  @Post('session/:number/:week/start')
+  @Post('season/:number/:week/start')
   @UseGuards(DevGuard)
-  async startSessionCompetition(
+  async startSeasonCompetition(
     @Param('number', ParseIntPipe) number: number,
     @Param('week', ParseIntPipe) week: number,
   ) {
-    const session = await this.leagueService.getSession(number)
-    if (!session) {
-      throw new NotFoundException('Session not found')
+    const season = await this.leagueService.getSeason(number)
+    if (!season) {
+      throw new NotFoundException('Season not found')
     }
-    const competition = await this.leagueService.getSessionCompetition(session, week)
+    const competition = await this.leagueService.getSeasonCompetition(season, week)
     if (!competition) {
       throw new NotFoundException('Competition not found')
     }
     await this.leagueService.startCompetition(competition)
-    await this.leagueService.startSession(session)
+    await this.leagueService.startSeason(season)
     return competition
   }
 
-  @Post('session/:number/:week/end')
+  @Post('season/:number/:week/end')
   @UseGuards(DevGuard)
-  async endSessionCompetition(
-    @Param('number', ParseIntPipe) number: number,
-    @Param('week', ParseIntPipe) week: number,
-  ) {
-    const session = await this.leagueService.getSession(number)
-    if (!session) {
-      throw new NotFoundException('Session not found')
+  async endSeasonCompetition(@Param('number', ParseIntPipe) number: number, @Param('week', ParseIntPipe) week: number) {
+    const season = await this.leagueService.getSeason(number)
+    if (!season) {
+      throw new NotFoundException('Season not found')
     }
-    const competition = await this.leagueService.getSessionCompetition(session, week)
+    const competition = await this.leagueService.getSeasonCompetition(season, week)
     if (!competition) {
       throw new NotFoundException('Competition not found')
     }
@@ -198,17 +192,17 @@ export class AdminController {
     return competition
   }
 
-  @Post('session/:number/:week/scrambles')
+  @Post('season/:number/:week/scrambles')
   async importScrambles(
     @Param('number', ParseIntPipe) number: number,
     @Param('week', ParseIntPipe) week: number,
     @Body('scrambles') scrambleStrings: string[],
   ) {
-    const session = await this.leagueService.getSession(number)
-    if (!session) {
-      throw new NotFoundException('Session not found')
+    const season = await this.leagueService.getSeason(number)
+    if (!season) {
+      throw new NotFoundException('Season not found')
     }
-    const competition = await this.leagueService.getSessionCompetition(session, week)
+    const competition = await this.leagueService.getSeasonCompetition(season, week)
     if (!competition) {
       throw new NotFoundException('Competition not found')
     }
@@ -223,13 +217,13 @@ export class AdminController {
     }
   }
 
-  @Post('session/:number/:week/generate-scrambles')
+  @Post('season/:number/:week/generate-scrambles')
   async generateScrambles(@Param('number', ParseIntPipe) number: number, @Param('week', ParseIntPipe) week: number) {
-    const session = await this.leagueService.getSession(number)
-    if (!session) {
-      throw new NotFoundException('Session not found')
+    const season = await this.leagueService.getSeason(number)
+    if (!season) {
+      throw new NotFoundException('Season not found')
     }
-    const competition = await this.leagueService.getSessionCompetition(session, week)
+    const competition = await this.leagueService.getSeasonCompetition(season, week)
     if (!competition) {
       throw new NotFoundException('Competition not found')
     }

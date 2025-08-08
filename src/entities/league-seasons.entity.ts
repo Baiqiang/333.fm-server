@@ -6,14 +6,14 @@ import { LeaguePlayers } from './league-players.entity'
 import { LeagueStandings } from './league-standings.entity'
 import { LeagueTiers } from './league-tiers.entity'
 
-export enum LeagueSessionStatus {
+export enum LeagueSeasonStatus {
   NOT_STARTED,
   ON_GOING,
   ENDED,
 }
 
 @Entity()
-export class LeagueSessions {
+export class LeagueSeasons {
   @PrimaryGeneratedColumn()
   id: number
 
@@ -28,7 +28,7 @@ export class LeagueSessions {
   endTime: Date
 
   @Column()
-  status: LeagueSessionStatus
+  status: LeagueSeasonStatus
 
   @CreateDateColumn()
   createdAt: Date
@@ -36,18 +36,18 @@ export class LeagueSessions {
   @UpdateDateColumn()
   updatedAt: Date
 
-  @OneToMany(() => LeagueTiers, (tier: LeagueTiers) => tier.session)
+  @OneToMany(() => LeagueTiers, (tier: LeagueTiers) => tier.season)
   tiers: LeagueTiers[]
 
-  @OneToMany(() => Competitions, competition => competition.leagueSession, {
+  @OneToMany(() => Competitions, competition => competition.leagueSeason, {
     onDelete: 'CASCADE',
   })
   competitions: Competitions[]
 
-  @OneToMany(() => LeagueStandings, standings => standings.session)
+  @OneToMany(() => LeagueStandings, standings => standings.season)
   standings: LeagueStandings[]
 
-  @OneToMany(() => LeaguePlayers, player => player.session)
+  @OneToMany(() => LeaguePlayers, player => player.season)
   players: LeaguePlayers[]
 
   @Expose()

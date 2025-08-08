@@ -12,7 +12,7 @@ import {
 import { ColumnNumericTransformer } from '@/utils'
 
 import { Competitions } from './competitions.entity'
-import { LeagueSessions } from './league-sessions.entity'
+import { LeagueSeasons } from './league-seasons.entity'
 import { LeagueTiers } from './league-tiers.entity'
 import { Results } from './results.entity'
 import { Users } from './users.entity'
@@ -23,7 +23,7 @@ export class LeagueDuels {
   id: number
 
   @Column()
-  sessionId: number
+  seasonId: number
 
   @Column()
   competitionId: number
@@ -50,11 +50,11 @@ export class LeagueDuels {
   @UpdateDateColumn()
   updatedAt: Date
 
-  @ManyToOne(() => LeagueSessions, {
+  @ManyToOne(() => LeagueSeasons, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE',
   })
-  session: LeagueSessions
+  season: LeagueSeasons
 
   @ManyToOne(() => Competitions, {
     onDelete: 'CASCADE',
