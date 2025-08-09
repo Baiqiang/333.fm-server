@@ -137,7 +137,12 @@ export class LeagueController {
   }
 
   @Get('season/:number/:week/schedules')
-  async getWeekSchedules(@Param('number', ParseIntPipe) number: number, @Param('week', ParseIntPipe) week: number) {
+  @UseGuards(JwtAuthGuard)
+  async getWeekSchedules(
+    @Param('number', ParseIntPipe) number: number,
+    @Param('week', ParseIntPipe) week: number,
+    @CurrentUser() user: Users,
+  ) {
     const season = await this.leagueService.getSeason(number)
     if (!season) {
       throw new NotFoundException('Season not found')
@@ -146,7 +151,7 @@ export class LeagueController {
     if (!competition) {
       throw new NotFoundException('Competition not found')
     }
-    const schedules = await this.leagueService.getWeekSchedules(season, competition)
+    const schedules = await this.leagueService.getWeekSchedules(season, competition, user)
     return schedules
   }
 
