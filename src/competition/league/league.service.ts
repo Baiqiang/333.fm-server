@@ -668,21 +668,11 @@ export class LeagueService {
       {} as Record<number, Record<number, Results>>,
     )
     for (const duel of duels) {
-      duel.user1Result = resultMap[duel.competitionId]?.[duel.user1Id]
-      duel.user2Result = resultMap[duel.competitionId]?.[duel.user2Id]
-      if (duel.competition.hasEnded) {
+      if (!duel.competition.hasEnded) {
         continue
       }
-      // hide results if any player hasn't completed the competition
-      if (
-        !duel.user1Result ||
-        !duel.user2Result ||
-        duel.user1Result.values.some(v => v === 0) ||
-        duel.user2Result.values.some(v => v === 0)
-      ) {
-        duel.user1Result = null
-        duel.user2Result = null
-      }
+      duel.user1Result = resultMap[duel.competitionId]?.[duel.user1Id]
+      duel.user2Result = resultMap[duel.competitionId]?.[duel.user2Id]
     }
     return duels
   }
