@@ -51,12 +51,13 @@ export class LeagueController {
   }
 
   @Get('season/:number/schedules')
-  async getSchedules(@Param('number', ParseIntPipe) number: number) {
+  @UseGuards(JwtAuthGuard)
+  async getSchedules(@Param('number', ParseIntPipe) number: number, @CurrentUser() user: Users) {
     const season = await this.leagueService.getSeason(number)
     if (!season) {
       throw new NotFoundException('Season not found')
     }
-    const schedules = await this.leagueService.getSchedules(season)
+    const schedules = await this.leagueService.getSchedules(season, user)
     return schedules
   }
 

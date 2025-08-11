@@ -554,13 +554,14 @@ export class LeagueService {
     })
   }
 
-  async getSchedules(season: LeagueSeasons) {
+  async getSchedules(season: LeagueSeasons, user?: Users) {
     const tiers = await this.getTiers(season)
     const schedules: { tier: LeagueTiers; schedules: LeagueDuels[] }[] = []
     for (const tier of tiers) {
       const tierSchedules = await this.getTierSchedules(tier)
       schedules.push({ tier, schedules: tierSchedules })
     }
+    await this.loadDuelsResults(schedules, user)
     return schedules
   }
 
@@ -575,88 +576,24 @@ export class LeagueService {
         competition: true,
       },
     })
-    await this.loadDuelsResults(duels)
     return duels
   }
 
   async getWeekSchedules(season: LeagueSeasons, competition: Competitions, user?: Users) {
-    const schedules = await this.getSchedules(season)
+    const schedules = await this.getSchedules(season, user)
     schedules.forEach(s => {
       s.schedules = s.schedules.filter(s => s.competitionId === competition.id)
     })
-    if (user && competition.hasStarted && !competition.hasEnded) {
-      // fetch user results first
-      const userResult = await this.resultsRepository.findOne({
-        where: {
-          userId: user.id,
-          competitionId: competition.id,
-        },
-      })
-      const count = userResult?.values.filter(v => v > 0).length || 0
-      if (count > 0) {
-        // fetch all results
-        const results = await this.resultsRepository.find({
-          where: {
-            competitionId: competition.id,
-          },
-        })
-        const resultMap = results.reduce(
-          (acc, result) => {
-            acc[result.userId] = result
-            return acc
-          },
-          {} as Record<number, Results>,
-        )
-        schedules.forEach(s => {
-          s.schedules.forEach(d => {
-            d.user1Result = resultMap[d.user1Id]
-            d.user2Result = resultMap[d.user2Id]
-            if (count < 3) {
-              if (d.user1Id === user.id) {
-                d.user2Result = null
-              }
-              if (d.user2Id === user.id) {
-                d.user1Result = null
-              }
-              if (d.user1Result) {
-                d.user1Result.values = d.user1Result.values.map((v, i) => (i < count ? v : 0))
-              }
-              if (d.user2Result) {
-                d.user2Result.values = d.user2Result.values.map((v, i) => (i < count ? v : 0))
-              }
-            }
-            // calculate partial points and sets
-            if (d.user1Result && d.user2Result) {
-              let user1Points = 0
-              let user2Points = 0
-              for (let i = 0; i < count; i++) {
-                if (d.user1Result.values[i] === 0 || d.user2Result.values[i] === 0) {
-                  continue
-                }
-                if (betterThan(d.user1Result.values[i], d.user2Result.values[i])) {
-                  user1Points++
-                } else if (betterThan(d.user2Result.values[i], d.user1Result.values[i])) {
-                  user2Points++
-                } else {
-                  user1Points += 0.5
-                  user2Points += 0.5
-                }
-              }
-              d.user1Points = user1Points
-              d.user2Points = user2Points
-            }
-          })
-        })
-      }
-    }
     return schedules
   }
 
-  async loadDuelsResults(duels: LeagueDuels[]) {
+  async loadDuelsResults(schedules: { tier: LeagueTiers; schedules: LeagueDuels[] }[], user?: Users) {
+    if (schedules.length === 0) {
+      return
+    }
     const results = await this.resultsRepository.find({
       where: {
-        userId: In([...duels.map(d => d.user1Id), ...duels.map(d => d.user2Id)].filter(Boolean)),
-        competitionId: In(duels.map(d => d.competitionId)),
+        competitionId: In(schedules[0].schedules.map(d => d.competitionId)),
       },
     })
     const resultMap = results.reduce(
@@ -667,12 +604,58 @@ export class LeagueService {
       },
       {} as Record<number, Record<number, Results>>,
     )
+    const duels = schedules.flatMap(s => s.schedules)
     for (const duel of duels) {
-      if (!duel.competition.hasEnded) {
-        continue
-      }
       duel.user1Result = resultMap[duel.competitionId]?.[duel.user1Id]
       duel.user2Result = resultMap[duel.competitionId]?.[duel.user2Id]
+      if (duel.competition.hasStarted && !duel.competition.hasEnded) {
+        let count = 0
+        if (user) {
+          // fetch user results first
+          const userResult = resultMap[duel.competitionId]?.[user.id]
+          count = userResult?.values.filter(v => v > 0).length || 0
+        }
+        if (count > 0) {
+          // hide results if not all solves are submitted
+          if (count < 3) {
+            if (duel.user1Id === user.id) {
+              duel.user2Result = null
+            }
+            if (duel.user2Id === user.id) {
+              duel.user1Result = null
+            }
+            if (duel.user1Result) {
+              duel.user1Result.values = duel.user1Result.values.map((v, i) => (i < count ? v : 0))
+            }
+            if (duel.user2Result) {
+              duel.user2Result.values = duel.user2Result.values.map((v, i) => (i < count ? v : 0))
+            }
+          }
+          // calculate partial points and sets
+          if (duel.user1Result && duel.user2Result) {
+            let user1Points = 0
+            let user2Points = 0
+            for (let i = 0; i < count; i++) {
+              if (duel.user1Result.values[i] === 0 || duel.user2Result.values[i] === 0) {
+                continue
+              }
+              if (betterThan(duel.user1Result.values[i], duel.user2Result.values[i])) {
+                user1Points++
+              } else if (betterThan(duel.user2Result.values[i], duel.user1Result.values[i])) {
+                user2Points++
+              } else {
+                user1Points += 0.5
+                user2Points += 0.5
+              }
+            }
+            duel.user1Points = user1Points
+            duel.user2Points = user2Points
+          }
+        } else {
+          duel.user1Result = null
+          duel.user2Result = null
+        }
+      }
     }
     return duels
   }
