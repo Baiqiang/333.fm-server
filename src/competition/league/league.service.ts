@@ -787,7 +787,7 @@ export class LeagueService {
     })
     const duels = await this.leagueDuelsRepository.find({
       where: {
-        competitionId: competition.id,
+        seasonId: season.id,
       },
       relations: {
         user1: true,
@@ -802,7 +802,6 @@ export class LeagueService {
     const playerResults = Object.fromEntries(competitionResults.map(r => [r.userId, r]))
     const standings = await this.getStandings(season)
     const mappedStandings = Object.fromEntries(standings.map(s => [s.userId, s]))
-    const mappedDuels: Record<number, Record<number, LeagueDuels>> = {}
     const leagueResults: LeagueResults[] = []
     for (const duel of duels) {
       // @todo how to handle points for a bye player?
@@ -818,10 +817,6 @@ export class LeagueService {
       // so that competition is not null
       duel.competition = competition
       this.calculateDuelPoints(duel, mappedStandings, leagueResults)
-      mappedDuels[duel.user1Id] = mappedDuels[duel.user1Id] || {}
-      mappedDuels[duel.user1Id][duel.user2Id] = duel
-      mappedDuels[duel.user2Id] = mappedDuels[duel.user2Id] || {}
-      mappedDuels[duel.user2Id][duel.user1Id] = duel
     }
 
     const tierMappedStandings: Record<number, LeagueStandings[]> = {}
@@ -830,9 +825,95 @@ export class LeagueService {
       tierMappedStandings[standing.tierId].push(standing)
     }
     for (const standings of Object.values(tierMappedStandings)) {
-      standings.sort((a, b) => {
-        if (a.points != b.points) {
-          return b.points - a.points
+      this.updateStandingRanks(standings, duels)
+    }
+
+    // start a transaction
+    await this.leagueDuelsRepository.manager.transaction(async transactionalEntityManager => {
+      await transactionalEntityManager.save(duels)
+      await transactionalEntityManager.save(standings)
+      await transactionalEntityManager.save(leagueResults)
+    })
+  }
+
+  async updateAllStandingsRanksings(season: LeagueSeasons) {
+    const standings = await this.getStandings(season)
+    const tierMappedStandings: Record<number, LeagueStandings[]> = {}
+    for (const standing of standings) {
+      tierMappedStandings[standing.tierId] = tierMappedStandings[standing.tierId] || []
+      tierMappedStandings[standing.tierId].push(standing)
+    }
+    for (const standings of Object.values(tierMappedStandings)) {
+      const duels = await this.getTierSchedules(standings[0].tier)
+      this.updateStandingRanks(standings, duels)
+      await this.leagueStandingsRepository.save(standings)
+    }
+    return standings
+  }
+
+  updateStandingRanks(standings: LeagueStandings[], duels: LeagueDuels[]) {
+    standings.sort((a, b) => {
+      if (a.points != b.points) {
+        return b.points - a.points
+      }
+      if (a.wins != b.wins) {
+        return b.wins - a.wins
+      }
+      if (a.bestMo3 != b.bestMo3) {
+        if (a.bestMo3 === 0) {
+          return 1
+        }
+        if (b.bestMo3 === 0) {
+          return -1
+        }
+        return a.bestMo3 - b.bestMo3
+      }
+      return -1
+    })
+    // find small tables
+    const pointsMappedStandings: Record<number, LeagueStandings[]> = {}
+    for (const [i, standing] of standings.entries()) {
+      // set initial rank
+      standing.position = i + 1
+      pointsMappedStandings[standing.points] = pointsMappedStandings[standing.points] || []
+      pointsMappedStandings[standing.points].push(standing)
+    }
+    for (const smallTables of Object.values(pointsMappedStandings)) {
+      const count = smallTables.length
+      if (count === 1) {
+        continue
+      }
+      const wins = Object.fromEntries(smallTables.map(s => [s.userId, 0]))
+      const minPosition = smallTables[0].position
+      // check all head to head
+      for (let i = 0; i < count - 1; i++) {
+        for (let j = i + 1; j < count; j++) {
+          const a = smallTables[i]
+          const b = smallTables[j]
+          // find duel between a and b
+          const duel = duels.find(
+            d =>
+              // a vs b
+              (d.user1Id === a.userId && d.user2Id === b.userId) ||
+              // or b vs a
+              (d.user1Id === b.userId && d.user2Id === a.userId),
+          )
+          if (!duel) {
+            continue
+          }
+          const aPoints = duel.getUserPoints(a.user)
+          const bPoints = duel.getUserPoints(duel.getOpponent(a.user))
+          if (aPoints > bPoints) {
+            wins[a.userId]++
+          } else if (aPoints < bPoints) {
+            wins[b.userId]++
+          }
+        }
+      }
+      // sort in small tables
+      smallTables.sort((a, b) => {
+        if (wins[a.userId] !== wins[b.userId]) {
+          return wins[b.userId] - wins[a.userId]
         }
         if (a.wins != b.wins) {
           return b.wins - a.wins
@@ -846,69 +927,9 @@ export class LeagueService {
           }
           return a.bestMo3 - b.bestMo3
         }
-        return -1
       })
-      // find small tables
-      const pointsMappedStandings: Record<number, LeagueStandings[]> = {}
-      standings.forEach((standing, i) => {
-        standing.position = i + 1
-        pointsMappedStandings[standing.points] = pointsMappedStandings[standing.points] || []
-        pointsMappedStandings[standing.points].push(standing)
-      })
-      for (const smallTables of Object.values(pointsMappedStandings)) {
-        const count = smallTables.length
-        if (count === 1) {
-          continue
-        }
-        const wins = Object.fromEntries(smallTables.map(s => [s.userId, 0]))
-        const minPosition = smallTables[0].position
-        // check all head to head
-        for (let i = 0; i < count - 1; i++) {
-          for (let j = i + 1; j < count; j++) {
-            const a = smallTables[i]
-            const b = smallTables[j]
-            const duel = mappedDuels[a.userId]?.[b.userId]
-            if (!duel) {
-              continue
-            }
-            const aPoints = duel.getUserPoints(a.user)
-            const bPoints = duel.getUserPoints(duel.getOpponent(a.user))
-            if (aPoints > bPoints) {
-              wins[a.userId]++
-            } else if (aPoints < bPoints) {
-              wins[b.userId]++
-            }
-          }
-        }
-        // sort in small tables
-        smallTables.sort((a, b) => {
-          if (wins[a.userId] !== wins[b.userId]) {
-            return wins[b.userId] - wins[a.userId]
-          }
-          if (a.wins != b.wins) {
-            return b.wins - a.wins
-          }
-          if (a.bestMo3 != b.bestMo3) {
-            if (a.bestMo3 === 0) {
-              return 1
-            }
-            if (b.bestMo3 === 0) {
-              return -1
-            }
-            return a.bestMo3 - b.bestMo3
-          }
-        })
-        // update positions
-        smallTables.forEach((s, i) => (s.position = minPosition + i))
-      }
+      smallTables.forEach((s, i) => (s.position = minPosition + i))
     }
-
-    // start a transaction
-    await this.leagueDuelsRepository.manager.transaction(async transactionalEntityManager => {
-      await transactionalEntityManager.save(duels)
-      await transactionalEntityManager.save(standings)
-      await transactionalEntityManager.save(leagueResults)
-    })
   }
 
   calculateDuelPoints(

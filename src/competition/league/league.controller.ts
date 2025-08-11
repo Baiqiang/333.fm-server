@@ -71,6 +71,15 @@ export class LeagueController {
     return standings
   }
 
+  @Get('season/:number/update-standings')
+  async updateStandings(@Param('number', ParseIntPipe) number: number) {
+    const season = await this.leagueService.getSeason(number)
+    if (!season) {
+      throw new NotFoundException('Season not found')
+    }
+    return await this.leagueService.updateAllStandingsRanksings(season)
+  }
+
   @Get('season/:number/results')
   async getResults(@Param('number', ParseIntPipe) number: number) {
     const season = await this.leagueService.getSeason(number)
