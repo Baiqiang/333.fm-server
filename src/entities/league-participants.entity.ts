@@ -1,9 +1,10 @@
-import { Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm'
+import { Column, CreateDateColumn, Entity, Index, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm'
 
 import { LeagueSeasons } from './league-seasons.entity'
 import { Users } from './users.entity'
 
 @Entity()
+@Index(['seasonId', 'userId'], { unique: true })
 export class LeagueParticipants {
   @PrimaryGeneratedColumn()
   id: number
