@@ -26,6 +26,11 @@ export class LeagueController {
     return this.leagueService.getSeasons()
   }
 
+  @Get('seasons/past')
+  async getPastSeasons() {
+    return this.leagueService.getPastSeasons()
+  }
+
   @Get('season/on-going')
   async getOnGoingSeason() {
     const season = await this.leagueService.getOnGoing()

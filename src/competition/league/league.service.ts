@@ -104,6 +104,17 @@ export class LeagueService {
     })
   }
 
+  async getPastSeasons() {
+    return this.leagueSeasonsRepository.find({
+      where: {
+        status: LeagueSeasonStatus.ENDED,
+      },
+      order: {
+        number: 'DESC',
+      },
+    })
+  }
+
   async findSeason(options: FindOneOptions<LeagueSeasons>) {
     const season = await this.leagueSeasonsRepository.findOne({
       ...options,
@@ -852,24 +863,7 @@ export class LeagueService {
   }
 
   updateStandingRanks(standings: LeagueStandings[], duels: LeagueDuels[]) {
-    standings.sort((a, b) => {
-      if (a.points != b.points) {
-        return b.points - a.points
-      }
-      if (a.wins != b.wins) {
-        return b.wins - a.wins
-      }
-      if (a.bestMo3 != b.bestMo3) {
-        if (a.bestMo3 === 0) {
-          return 1
-        }
-        if (b.bestMo3 === 0) {
-          return -1
-        }
-        return a.bestMo3 - b.bestMo3
-      }
-      return -1
-    })
+    standings.sort((a, b) => b.points - a.points)
     // find small tables
     const pointsMappedStandings: Record<number, LeagueStandings[]> = {}
     for (const [i, standing] of standings.entries()) {
