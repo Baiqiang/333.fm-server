@@ -34,6 +34,9 @@ export class LeagueController {
   @Get('season/on-going')
   async getOnGoingSeason() {
     const season = await this.leagueService.getOnGoing()
+    if (!season) {
+      throw new NotFoundException()
+    }
     this.leagueService.hideScrambles(season)
     return season
   }
@@ -41,6 +44,9 @@ export class LeagueController {
   @Get('season/next')
   async getNextSeason() {
     const season = await this.leagueService.getNext()
+    if (!season) {
+      throw new NotFoundException()
+    }
     this.leagueService.hideScrambles(season)
     return season
   }
