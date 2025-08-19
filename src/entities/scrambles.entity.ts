@@ -24,6 +24,9 @@ export class Scrambles {
   @Index()
   scramble: string
 
+  @Column({ default: 1 })
+  round: number
+
   @Column()
   competitionId: number
 

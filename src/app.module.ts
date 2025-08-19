@@ -15,6 +15,7 @@ import { AttachmentModule } from './attachment/attachment.module'
 import { AuthModule } from './auth/auth.module'
 import { BotModule } from './bot/bot.module'
 import { CompetitionModule } from './competition/competition.module'
+import { ReconstructionModule } from './competition/reconstruction/reconstruction.module'
 import configuration from './config/configuration'
 import { IfModule } from './if/if.module'
 import { ProfileModule } from './profile/profile.module'
@@ -31,7 +32,7 @@ import { UserModule } from './user/user.module'
       host: 'localhost',
       port: 3306,
       username: '333.fm',
-      password: '',
+      password: process.env.MYSQL_PASSWORD || '',
       database: '333fm',
       synchronize: true,
       autoLoadEntities: true,
@@ -62,6 +63,7 @@ import { UserModule } from './user/user.module'
     ProfileModule,
     AttachmentModule,
     BotModule,
+    ReconstructionModule,
   ],
   controllers: [AppController],
   providers: [
