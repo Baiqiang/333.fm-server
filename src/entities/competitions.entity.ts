@@ -28,6 +28,7 @@ export enum CompetitionType {
   PERSONAL_PRACTICE,
   DAILY,
   LEAGUE,
+  RECONSTRUCTION,
 }
 
 export enum CompetitionSubType {
