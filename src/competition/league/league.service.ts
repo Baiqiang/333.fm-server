@@ -803,6 +803,7 @@ export class LeagueService {
       relations: {
         user1: true,
         user2: true,
+        competition: true,
       },
     })
     const competitionResults = await this.resultsRepository.find({
@@ -825,8 +826,6 @@ export class LeagueService {
       }
       duel.user1Result = playerResults[duel.user1Id]
       duel.user2Result = playerResults[duel.user2Id]
-      // so that competition is not null
-      duel.competition = competition
       this.calculateDuelPoints(duel, mappedStandings, leagueResults)
     }
 

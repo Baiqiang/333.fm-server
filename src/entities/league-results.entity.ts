@@ -31,6 +31,5 @@ export class LeagueResults {
   competition: Competitions
 
   @ManyToOne(() => Users, { onDelete: 'CASCADE', onUpdate: 'CASCADE' })
-  @JoinColumn({ name: 'userId' })
   user: Users
 }
