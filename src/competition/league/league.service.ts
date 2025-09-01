@@ -816,6 +816,9 @@ export class LeagueService {
     const mappedStandings = Object.fromEntries(standings.map(s => [s.userId, s]))
     const leagueResults: LeagueResults[] = []
     for (const duel of duels) {
+      if (!duel.competition.hasEnded) {
+        continue
+      }
       // @todo how to handle points for a bye player?
       if (duel.user1 === null || duel.user2 === null) {
         continue
