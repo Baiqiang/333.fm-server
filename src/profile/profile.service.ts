@@ -33,6 +33,7 @@ export class ProfileService {
   async getUserRecords(user: Users) {
     const weeklyRecord = await this.getRecordByType(user, CompetitionType.WEEKLY, true)
     const dailyRecord = await this.getRecordByType(user, CompetitionType.DAILY, true)
+    const leagueRecord = await this.getRecordByType(user, CompetitionType.LEAGUE, true)
     const practiceRecord = await this.getRecordByType(user, CompetitionType.PERSONAL_PRACTICE)
     const endlessCompetitions = await this.competitionsRepository.find({
       where: {
@@ -97,6 +98,10 @@ export class ProfileService {
         {
           type: 'daily',
           record: dailyRecord,
+        },
+        {
+          type: 'league',
+          record: leagueRecord,
         },
         {
           type: 'practice',
