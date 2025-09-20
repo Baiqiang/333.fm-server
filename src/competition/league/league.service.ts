@@ -621,10 +621,19 @@ export class LeagueService {
       duel.user2Result = resultMap[duel.competitionId]?.[duel.user2Id]
       if (duel.competition.hasStarted && !duel.competition.hasEnded) {
         let count = 0
+        let solvedAttempts: Record<number, boolean> = {}
         if (user) {
           // fetch user results first
           const userResult = resultMap[duel.competitionId]?.[user.id]
           count = userResult?.values.filter(v => v > 0).length || 0
+          solvedAttempts =
+            userResult?.values.reduce(
+              (acc, v, i) => {
+                acc[i] = v > 0
+                return acc
+              },
+              {} as Record<number, boolean>,
+            ) || {}
         }
         if (count > 0) {
           // hide results if not all solves are submitted
@@ -636,10 +645,10 @@ export class LeagueService {
               duel.user1Result = null
             }
             if (duel.user1Result) {
-              duel.user1Result.values = duel.user1Result.values.map((v, i) => (i < count ? v : 0))
+              duel.user1Result.values = duel.user1Result.values.map((v, i) => (solvedAttempts[i] ? v : 0))
             }
             if (duel.user2Result) {
-              duel.user2Result.values = duel.user2Result.values.map((v, i) => (i < count ? v : 0))
+              duel.user2Result.values = duel.user2Result.values.map((v, i) => (solvedAttempts[i] ? v : 0))
             }
           }
           // calculate partial points and sets
