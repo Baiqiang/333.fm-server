@@ -82,7 +82,7 @@ export class LeagueService {
       season.endTime = new Date(season.startTime.getTime() + weeks * 7 * 24 * 60 * 60 * 1000)
       await queryRunner.manager.save(season)
       // get all players from standings sheet
-      let row = 1
+      let row = 2
       const tiers: LeagueTiers[] = []
       const standings: Record<string, LeagueStandings> = {}
       const userMap: Record<string, Users> = {}
@@ -96,11 +96,11 @@ export class LeagueService {
             break
           }
           const wcaId = liveSheet[`B${row}`].v
-          const user = await this.usersRepository.findOne({ where: { wcaId } })
+          let user = await this.usersRepository.findOne({ where: { wcaId } })
           if (!user) {
-            console.error('User not found for live', wcaId, cell.v)
-            row++
-            continue
+            console.warn('User not found for live', wcaId, cell.v)
+            user = this.createUser(wcaId.toUpperCase(), cell.v)
+            await queryRunner.manager.save(user)
           }
           userMap[wcaId] = user
           // names map
@@ -236,14 +236,7 @@ export class LeagueService {
               user = await this.usersRepository.findOne({ where: { wcaId: wcaID } })
               if (!user) {
                 console.warn('User not found', wcaID, nameCell.v, week, attempt, row)
-                user = new Users()
-                user.wcaId = wcaID
-                user.name = nameCell.v
-                user.email = `${wcaID}@333.fm`
-                user.source = 'WCA'
-                user.sourceId = wcaID
-                user.avatar = ''
-                user.avatarThumb = ''
+                user = this.createUser(wcaID, nameCell.v)
                 await queryRunner.manager.save(user)
                 userMap[wcaID] = user
               }
@@ -389,6 +382,18 @@ export class LeagueService {
     } finally {
       await queryRunner.release()
     }
+  }
+
+  createUser(wcaId: string, name: string) {
+    const user = new Users()
+    user.wcaId = wcaId
+    user.name = name
+    user.email = `${wcaId}@333.fm`
+    user.source = 'WCA'
+    user.sourceId = wcaId
+    user.avatar = ''
+    user.avatarThumb = ''
+    return user
   }
 
   async updateElo(filename: string, seasonNumber: string) {
