@@ -1,11 +1,11 @@
-import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm'
+import { Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm'
 
 import { Competitions } from './competitions.entity'
 import { LeagueSeasons } from './league-seasons.entity'
 import { Users } from './users.entity'
 
 @Entity()
-export class LeagueResults {
+export class LeagueEloHistories {
   @PrimaryGeneratedColumn()
   id: number
 
@@ -23,6 +23,15 @@ export class LeagueResults {
 
   @Column({ default: 0 })
   points: number
+
+  @Column({ default: 0 })
+  delta: number
+
+  @CreateDateColumn()
+  createdAt: Date
+
+  @UpdateDateColumn()
+  updatedAt: Date
 
   @ManyToOne(() => LeagueSeasons, { onDelete: 'CASCADE', onUpdate: 'CASCADE' })
   season: LeagueSeasons

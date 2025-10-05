@@ -5,9 +5,19 @@ import { SnakeNamingStrategy } from 'typeorm-naming-strategies'
 
 import configuration from '@/config/configuration'
 import { Algs } from '@/entities/algs.entity'
+import { Attachments } from '@/entities/attachment.entity'
 import { Competitions } from '@/entities/competitions.entity'
 import { EndlessKickoffs } from '@/entities/endless-kickoffs.entity'
 import { InsertionFinders } from '@/entities/insertion-finders.entity'
+import { LeagueDuels } from '@/entities/league-duels.entity'
+import { LeagueEloHistories } from '@/entities/league-elo-histories.entity'
+import { LeagueElos } from '@/entities/league-elos.entity'
+import { LeagueParticipants } from '@/entities/league-participants.entity'
+import { LeaguePlayers } from '@/entities/league-players.entity'
+import { LeagueResults } from '@/entities/league-results.entity'
+import { LeagueSeasons } from '@/entities/league-seasons.entity'
+import { LeagueStandings } from '@/entities/league-standings.entity'
+import { LeagueTiers } from '@/entities/league-tiers.entity'
 import { RealInsertionFinders } from '@/entities/real-insertion-finders.entity'
 import { Results } from '@/entities/results.entity'
 import { Scrambles } from '@/entities/scrambles.entity'
@@ -18,6 +28,8 @@ import { UserRoles } from '@/entities/user-roles.entity'
 import { Users } from '@/entities/users.entity'
 
 import { CmdService } from './cmd.service'
+import { LeagueCommand } from './league/league.command'
+import { LeagueService } from './league/league.service'
 import { PointCommand } from './point/point.command'
 import { PointService } from './point/point.service'
 import { UserCommand } from './user/user.command'
@@ -50,12 +62,22 @@ import { UserService } from './user/user.service'
       Results,
       Scrambles,
       Submissions,
+      Attachments,
       Users,
       UserActivities,
       UserInsertionFinders,
       UserRoles,
+      LeagueSeasons,
+      LeagueTiers,
+      LeaguePlayers,
+      LeagueDuels,
+      LeagueStandings,
+      LeagueResults,
+      LeagueParticipants,
+      LeagueElos,
+      LeagueEloHistories,
     ]),
   ],
-  providers: [CmdService, PointService, PointCommand, UserService, UserCommand],
+  providers: [CmdService, PointService, PointCommand, UserService, UserCommand, LeagueService, LeagueCommand],
 })
 export class CmdModule {}

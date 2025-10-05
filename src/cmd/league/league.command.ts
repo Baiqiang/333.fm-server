@@ -11,10 +11,11 @@ export class LeagueCommand extends CommandRunner {
   }
 
   async run(passedParam: string[]): Promise<void> {
+    console.log(passedParam)
     switch (passedParam[0]) {
       case 'import':
-        this.logger.log('Importing league elos')
-        await this.leagueService.import(passedParam[1], passedParam[2])
+        this.logger.log('Importing past leagues')
+        await this.leagueService.import(passedParam[1], parseInt(passedParam[2]), passedParam[3])
         break
       case 'elo':
         this.logger.log('Calculating league elos')
