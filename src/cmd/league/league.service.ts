@@ -256,7 +256,6 @@ export class LeagueService {
             // fake created at
             submission.createdAt = new Date(competition.startTime.getTime() + 3.5 * 86400 * 1000 + count * 1000)
             count++
-            await queryRunner.manager.save(submission)
             const result = userResults[user.id] || new Results()
             if (!userResults[user.id]) {
               result.mode = submission.mode
@@ -269,6 +268,9 @@ export class LeagueService {
             }
             result.values[attempt - 1] = movesCount
             await queryRunner.manager.save(result)
+            // link result to submission
+            submission.resultId = result.id
+            await queryRunner.manager.save(submission)
             row++
           }
         }
