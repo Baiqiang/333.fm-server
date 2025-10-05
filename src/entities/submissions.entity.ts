@@ -79,6 +79,9 @@ export class Submissions {
   @Column({ default: 0 })
   cancelMoves: number
 
+  @Column({ default: true })
+  verified: boolean
+
   @Column()
   competitionId: number
 

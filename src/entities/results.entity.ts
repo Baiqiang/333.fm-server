@@ -87,4 +87,12 @@ export class Results {
     result.user = this.user
     return result
   }
+
+  updateBestAndAverage() {
+    this.best = Math.min(...this.values.filter(v => v > 0))
+    this.average = calculateMean(this.values.filter(v => v > 0))
+    if (this.values.some(v => v === DNF || v === DNS)) {
+      this.average = DNF
+    }
+  }
 }

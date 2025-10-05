@@ -12,6 +12,8 @@ import {
   CompetitionType,
 } from '@/entities/competitions.entity'
 import { LeagueDuels } from '@/entities/league-duels.entity'
+import { LeagueEloHistories } from '@/entities/league-elo-histories.entity'
+import { LeagueElos } from '@/entities/league-elos.entity'
 import { LeagueParticipants } from '@/entities/league-participants.entity'
 import { LeaguePlayers } from '@/entities/league-players.entity'
 import { LeagueResults } from '@/entities/league-results.entity'
@@ -54,6 +56,10 @@ export class LeagueService {
     private readonly leagueStandingsRepository: Repository<LeagueStandings>,
     @InjectRepository(LeagueResults)
     private readonly leagueResultsRepository: Repository<LeagueResults>,
+    @InjectRepository(LeagueElos)
+    private readonly leagueElosRepository: Repository<LeagueElos>,
+    @InjectRepository(LeagueEloHistories)
+    private readonly leagueEloHistoriesRepository: Repository<LeagueEloHistories>,
     @InjectRepository(LeagueParticipants)
     private readonly leagueParticipantsRepository: Repository<LeagueParticipants>,
     @InjectRepository(Competitions)
@@ -538,6 +544,22 @@ export class LeagueService {
   async getMappedStandings(season: LeagueSeasons) {
     const standings = await this.getStandings(season)
     return Object.fromEntries(standings.map(s => [s.userId, s]))
+  }
+
+  async getElos() {
+    return this.leagueElosRepository.find({})
+  }
+
+  async getSeasonElos(season: LeagueSeasons) {
+    const eloHistories = await this.leagueEloHistoriesRepository.find({ where: { seasonId: season.id } })
+    const tmp: Record<number, Record<number, LeagueEloHistories>> = {}
+    for (const eloHistory of eloHistories) {
+      tmp[eloHistory.userId] = tmp[eloHistory.userId] || {}
+      tmp[eloHistory.userId][eloHistory.week] = eloHistory
+    }
+    return Object.values(tmp)
+      .map(e => Object.values(e))
+      .sort((a, b) => b[b.length - 1].points - a[a.length - 1].points)
   }
 
   async getResults(season: LeagueSeasons) {
