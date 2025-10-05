@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { Repository } from 'typeorm'
+import { Not, Repository } from 'typeorm'
 import XLSX from 'xlsx'
 
 import {
@@ -96,7 +96,7 @@ export class LeagueService {
             break
           }
           const wcaId = liveSheet[`B${row}`].v
-          let user = await this.usersRepository.findOne({ where: { wcaId } })
+          let user = await this.usersRepository.findOne({ where: { wcaId, source: Not('MERGED') } })
           if (!user) {
             console.warn('User not found for live', wcaId, cell.v)
             user = this.createUser(wcaId.toUpperCase(), cell.v)
@@ -129,7 +129,7 @@ export class LeagueService {
             break
           }
           // const wcaId = standingsSheet[`C${row + i}`].v
-          // const user = await this.usersRepository.findOne({ where: { wcaId } })
+          // const user = await this.usersRepository.findOne({ where: { wcaId, source: Not('MERGED') } })
           const user = userMap[nameCell.v.toLowerCase()]
           if (!user) {
             console.error('User not found for standings', nameCell.v, row + i)
@@ -233,7 +233,7 @@ export class LeagueService {
             const submission = new Submissions()
             let user = userMap[wcaID]
             if (!user) {
-              user = await this.usersRepository.findOne({ where: { wcaId: wcaID } })
+              user = await this.usersRepository.findOne({ where: { wcaId: wcaID, source: Not('MERGED') } })
               if (!user) {
                 console.warn('User not found', wcaID, nameCell.v, week, attempt, row)
                 user = this.createUser(wcaID, nameCell.v)
