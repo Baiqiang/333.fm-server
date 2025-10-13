@@ -310,7 +310,7 @@ export function calculateMean(values: number[]): number {
   if (dnfResults.length > 0) {
     return DNF
   }
-  return values.reduce((a, b) => a + b, 0) / values.length
+  return Math.round(values.reduce((a, b) => a + b, 0) / values.length)
 }
 
 export function calculateAverage(values: number[]): number {
@@ -320,7 +320,7 @@ export function calculateAverage(values: number[]): number {
   }
   const max = Math.max(...values)
   const min = Math.min(...values)
-  return (values.reduce((a, b) => a + b, 0) - max - min) / (values.length - 2)
+  return Math.round((values.reduce((a, b) => a + b, 0) - max - min) / (values.length - 2))
 }
 
 export function groupBy<T>(array: T[], key: string): T[] {
