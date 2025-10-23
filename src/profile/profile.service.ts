@@ -118,11 +118,13 @@ export class ProfileService {
       .createQueryBuilder('r')
       .leftJoin('r.competition', 'c')
       .where('r.user_id = :userId', { userId: user.id })
-      .andWhere('r.mode = :mode', { mode: CompetitionMode.REGULAR })
       .andWhere('c.type = :type', {
         type,
       })
       .select(['MIN(r.best) AS single'])
+    if (type !== CompetitionType.LEAGUE) {
+      bestQb.andWhere('r.mode = :mode', { mode: CompetitionMode.REGULAR })
+    }
     if (ended) {
       bestQb.andWhere('c.status = :status', { status: CompetitionStatus.ENDED })
     }
