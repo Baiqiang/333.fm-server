@@ -14,7 +14,7 @@ dayjs.extend(weekOfYear)
 dayjs.extend(weekYear)
 
 export function replaceQuote(string: string): string {
-  return string.replace(/[‘’`]/g, "'")
+  return string.replace(/[‘’`′]/g, "'")
 }
 
 export function removeComment(string: string | string[]): string {
