@@ -910,7 +910,7 @@ export class LeagueService {
       if (count === 1) {
         continue
       }
-      const wins = Object.fromEntries(smallTables.map(s => [s.userId, 0]))
+      const smallTablePoints = Object.fromEntries(smallTables.map(s => [s.userId, 0]))
       const minPosition = smallTables[0].position
       // check all head to head
       for (let i = 0; i < count - 1; i++) {
@@ -931,16 +931,19 @@ export class LeagueService {
           const aPoints = duel.getUserPoints(a.user)
           const bPoints = duel.getUserPoints(duel.getOpponent(a.user))
           if (aPoints > bPoints) {
-            wins[a.userId]++
+            smallTablePoints[a.userId] += 2
           } else if (aPoints < bPoints) {
-            wins[b.userId]++
+            smallTablePoints[b.userId] += 2
+          } else {
+            smallTablePoints[a.userId] += 1
+            smallTablePoints[b.userId] += 1
           }
         }
       }
       // sort in small tables
       smallTables.sort((a, b) => {
-        if (wins[a.userId] !== wins[b.userId]) {
-          return wins[b.userId] - wins[a.userId]
+        if (smallTablePoints[a.userId] !== smallTablePoints[b.userId]) {
+          return smallTablePoints[b.userId] - smallTablePoints[a.userId]
         }
         if (a.wins != b.wins) {
           return b.wins - a.wins
