@@ -403,18 +403,21 @@ export class LeagueService {
       return
     }
     season.competitions.map(competition => {
-      // hide scrambles if competition hasn't started
-      if (!competition.hasStarted) {
-        competition.scrambles = []
-        // hide prev/next competition scrambles
-        if (competition.prevCompetition && !competition.prevCompetition.hasStarted) {
-          competition.prevCompetition.scrambles = []
-        }
-        if (competition.nextCompetition && !competition.nextCompetition.hasStarted) {
-          competition.nextCompetition.scrambles = []
-        }
-      }
+      this.hideCompetitionScrambles(competition)
     })
+  }
+
+  // hide competition scrambles recursively
+  hideCompetitionScrambles(competition: Competitions) {
+    if (!competition.hasStarted) {
+      competition.scrambles = []
+    }
+    if (competition.prevCompetition) {
+      this.hideCompetitionScrambles(competition.prevCompetition)
+    }
+    if (competition.nextCompetition) {
+      this.hideCompetitionScrambles(competition.nextCompetition)
+    }
   }
 
   async getTier(season: LeagueSeasons, id: number) {
