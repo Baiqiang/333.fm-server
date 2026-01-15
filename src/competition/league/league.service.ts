@@ -404,8 +404,15 @@ export class LeagueService {
     }
     season.competitions.map(competition => {
       // hide scrambles if competition hasn't started
-      if (!competition.hasStarted && !competition.hasEnded) {
+      if (!competition.hasStarted) {
         competition.scrambles = []
+        // hide prev/next competition scrambles
+        if (competition.prevCompetition && !competition.prevCompetition.hasStarted) {
+          competition.prevCompetition.scrambles = []
+        }
+        if (competition.nextCompetition && !competition.nextCompetition.hasStarted) {
+          competition.nextCompetition.scrambles = []
+        }
       }
     })
   }
