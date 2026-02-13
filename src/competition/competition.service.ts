@@ -156,11 +156,12 @@ export class CompetitionService {
     submission.user = user
     submission.solution = dto.solution
     submission.comment = dto.comment
-    const attachments = await this.attachmentService.findByIds(dto.attachments)
-    submission.attachments = attachments
+    if (dto.attachments) {
+      const attachments = await this.attachmentService.findByIds(dto.attachments)
+      submission.attachments = attachments
+    }
     if (typeof options?.moves === 'undefined') {
-      const moves = calculateMoves(scramble.scramble, dto.solution)
-      submission.moves = moves
+      submission.moves = calculateMoves(scramble.scramble, dto.solution)
     } else {
       submission.moves = options.moves
     }

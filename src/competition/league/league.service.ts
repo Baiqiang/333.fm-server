@@ -26,7 +26,7 @@ import { Scrambles } from '@/entities/scrambles.entity'
 import { Submissions } from '@/entities/submissions.entity'
 import { Users } from '@/entities/users.entity'
 import { UserService } from '@/user/user.service'
-import { betterThan } from '@/utils'
+import { betterThan, calculateMoves } from '@/utils'
 import { generateScrambles } from '@/utils/scramble'
 
 import { CompetitionService } from '../competition.service'
@@ -817,6 +817,173 @@ export class LeagueService {
     }
     await this.resultsRepository.save(result)
     return submission
+  }
+
+  async adminAddSubmission(scrambleId: number, userId: number, solution: string, comment: string) {
+    const scramble = await this.scramblesRepository.findOne({
+      where: { id: scrambleId },
+      relations: { competition: { scrambles: true } },
+    })
+    if (!scramble?.competition?.leagueSeasonId) {
+      throw new BadRequestException('Invalid scramble or not a league competition')
+    }
+    // only allowed for ended competitions
+    if (!scramble?.competition?.hasEnded) {
+      throw new BadRequestException('Competition has not ended')
+    }
+    const user = await this.userService.findOne(userId)
+    if (!user) {
+      throw new BadRequestException('User not found')
+    }
+    const existing = await this.submissionsRepository.findOne({
+      where: { scrambleId, userId },
+    })
+    // only allowed to add or change DNF submissions
+    if (existing && existing.moves !== DNF) {
+      throw new BadRequestException('User already has a solution for this scramble')
+    }
+    const competition = scramble.competition
+    const season = await this.leagueSeasonsRepository.findOne({
+      where: { id: competition.leagueSeasonId },
+    })
+    if (!season) {
+      throw new BadRequestException('Season not found')
+    }
+    // remove previous submission
+    if (existing) {
+      await this.submissionsRepository.remove(existing)
+    }
+    const player = await this.getPlayer(season, user)
+    const mode = player ? CompetitionMode.REGULAR : CompetitionMode.UNLIMITED
+    const moves = calculateMoves(scramble.scramble, solution)
+    const solutionDto: SubmitSolutionDto = {
+      scrambleId,
+      mode,
+      solution,
+      comment: comment ?? '',
+    }
+    const submission = await this.competitionService.createSubmission(competition, scramble, user, solutionDto, {
+      moves,
+    })
+    let result = await this.resultsRepository.findOne({
+      where: { competitionId: competition.id, userId: user.id },
+    })
+    if (!result) {
+      result = new Results()
+      result.mode = mode
+      result.competition = competition
+      result.user = user
+      result.values = competition.scrambles.map(() => 0)
+      result.best = 0
+      result.average = 0
+      await this.resultsRepository.save(result)
+    }
+    submission.result = result
+    await this.submissionsRepository.save(submission)
+    result.values[scramble.number - 1] = submission.moves
+    const nonZeroValues = result.values.filter(value => value > 0)
+    result.best = nonZeroValues.length ? Math.min(...nonZeroValues) : 0
+    result.average =
+      nonZeroValues.length > 0 ? Math.round(nonZeroValues.reduce((a, b) => a + b, 0) / nonZeroValues.length) : 0
+    if (result.values.some(v => v === DNF || v === DNS)) {
+      result.average = DNF
+    }
+    await this.resultsRepository.save(result)
+    if (mode === CompetitionMode.REGULAR) {
+      // update other results (unlimited mode)
+      let unlimitedResult = await this.resultsRepository.findOne({
+        where: { competitionId: competition.id, userId: user.id, mode: CompetitionMode.UNLIMITED },
+      })
+      if (!unlimitedResult) {
+        unlimitedResult = new Results()
+        unlimitedResult.mode = CompetitionMode.UNLIMITED
+        unlimitedResult.competitionId = competition.id
+        unlimitedResult.userId = user.id
+        unlimitedResult.user = user
+        unlimitedResult.values = [...result.values]
+        unlimitedResult.best = result.best
+        unlimitedResult.average = result.average
+      } else {
+        unlimitedResult.values = [...result.values]
+        unlimitedResult.best = result.best
+        unlimitedResult.average = result.average
+      }
+      await this.resultsRepository.save(unlimitedResult)
+      // only recalculate points for participants (regular mode)
+      await this.recalculatePointsForCompetition(competition, user.id)
+    }
+    return submission
+  }
+
+  async recalculatePointsForCompetition(competition: Competitions, userId: number) {
+    const season = await this.leagueSeasonsRepository.findOne({
+      where: { id: competition.leagueSeasonId },
+    })
+    if (!season) {
+      return
+    }
+    const duel = await this.leagueDuelsRepository.findOne({
+      where: [
+        { competitionId: competition.id, user1Id: userId },
+        { competitionId: competition.id, user2Id: userId },
+      ],
+      relations: { user1: true, user2: true, competition: true },
+    })
+    if (!duel) {
+      return
+    }
+    const standings = await this.getStandings(season)
+    const mappedStandings = Object.fromEntries(standings.map(s => [s.userId, s]))
+    const affectedUserIds = [duel.user1Id, duel.user2Id]
+    const existingLeagueResults = await this.leagueResultsRepository.find({
+      where: { competitionId: competition.id, userId: In(affectedUserIds) },
+    })
+    const resultsByUser = Object.fromEntries(existingLeagueResults.map(r => [r.userId, r]))
+    const r1 = resultsByUser[duel.user1Id]
+    const r2 = resultsByUser[duel.user2Id]
+    const s1 = mappedStandings[duel.user1Id]
+    const s2 = mappedStandings[duel.user2Id]
+    if (s1 && r1) {
+      s1.points -= r1.points
+      if (r1.points === 2) s1.wins--
+      else if (r1.points === 1) s1.draws--
+      if (r2?.points === 2) s1.losses--
+    }
+    if (s2 && r2) {
+      s2.points -= r2.points
+      if (r2.points === 2) s2.wins--
+      else if (r2.points === 1) s2.draws--
+      if (r1?.points === 2) s2.losses--
+    }
+    await this.leagueResultsRepository.delete({
+      competitionId: competition.id,
+      userId: In(affectedUserIds),
+    })
+    duel.user1Points = 0
+    duel.user2Points = 0
+    const competitionResults = await this.resultsRepository.find({
+      where: {
+        competitionId: competition.id,
+        userId: In(affectedUserIds),
+        mode: CompetitionMode.REGULAR,
+      },
+    })
+    const playerResults = Object.fromEntries(competitionResults.map(r => [r.userId, r]))
+    duel.user1Result = playerResults[duel.user1Id]
+    duel.user2Result = playerResults[duel.user2Id]
+    const leagueResults: LeagueResults[] = []
+    this.calculateDuelPoints(duel, mappedStandings, leagueResults)
+    console.log('duel', duel)
+    console.log('leagueResults', leagueResults)
+    // set competition status to ongoing so the cronjob will calculate the rankings
+    competition.status = CompetitionStatus.ON_GOING
+    await this.leagueDuelsRepository.manager.transaction(async em => {
+      await em.save(duel)
+      await em.save(standings)
+      await em.save(leagueResults)
+      await em.save(competition)
+    })
+    await this.updateAllStandingsRanksings(season)
   }
 
   async update(

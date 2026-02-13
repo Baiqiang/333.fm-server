@@ -18,6 +18,7 @@ import { Role } from '@/auth/enums/role.enum'
 import { DevGuard } from '@/auth/guards/dev.guard'
 import { JwtRequiredGuard } from '@/auth/guards/jwt-required.guard'
 import { RolesGuard } from '@/auth/guards/roles.guard'
+import { AdminAddSubmissionDto } from '@/dtos/admin-add-submission.dto'
 import { LeaguePlayerDto } from '@/dtos/league-player.dto'
 import { CompetitionStatus } from '@/entities/competitions.entity'
 import { LeagueSeasonStatus } from '@/entities/league-seasons.entity'
@@ -143,6 +144,17 @@ export class AdminController {
     }
     const participants = await this.leagueService.getParticipants(season)
     return participants
+  }
+
+  @Post('season/:number/add-submission')
+  async addSubmission(@Body() dto: AdminAddSubmissionDto) {
+    const submission = await this.leagueService.adminAddSubmission(
+      dto.scrambleId,
+      dto.userId,
+      dto.solution,
+      dto.comment,
+    )
+    return submission
   }
 
   @Get('season/:number/:week')
