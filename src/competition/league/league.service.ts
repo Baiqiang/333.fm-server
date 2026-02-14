@@ -158,27 +158,14 @@ export class LeagueService {
           },
         }),
       ])
-      // Load current season ELOs
-      const nextSeason = await this.leagueSeasonsRepository.findOne({
-        where: { number: season.number + 1 },
-      })
-      let elos: Record<number, number> = {}
-      if (nextSeason) {
-        // Use next season's week 1 ELO histories as this season's final ELO
-        const nextWeek1Elos = await this.leagueEloHistoriesRepository.find({
-          where: { seasonId: nextSeason.id, week: 1 },
-        })
-        if (nextWeek1Elos.length > 0) {
-          elos = Object.fromEntries(nextWeek1Elos.map(e => [e.userId, e.points]))
-        } else {
-          // Use current LeagueElos values
-          const leagueElos = await this.leagueElosRepository.find()
-          elos = Object.fromEntries(leagueElos.map(e => [e.userId, e.points]))
+      // Build elos from the latest history entry per user
+      const eloWeekMap: Record<number, number> = {}
+      const elos: Record<number, number> = {}
+      for (const h of eloHistories) {
+        if (!eloWeekMap[h.userId] || h.week > eloWeekMap[h.userId]) {
+          eloWeekMap[h.userId] = h.week
+          elos[h.userId] = h.points
         }
-      } else {
-        // Use current LeagueElos values
-        const leagueElos = await this.leagueElosRepository.find()
-        elos = Object.fromEntries(leagueElos.map(e => [e.userId, e.points]))
       }
 
       season.tiers = tiers
