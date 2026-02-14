@@ -2,6 +2,7 @@ import { Expose } from 'class-transformer'
 import { Column, CreateDateColumn, Entity, Index, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm'
 
 import { Competitions } from './competitions.entity'
+import { LeagueEloHistories } from './league-elo-histories.entity'
 import { LeaguePlayers } from './league-players.entity'
 import { LeagueStandings } from './league-standings.entity'
 import { LeagueTiers } from './league-tiers.entity'
@@ -47,8 +48,14 @@ export class LeagueSeasons {
   @OneToMany(() => LeagueStandings, standings => standings.season)
   standings: LeagueStandings[]
 
+  @OneToMany(() => LeagueEloHistories, eloHistory => eloHistory.season)
+  eloHistories: LeagueEloHistories[]
+
   @OneToMany(() => LeaguePlayers, player => player.season)
   players: LeaguePlayers[]
+
+  // Non-persisted: current ELO for each player in this season
+  elos: Record<number, number>
 
   @Expose()
   get title() {

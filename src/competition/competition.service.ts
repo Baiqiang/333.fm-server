@@ -67,6 +67,7 @@ export class CompetitionService {
             case CompetitionType.LEAGUE:
               await this.weeklyService.calculateResults(competition)
               await this.leagueService.calculatePoints(competition)
+              await this.leagueService.calculateElos(competition)
               break
 
             default:

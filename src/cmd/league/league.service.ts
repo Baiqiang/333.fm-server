@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { Not, Repository } from 'typeorm'
+import { In, LessThan, Not, Repository } from 'typeorm'
 import XLSX from 'xlsx'
 
 import {
@@ -24,7 +24,7 @@ import { Scrambles } from '@/entities/scrambles.entity'
 import { Submissions } from '@/entities/submissions.entity'
 import { Users } from '@/entities/users.entity'
 import { calculateMoves } from '@/utils'
-import { EloCalculator } from '@/utils/elo-calculator'
+import { calculateScores, DEFAULT_ELO, updateElo } from '@/utils/elo-calculator'
 
 const { encode_col: encodeCol } = XLSX.utils
 @Injectable()
@@ -398,9 +398,331 @@ export class LeagueService {
     return user
   }
 
-  async updateElo(filename: string, seasonNumber: string) {
-    const calculator = new EloCalculator(filename)
-    const eloList = calculator.updateWeeks(Number(seasonNumber))
-    console.log(eloList)
+  async calcualteElo(seasonNumber: number) {
+    const season = await this.leagueSeasonsRepository.findOne({ where: { number: seasonNumber } })
+    if (!season) {
+      console.error('Season not found')
+      return
+    }
+
+    // Clear existing elo histories for this season
+    await this.leagueEloHistoriesRepository.delete({ seasonId: season.id })
+
+    // Get all league players for this season
+    const players = await this.leaguePlayersRepository.find({ where: { seasonId: season.id } })
+    const playerUserIds = new Set(players.map(p => p.userId))
+
+    // Get starting ELOs from previous seasons only
+    const previousSeasonIds = (
+      await this.leagueSeasonsRepository.find({
+        where: { number: LessThan(season.number) },
+      })
+    ).map(s => s.id)
+
+    const eloMap: Record<number, number> = {}
+    for (const userId of playerUserIds) {
+      if (previousSeasonIds.length > 0) {
+        const lastHistory = await this.leagueEloHistoriesRepository.findOne({
+          where: { userId, seasonId: In(previousSeasonIds) },
+          order: { id: 'DESC' },
+        })
+        if (lastHistory) {
+          eloMap[userId] = lastHistory.points
+          continue
+        }
+      }
+      eloMap[userId] = DEFAULT_ELO
+    }
+
+    // Get all competitions for this season
+    const competitions = await this.competitionsRepository.find({
+      where: { leagueSeasonId: season.id },
+      order: { startTime: 'ASC' },
+    })
+
+    // Process each week: use previous ELO + week W's results → store as week W
+    for (let w = 1; w <= competitions.length; w++) {
+      const comp = competitions.find(c => c.alias === `league-${season.number}-${w}`)
+      if (!comp) continue
+
+      const results = await this.resultsRepository.find({
+        where: { competitionId: comp.id },
+      })
+      const resultMap = Object.fromEntries(results.filter(r => playerUserIds.has(r.userId)).map(r => [r.userId, r]))
+
+      const weekUserIds: number[] = []
+      const weekElos: number[] = []
+      const weekSolves: number[][] = []
+
+      // Include ALL league players, even those without results (DNS for all 3)
+      for (const userId of playerUserIds) {
+        const result = resultMap[userId]
+        const values = result ? result.values.map(v => (v === 0 ? DNS : v)) : [DNS, DNS, DNS]
+        weekUserIds.push(userId)
+        weekElos.push(eloMap[userId] ?? DEFAULT_ELO)
+        weekSolves.push(values)
+      }
+
+      if (weekUserIds.length < 2) continue
+
+      const scoreList = calculateScores(weekSolves)
+      const newEloList = updateElo(weekElos, scoreList)
+
+      const historyEntities: LeagueEloHistories[] = []
+      for (let i = 0; i < weekUserIds.length; i++) {
+        const userId = weekUserIds[i]
+        const oldElo = weekElos[i]
+        const newElo = newEloList[i]
+        eloMap[userId] = newElo
+
+        const history = new LeagueEloHistories()
+        history.seasonId = season.id
+        history.competitionId = comp.id
+        history.week = w
+        history.userId = userId
+        history.points = newElo
+        history.delta = newElo - oldElo
+        historyEntities.push(history)
+      }
+
+      await this.leagueEloHistoriesRepository.save(historyEntities)
+      console.log(`Week ${w}: processed ${weekUserIds.length} players`)
+    }
+
+    // Update current ELOs in LeagueElos table
+    for (const [userIdStr, points] of Object.entries(eloMap)) {
+      const userId = Number(userIdStr)
+      let elo = await this.leagueElosRepository.findOne({ where: { userId } })
+      if (!elo) {
+        elo = new LeagueElos()
+        elo.userId = userId
+      }
+      elo.points = points
+      await this.leagueElosRepository.save(elo)
+    }
+
+    console.log('ELO calculation completed')
+  }
+
+  async calculateWeekElo(seasonNumber: number, week: number) {
+    const season = await this.leagueSeasonsRepository.findOne({ where: { number: seasonNumber } })
+    if (!season) {
+      console.error(`Season S${seasonNumber} not found`)
+      return
+    }
+
+    const comp = await this.competitionsRepository.findOne({
+      where: { alias: `league-${season.number}-${week}` },
+    })
+    if (!comp) {
+      console.error(`Competition for S${season.number} Week ${week} not found`)
+      return
+    }
+
+    // Get league players for this season
+    const players = await this.leaguePlayersRepository.find({ where: { seasonId: season.id } })
+    const playerUserIds = new Set(players.map(p => p.userId))
+
+    // Delete existing elo history for this week (where results will be stored)
+    await this.leagueEloHistoriesRepository.delete({ seasonId: season.id, week })
+
+    // Resolve each player's ELO before this week (from previous week's history)
+    const previousSeasonIds = (
+      await this.leagueSeasonsRepository.find({
+        where: { number: LessThan(season.number) },
+      })
+    ).map(s => s.id)
+
+    const eloBeforeMap: Record<number, number> = {}
+    for (const userId of playerUserIds) {
+      // Look for the previous week's ELO in this season
+      if (week > 1) {
+        const prevHistory = await this.leagueEloHistoriesRepository.findOne({
+          where: { userId, seasonId: season.id, week: week - 1 },
+        })
+        if (prevHistory) {
+          eloBeforeMap[userId] = prevHistory.points
+          continue
+        }
+      }
+      // Fallback: latest from previous seasons
+      if (previousSeasonIds.length > 0) {
+        const lastHistory = await this.leagueEloHistoriesRepository.findOne({
+          where: { userId, seasonId: In(previousSeasonIds) },
+          order: { id: 'DESC' },
+        })
+        if (lastHistory) {
+          eloBeforeMap[userId] = lastHistory.points
+          continue
+        }
+      }
+      eloBeforeMap[userId] = DEFAULT_ELO
+    }
+
+    // Get results for this competition
+    const results = await this.resultsRepository.find({
+      where: { competitionId: comp.id },
+      relations: { user: true },
+    })
+    const resultMap = Object.fromEntries(results.filter(r => playerUserIds.has(r.userId)).map(r => [r.userId, r]))
+
+    // Load user names for all league players
+    const allUsers = await this.usersRepository.find({ where: { id: In([...playerUserIds]) } })
+    const userNameMap = Object.fromEntries(allUsers.map(u => [u.id, u.name]))
+
+    const weekUserIds: number[] = []
+    const weekUserNames: string[] = []
+    const weekElos: number[] = []
+    const weekSolves: number[][] = []
+
+    // Include ALL league players, even those without results (DNS for all 3)
+    for (const userId of playerUserIds) {
+      const result = resultMap[userId]
+      const values = result ? result.values.map(v => (v === 0 ? DNS : v)) : [DNS, DNS, DNS]
+      weekUserIds.push(userId)
+      weekUserNames.push(userNameMap[userId] ?? `User#${userId}`)
+      weekElos.push(eloBeforeMap[userId] ?? DEFAULT_ELO)
+      weekSolves.push(values)
+    }
+
+    if (weekUserIds.length < 2) {
+      console.error(`Not enough players for S${season.number} Week ${week}`)
+      return
+    }
+
+    const scoreList = calculateScores(weekSolves)
+    const newEloList = updateElo(weekElos, scoreList)
+
+    // Save history as current week (ELO after this week's competition)
+    const historyEntities: LeagueEloHistories[] = []
+    for (let i = 0; i < weekUserIds.length; i++) {
+      const userId = weekUserIds[i]
+      const oldElo = weekElos[i]
+      const newElo = newEloList[i]
+
+      const history = new LeagueEloHistories()
+      history.seasonId = season.id
+      history.competitionId = comp.id
+      history.week = week
+      history.userId = userId
+      history.points = newElo
+      history.delta = newElo - oldElo
+      historyEntities.push(history)
+
+      console.log(
+        `  ${weekUserNames[i]}: ${oldElo} -> ${newElo} (${newElo - oldElo >= 0 ? '+' : ''}${newElo - oldElo})`,
+      )
+    }
+    await this.leagueEloHistoriesRepository.save(historyEntities)
+
+    // Update LeagueElos: only if this week is the player's latest history entry
+    for (let i = 0; i < weekUserIds.length; i++) {
+      const userId = weekUserIds[i]
+      const laterHistory = await this.leagueEloHistoriesRepository.findOne({
+        where: { userId },
+        order: { id: 'DESC' },
+      })
+      if (laterHistory && laterHistory.week === week && laterHistory.seasonId === season.id) {
+        let elo = await this.leagueElosRepository.findOne({ where: { userId } })
+        if (!elo) {
+          elo = new LeagueElos()
+          elo.userId = userId
+        }
+        elo.points = newEloList[i]
+        await this.leagueElosRepository.save(elo)
+      }
+    }
+
+    console.log(`S${season.number} Week ${week}: processed ${weekUserIds.length} players`)
+  }
+
+  async importElo(filename: string, seasonNumber: number) {
+    const xlsx = XLSX.readFile(filename)
+    const eloSheetName = xlsx.SheetNames.find(s => s.toLowerCase().includes('elo'))
+    if (!eloSheetName) {
+      console.error('ELO sheet not found in file')
+      return
+    }
+    const eloSheet = xlsx.Sheets[eloSheetName]
+    const data = XLSX.utils.sheet_to_json(eloSheet, { header: 1 }) as unknown[][]
+
+    const season = await this.leagueSeasonsRepository.findOne({ where: { number: seasonNumber } })
+    if (!season) {
+      console.error(`Season S${seasonNumber} not found`)
+      return
+    }
+
+    // Get competitions ordered by week
+    const competitions = await this.competitionsRepository.find({
+      where: { leagueSeasonId: season.id },
+      order: { startTime: 'ASC' },
+    })
+    if (competitions.length === 0) {
+      console.error('No competitions found for this season')
+      return
+    }
+    const weeks = competitions.length
+
+    // Clear existing elo histories for this season
+    await this.leagueEloHistoriesRepository.delete({ seasonId: season.id })
+    console.log(`Cleared existing ELO histories for S${seasonNumber}`)
+
+    let imported = 0
+    let skipped = 0
+
+    for (let row = 1; row < data.length; row++) {
+      const rowData = data[row]
+      if (!rowData || !rowData[1]) break
+
+      const wcaId = String(rowData[1]).trim()
+      const user = await this.usersRepository.findOne({ where: { wcaId, source: Not('MERGED') } })
+      if (!user) {
+        console.warn(`User not found: ${rowData[0]} (${wcaId}), skipping`)
+        skipped++
+        continue
+      }
+
+      // Check if this player has any ELO values
+      const hasElo = Array.from({ length: weeks }, (_, i) => rowData[i + 2]).some(v => typeof v === 'number')
+      if (!hasElo) {
+        skipped++
+        continue
+      }
+
+      let userElo = await this.leagueElosRepository.findOne({ where: { userId: user.id } })
+      if (!userElo) {
+        userElo = new LeagueElos()
+        userElo.userId = user.id
+        userElo.points = 0
+      }
+
+      // Excel layout: W1(initial), W2(after W1), ..., W9(after W8), Final(after W9)
+      // W1 is at index 2, so W(n) is at index n+1, Final is at index 2+weeks
+      const initialElo = rowData[2]
+      let prevElo = typeof initialElo === 'number' ? initialElo : DEFAULT_ELO
+
+      for (let w = 1; w <= weeks; w++) {
+        // W2..W(weeks) at indices 3..weeks+1, Final at index 2+weeks
+        const eloValue = w < weeks ? rowData[w + 2] : rowData[2 + weeks]
+        if (typeof eloValue !== 'number') continue
+
+        const eloHistory = new LeagueEloHistories()
+        eloHistory.seasonId = season.id
+        eloHistory.competitionId = competitions[w - 1].id
+        eloHistory.week = w
+        eloHistory.userId = user.id
+        eloHistory.points = eloValue
+        eloHistory.delta = eloValue - prevElo
+        prevElo = eloValue
+        await this.leagueEloHistoriesRepository.save(eloHistory)
+      }
+
+      userElo.points = prevElo
+      await this.leagueElosRepository.save(userElo)
+      imported++
+      console.log(`  ${rowData[0]} (${wcaId}): final ELO = ${userElo.points}`)
+    }
+
+    console.log(`Import completed: ${imported} players imported, ${skipped} skipped`)
   }
 }

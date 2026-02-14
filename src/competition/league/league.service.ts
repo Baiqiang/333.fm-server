@@ -27,6 +27,7 @@ import { Submissions } from '@/entities/submissions.entity'
 import { Users } from '@/entities/users.entity'
 import { UserService } from '@/user/user.service'
 import { betterThan, calculateMoves } from '@/utils'
+import { calculateScores, DEFAULT_ELO, updateElo } from '@/utils/elo-calculator'
 import { generateScrambles } from '@/utils/scramble'
 
 import { CompetitionService } from '../competition.service'
@@ -127,7 +128,7 @@ export class LeagueService {
     })
     if (season) {
       // load relations manually
-      const [tiers, competitions, standings] = await Promise.all([
+      const [tiers, competitions, standings, eloHistories] = await Promise.all([
         this.leagueTiersRepository.find({
           where: {
             seasonId: season.id,
@@ -151,10 +152,40 @@ export class LeagueService {
             seasonId: season.id,
           },
         }),
+        this.leagueEloHistoriesRepository.find({
+          where: {
+            seasonId: season.id,
+          },
+        }),
       ])
+      // Load current season ELOs
+      const nextSeason = await this.leagueSeasonsRepository.findOne({
+        where: { number: season.number + 1 },
+      })
+      let elos: Record<number, number> = {}
+      if (nextSeason) {
+        // Use next season's week 1 ELO histories as this season's final ELO
+        const nextWeek1Elos = await this.leagueEloHistoriesRepository.find({
+          where: { seasonId: nextSeason.id, week: 1 },
+        })
+        if (nextWeek1Elos.length > 0) {
+          elos = Object.fromEntries(nextWeek1Elos.map(e => [e.userId, e.points]))
+        } else {
+          // Use current LeagueElos values
+          const leagueElos = await this.leagueElosRepository.find()
+          elos = Object.fromEntries(leagueElos.map(e => [e.userId, e.points]))
+        }
+      } else {
+        // Use current LeagueElos values
+        const leagueElos = await this.leagueElosRepository.find()
+        elos = Object.fromEntries(leagueElos.map(e => [e.userId, e.points]))
+      }
+
       season.tiers = tiers
       season.competitions = competitions
       season.standings = standings
+      season.eloHistories = eloHistories
+      season.elos = elos
       season.competitions.forEach((competition, i) => {
         competition.prevCompetition = season.competitions[i - 1]
           ? Object.assign(new Competitions(), season.competitions[i - 1])
@@ -1205,5 +1236,104 @@ export class LeagueService {
       user2Standing.bestMo3 = duel.user2Result.average
     }
     leagueResults.push(user1Result, user2Result)
+  }
+
+  async calculateElos(competition: Competitions) {
+    const season = await this.leagueSeasonsRepository.findOne({
+      where: { id: competition.leagueSeasonId },
+    })
+    if (!season) return
+
+    const week = parseInt(competition.alias.split('-').pop() || '0', 10)
+
+    // Revert any existing ELO changes for this competition (idempotent)
+    const existingHistories = await this.leagueEloHistoriesRepository.find({
+      where: { competitionId: competition.id },
+    })
+    if (existingHistories.length > 0) {
+      const affectedUserIds = existingHistories.map(h => h.userId)
+      const affectedElos = await this.leagueElosRepository.find({
+        where: { userId: In(affectedUserIds) },
+      })
+      for (const elo of affectedElos) {
+        const history = existingHistories.find(h => h.userId === elo.userId)
+        if (history) {
+          elo.points -= history.delta
+        }
+      }
+      await this.leagueElosRepository.save(affectedElos)
+      await this.leagueEloHistoriesRepository.delete({ competitionId: competition.id })
+    }
+
+    // Get all league players for this season
+    const leaguePlayers = await this.leaguePlayersRepository.find({
+      where: { seasonId: season.id },
+    })
+    const leaguePlayerUserIds = leaguePlayers.map(p => p.userId)
+
+    if (leaguePlayerUserIds.length < 2) return
+
+    // Get results for this competition
+    const results = await this.resultsRepository.find({
+      where: { competitionId: competition.id },
+    })
+    const resultMap = Object.fromEntries(
+      results.filter(r => leaguePlayerUserIds.includes(r.userId)).map(r => [r.userId, r]),
+    )
+
+    // Get current ELOs for all league players
+    const currentElos = await this.leagueElosRepository.find({
+      where: { userId: In(leaguePlayerUserIds) },
+    })
+    const eloMap = Object.fromEntries(currentElos.map(e => [e.userId, e]))
+
+    // Build parallel arrays — include ALL league players, DNS for missing
+    const playerUserIds: number[] = []
+    const eloList: number[] = []
+    const solvesList: number[][] = []
+
+    for (const userId of leaguePlayerUserIds) {
+      const result = resultMap[userId]
+      const values = result ? result.values.map(v => (v === 0 ? DNS : v)) : [DNS, DNS, DNS]
+      playerUserIds.push(userId)
+      eloList.push(eloMap[userId]?.points ?? DEFAULT_ELO)
+      solvesList.push(values)
+    }
+
+    // Calculate virtual round-robin scores and new ELOs
+    const scoreList = calculateScores(solvesList)
+    const newEloList = updateElo(eloList, scoreList)
+
+    // Prepare entities
+    const eloEntities: LeagueElos[] = []
+    const historyEntities: LeagueEloHistories[] = []
+
+    for (let i = 0; i < playerUserIds.length; i++) {
+      const userId = playerUserIds[i]
+      const oldElo = eloList[i]
+      const newElo = newEloList[i]
+
+      let elo = eloMap[userId]
+      if (!elo) {
+        elo = new LeagueElos()
+        elo.userId = userId
+      }
+      elo.points = newElo
+      eloEntities.push(elo)
+
+      const history = new LeagueEloHistories()
+      history.seasonId = season.id
+      history.competitionId = competition.id
+      history.week = week
+      history.userId = userId
+      history.points = newElo
+      history.delta = newElo - oldElo
+      historyEntities.push(history)
+    }
+
+    await this.leagueElosRepository.manager.transaction(async em => {
+      await em.save(eloEntities)
+      await em.save(historyEntities)
+    })
   }
 }

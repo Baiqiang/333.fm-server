@@ -18,8 +18,16 @@ export class LeagueCommand extends CommandRunner {
         await this.leagueService.import(passedParam[1], parseInt(passedParam[2]), passedParam[3])
         break
       case 'elo':
-        this.logger.log('Calculating league elos')
-        await this.leagueService.updateElo(passedParam[1], passedParam[2])
+        this.logger.log('Calculating league elos for entire season')
+        await this.leagueService.calcualteElo(Number(passedParam[1]))
+        break
+      case 'elo-week':
+        this.logger.log(`Calculating ELO for S${passedParam[1]} Week ${passedParam[2]}`)
+        await this.leagueService.calculateWeekElo(Number(passedParam[1]), Number(passedParam[2]))
+        break
+      case 'import-elo':
+        this.logger.log(`Importing ELO from ${passedParam[1]} for S${passedParam[2]}`)
+        await this.leagueService.importElo(passedParam[1], Number(passedParam[2]))
         break
       default:
         break
