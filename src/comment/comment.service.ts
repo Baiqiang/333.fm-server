@@ -162,8 +162,8 @@ export class CommentService {
   async searchUsers(query: string, limit = 10) {
     return this.usersRepository
       .createQueryBuilder('u')
-      .where('u.name LIKE :query', { query: `%${query}%` })
-      .orWhere('u.wca_id LIKE :query', { query: `%${query}%` })
+      .where('u.source != :merged', { merged: 'MERGED' })
+      .andWhere('(u.name LIKE :query OR u.wca_id LIKE :query)', { query: `%${query}%` })
       .orderBy('u.name', 'ASC')
       .take(limit)
       .getMany()
