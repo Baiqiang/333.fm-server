@@ -6,6 +6,7 @@ import { Algs } from '@/entities/algs.entity'
 import { BotTokens } from '@/entities/bot-tokens.entity'
 import { Competitions } from '@/entities/competitions.entity'
 import { InsertionFinders } from '@/entities/insertion-finders.entity'
+import { Notifications } from '@/entities/notifications.entity'
 import { RealInsertionFinders } from '@/entities/real-insertion-finders.entity'
 import { Submissions } from '@/entities/submissions.entity'
 import { UserActivities } from '@/entities/user-activities.entity'
@@ -22,6 +23,7 @@ import { UserService } from './user.service'
       Algs,
       Competitions,
       InsertionFinders,
+      Notifications,
       RealInsertionFinders,
       Submissions,
       Users,

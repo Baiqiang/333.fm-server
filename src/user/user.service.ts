@@ -6,6 +6,7 @@ import { FindOptionsWhere, In, Repository } from 'typeorm'
 import { WCAProfile } from '@/auth/strategies/wca.strategy'
 import { BotService } from '@/bot/bot.service'
 import { InsertionFinders } from '@/entities/insertion-finders.entity'
+import { Notifications, NotificationType } from '@/entities/notifications.entity'
 import { Submissions } from '@/entities/submissions.entity'
 import { UserActivities } from '@/entities/user-activities.entity'
 import { UserInsertionFinders } from '@/entities/user-insertion-finders.entity'
@@ -25,6 +26,8 @@ export class UserService {
     private readonly userActivitiesRepository: Repository<UserActivities>,
     @InjectRepository(Submissions)
     private readonly submissionsRepository: Repository<Submissions>,
+    @InjectRepository(Notifications)
+    private readonly notificationsRepository: Repository<Notifications>,
     private readonly botService: BotService,
   ) {}
 
@@ -218,6 +221,8 @@ export class UserService {
       userId: user.id,
       submissionId,
     })
+    const wasLiked = userActivitie?.like || false
+    const wasFavorited = userActivitie?.favorite || false
     if (!userActivitie) {
       userActivitie = new UserActivities()
       userActivitie.user = user
@@ -234,7 +239,40 @@ export class UserService {
       }
     }
     await this.userActivitiesRepository.save(userActivitie)
+
+    // create/remove notifications for like/favorite
+    const submission = await this.submissionsRepository.findOneBy({ id: submissionId })
+    if (submission && submission.userId !== user.id) {
+      if (body.like === true && !wasLiked) {
+        await this.createActNotification(user, submission, NotificationType.LIKE)
+      } else if (body.like === false && wasLiked) {
+        await this.removeActNotification(user, submissionId, NotificationType.LIKE)
+      }
+      if (body.favorite === true && !wasFavorited) {
+        await this.createActNotification(user, submission, NotificationType.FAVORITE)
+      } else if (body.favorite === false && wasFavorited) {
+        await this.removeActNotification(user, submissionId, NotificationType.FAVORITE)
+      }
+    }
+
     return userActivitie
+  }
+
+  private async createActNotification(sourceUser: Users, submission: Submissions, type: NotificationType) {
+    const notification = new Notifications()
+    notification.type = type
+    notification.userId = submission.userId
+    notification.sourceUserId = sourceUser.id
+    notification.submissionId = submission.id
+    await this.notificationsRepository.save(notification)
+  }
+
+  private async removeActNotification(sourceUser: Users, submissionId: number, type: NotificationType) {
+    await this.notificationsRepository.delete({
+      type,
+      sourceUserId: sourceUser.id,
+      submissionId,
+    })
   }
 
   async getActivities(

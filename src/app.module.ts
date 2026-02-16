@@ -14,6 +14,7 @@ import { AppService } from './app.service'
 import { AttachmentModule } from './attachment/attachment.module'
 import { AuthModule } from './auth/auth.module'
 import { BotModule } from './bot/bot.module'
+import { CommentModule } from './comment/comment.module'
 import { CompetitionModule } from './competition/competition.module'
 import configuration from './config/configuration'
 import { IfModule } from './if/if.module'
@@ -56,6 +57,7 @@ import { UserModule } from './user/user.module'
     }),
     IfModule,
     UserModule,
+    CommentModule,
     AuthModule,
     AdminModule,
     CompetitionModule,
