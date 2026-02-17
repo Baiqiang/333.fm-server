@@ -319,7 +319,9 @@ export class StatsService {
       .addSelect('u.avatar', 'u_avatar')
       .addSelect('u.avatar_thumb', 'u_avatarThumb')
       .addSelect('COUNT(*)', 'wins')
-      .where('c.type IN (:...types)', { types: [CompetitionType.WEEKLY, CompetitionType.DAILY] })
+      .where('c.type IN (:...types)', {
+        types: [CompetitionType.WEEKLY, CompetitionType.DAILY, CompetitionType.LEAGUE],
+      })
       .andWhere('c.status = :status', { status: CompetitionStatus.ENDED })
       .andWhere('r.rank = 1')
       .andWhere('r.mode = :mode', { mode: CompetitionMode.REGULAR })
