@@ -19,6 +19,7 @@ import { CompetitionModule } from './competition/competition.module'
 import configuration from './config/configuration'
 import { IfModule } from './if/if.module'
 import { ProfileModule } from './profile/profile.module'
+import { StatsModule } from './stats/stats.module'
 import { UserModule } from './user/user.module'
 
 @Module({
@@ -62,6 +63,7 @@ import { UserModule } from './user/user.module'
     AdminModule,
     CompetitionModule,
     ProfileModule,
+    StatsModule,
     AttachmentModule,
     BotModule,
   ],
