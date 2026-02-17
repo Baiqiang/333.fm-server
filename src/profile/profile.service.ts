@@ -10,6 +10,11 @@ import {
   CompetitionStatus,
   CompetitionType,
 } from '@/entities/competitions.entity'
+import { LeagueDuels } from '@/entities/league-duels.entity'
+import { LeagueEloHistories } from '@/entities/league-elo-histories.entity'
+import { LeagueElos } from '@/entities/league-elos.entity'
+import { LeagueResults } from '@/entities/league-results.entity'
+import { LeagueStandings } from '@/entities/league-standings.entity'
 import { Results } from '@/entities/results.entity'
 import { Scrambles } from '@/entities/scrambles.entity'
 import { Submissions } from '@/entities/submissions.entity'
@@ -27,6 +32,16 @@ export class ProfileService {
     private readonly submissionsRepository: TreeRepository<Submissions>,
     @InjectRepository(Results)
     private readonly resultsRepository: Repository<Results>,
+    @InjectRepository(LeagueDuels)
+    private readonly leagueDuelsRepository: Repository<LeagueDuels>,
+    @InjectRepository(LeagueEloHistories)
+    private readonly leagueEloHistoriesRepository: Repository<LeagueEloHistories>,
+    @InjectRepository(LeagueElos)
+    private readonly leagueElosRepository: Repository<LeagueElos>,
+    @InjectRepository(LeagueResults)
+    private readonly leagueResultsRepository: Repository<LeagueResults>,
+    @InjectRepository(LeagueStandings)
+    private readonly leagueStandingsRepository: Repository<LeagueStandings>,
     private readonly userService: UserService,
   ) {}
 
@@ -377,5 +392,71 @@ export class ProfileService {
       data.meta.filters = competitions
     }
     return data
+  }
+
+  async getUserLeagueStats(user: Users) {
+    const duels = await this.leagueDuelsRepository.find({
+      where: [{ user1Id: user.id }, { user2Id: user.id }],
+      relations: {
+        competition: true,
+        tier: true,
+        season: true,
+        user1: true,
+        user2: true,
+      },
+      order: {
+        competitionId: 'ASC',
+      },
+    })
+
+    const standings = await this.leagueStandingsRepository.find({
+      where: {
+        userId: user.id,
+      },
+      relations: {
+        season: true,
+        tier: true,
+      },
+      order: {
+        seasonId: 'ASC',
+      },
+    })
+
+    const eloHistories = await this.leagueEloHistoriesRepository.find({
+      where: {
+        userId: user.id,
+      },
+      relations: {
+        season: true,
+      },
+      order: {
+        seasonId: 'ASC',
+        week: 'ASC',
+      },
+    })
+
+    const elo = await this.leagueElosRepository.findOne({
+      where: {
+        userId: user.id,
+      },
+    })
+
+    const leagueResults = await this.leagueResultsRepository.find({
+      where: {
+        userId: user.id,
+      },
+      order: {
+        seasonId: 'ASC',
+        week: 'ASC',
+      },
+    })
+
+    return {
+      duels,
+      standings,
+      eloHistories,
+      currentElo: elo?.points ?? 0,
+      leagueResults,
+    }
   }
 }
