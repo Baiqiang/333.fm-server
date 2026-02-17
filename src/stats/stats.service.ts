@@ -56,6 +56,16 @@ export class StatsService {
     }
   }
 
+  /** 当前周周一 00:00，用于排除当前周避免剧透 */
+  private getCurrentWeekStart(): Date {
+    // league starts at 10:00 UTC
+    return dayjs()
+      .day(1)
+      .startOf('day')
+      .hour(10 + dayjs().utcOffset() / 60)
+      .toDate()
+  }
+
   private async loadSubmissionsByIds(ids: number[]) {
     if (ids.length === 0) return []
     const submissions = await this.submissionsRepository
@@ -73,6 +83,7 @@ export class StatsService {
   }
 
   async getTopLiked(limit = 10) {
+    const currentWeekStart = this.getCurrentWeekStart()
     const likeCountExpr = '(SELECT COUNT(*) FROM user_activities ua WHERE ua.submission_id = s.id AND ua.`like` = 1)'
     const ranked = await this.submissionsRepository
       .createQueryBuilder('s')
@@ -88,8 +99,9 @@ export class StatsService {
         ],
       })
       .andWhere('s.moves > 0')
+      .andWhere('s.created_at < :currentWeekStart', { currentWeekStart })
       .andWhere(`${likeCountExpr} > 0`)
-      .orderBy(likeCountExpr, 'DESC')
+      .orderBy('cnt', 'DESC')
       .limit(limit)
       .getRawMany()
 
@@ -97,6 +109,7 @@ export class StatsService {
   }
 
   async getTopFavorited(limit = 10) {
+    const currentWeekStart = this.getCurrentWeekStart()
     const favCountExpr = '(SELECT COUNT(*) FROM user_activities ua WHERE ua.submission_id = s.id AND ua.favorite = 1)'
     const ranked = await this.submissionsRepository
       .createQueryBuilder('s')
@@ -112,8 +125,9 @@ export class StatsService {
         ],
       })
       .andWhere('s.moves > 0')
+      .andWhere('s.created_at < :currentWeekStart', { currentWeekStart })
       .andWhere(`${favCountExpr} > 0`)
-      .orderBy(favCountExpr, 'DESC')
+      .orderBy('cnt', 'DESC')
       .limit(limit)
       .getRawMany()
 
@@ -121,6 +135,7 @@ export class StatsService {
   }
 
   async getTopCommented(limit = 10) {
+    const currentWeekStart = this.getCurrentWeekStart()
     const ranked = await this.commentsRepository
       .createQueryBuilder('cm')
       .select('cm.submission_id', 'submissionId')
@@ -136,8 +151,9 @@ export class StatsService {
         ],
       })
       .andWhere('s.moves > 0')
+      .andWhere('s.created_at < :currentWeekStart', { currentWeekStart })
       .groupBy('cm.submission_id')
-      .orderBy('COUNT(*)', 'DESC')
+      .orderBy('cnt', 'DESC')
       .limit(limit)
       .getRawMany()
 
@@ -151,7 +167,7 @@ export class StatsService {
 
   /** 每周全场最佳：按提交时间所在周，该周内步数最短的一条（排除 CHAIN、排除当前周） */
   async getWeeklyBestSingles() {
-    const currentWeekStart = dayjs().day(1).startOf('day').toDate()
+    const currentWeekStart = this.getCurrentWeekStart()
 
     const rows = await this.submissionsRepository
       .createQueryBuilder('s')
@@ -211,7 +227,7 @@ export class StatsService {
 
   /** 每周最活跃的选手：最近 10 周，每周按提交次数排序取前 10 名（排除 CHAIN、练习、当前周） */
   async getWeeklyActiveSubmitters(weeksLimit = 10, topPerWeek = 10) {
-    const currentWeekStart = dayjs().day(1).startOf('day').toDate()
+    const currentWeekStart = this.getCurrentWeekStart()
 
     const rows = await this.submissionsRepository
       .createQueryBuilder('s')
