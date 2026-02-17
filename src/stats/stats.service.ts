@@ -279,7 +279,14 @@ export class StatsService {
       .addSelect('u.avatar_thumb', 'u_avatarThumb')
       .addSelect('COUNT(*)', 'submissionCount')
       .addSelect('MIN(s.moves)', 'bestSingle')
-      .where('c.type IN (:...types)', { types: [CompetitionType.WEEKLY, CompetitionType.DAILY] })
+      .where('c.type != :chain', { chain: CompetitionType.FMC_CHAIN })
+      .andWhere('c.subType NOT IN (:...practiceSubTypes)', {
+        practiceSubTypes: [
+          CompetitionSubType.EO_PRACTICE,
+          CompetitionSubType.DR_PRACTICE,
+          CompetitionSubType.HTR_PRACTICE,
+        ],
+      })
       .andWhere('s.moves > 0')
       .andWhere('s.mode = :mode', { mode: CompetitionMode.REGULAR })
       .groupBy('s.user_id')
