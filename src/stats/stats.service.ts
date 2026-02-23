@@ -56,14 +56,19 @@ export class StatsService {
     }
   }
 
-  /** 当前周周一 00:00，用于排除当前周避免剧透 */
+  /** 当前周周一 10:00 UTC，用于排除当前周避免剧透 */
   private getCurrentWeekStart(): Date {
-    // league starts at 10:00 UTC
-    return dayjs()
+    const now = dayjs()
+    let monday = now
       .day(1)
       .startOf('day')
-      .hour(10 + dayjs().utcOffset() / 60)
-      .toDate()
+      .hour(10 + now.utcOffset() / 60)
+    // On Sunday or Monday before 10:00 UTC, .day(1) points to the upcoming Monday,
+    // but the current competition started the previous Monday.
+    if (now.isBefore(monday)) {
+      monday = monday.subtract(7, 'day')
+    }
+    return monday.toDate()
   }
 
   private async loadSubmissionsByIds(ids: number[]) {
