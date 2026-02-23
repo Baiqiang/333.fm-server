@@ -20,6 +20,7 @@ import configuration from './config/configuration'
 import { IfModule } from './if/if.module'
 import { ProfileModule } from './profile/profile.module'
 import { StatsModule } from './stats/stats.module'
+import { TutorialModule } from './tutorial/tutorial.module'
 import { UserModule } from './user/user.module'
 
 @Module({
@@ -66,6 +67,7 @@ import { UserModule } from './user/user.module'
     StatsModule,
     AttachmentModule,
     BotModule,
+    TutorialModule,
   ],
   controllers: [AppController],
   providers: [

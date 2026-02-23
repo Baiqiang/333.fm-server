@@ -3,4 +3,5 @@ export enum Role {
   Admin = 'admin',
   Bot = 'bot',
   LeagueAdmin = 'league_admin',
+  TutorialAdmin = 'tutorial_admin',
 }
