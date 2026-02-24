@@ -16,6 +16,12 @@ import { Submissions } from '@/entities/submissions.entity'
 import { UserActivities } from '@/entities/user-activities.entity'
 import { Users } from '@/entities/users.entity'
 
+const excludePracticeSubTypes = [
+  CompetitionSubType.EO_PRACTICE,
+  CompetitionSubType.DR_PRACTICE,
+  CompetitionSubType.JZP_PRACTICE,
+  CompetitionSubType.HTR_PRACTICE,
+]
 @Injectable()
 export class StatsService {
   constructor(
@@ -183,11 +189,7 @@ export class StatsService {
       .leftJoin('s.competition', 'c')
       .where('c.type != :chain', { chain: CompetitionType.FMC_CHAIN })
       .andWhere('c.subType NOT IN (:...practiceSubTypes)', {
-        practiceSubTypes: [
-          CompetitionSubType.EO_PRACTICE,
-          CompetitionSubType.DR_PRACTICE,
-          CompetitionSubType.HTR_PRACTICE,
-        ],
+        practiceSubTypes: excludePracticeSubTypes,
       })
       .andWhere('s.moves > 0')
       .andWhere('s.created_at < :currentWeekStart', { currentWeekStart })
@@ -242,11 +244,7 @@ export class StatsService {
       .leftJoin('s.competition', 'c')
       .where('c.type != :chain', { chain: CompetitionType.FMC_CHAIN })
       .andWhere('c.subType NOT IN (:...practiceSubTypes)', {
-        practiceSubTypes: [
-          CompetitionSubType.EO_PRACTICE,
-          CompetitionSubType.DR_PRACTICE,
-          CompetitionSubType.HTR_PRACTICE,
-        ],
+        practiceSubTypes: excludePracticeSubTypes,
       })
       .andWhere('s.moves > 0')
       .andWhere('s.created_at < :currentWeekStart', { currentWeekStart })
@@ -302,11 +300,7 @@ export class StatsService {
       .addSelect('MIN(s.moves)', 'bestSingle')
       .where('c.type != :chain', { chain: CompetitionType.FMC_CHAIN })
       .andWhere('c.subType NOT IN (:...practiceSubTypes)', {
-        practiceSubTypes: [
-          CompetitionSubType.EO_PRACTICE,
-          CompetitionSubType.DR_PRACTICE,
-          CompetitionSubType.HTR_PRACTICE,
-        ],
+        practiceSubTypes: excludePracticeSubTypes,
       })
       .andWhere('s.moves > 0')
       .andWhere('s.mode = :mode', { mode: CompetitionMode.REGULAR })
