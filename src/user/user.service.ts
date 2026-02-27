@@ -32,14 +32,12 @@ export class UserService {
   ) {}
 
   async findOrCreate(profile: WCAProfile) {
-    // profile.id is unique
     let user = await this.usersRepository.findOne({
       where: {
         source: 'WCA',
         sourceId: profile.id.toString(),
       },
     })
-    // check wca id for backward compatibility
     if (!user && profile.wca_id) {
       user = await this.usersRepository.findOne({
         where: {
@@ -48,7 +46,6 @@ export class UserService {
         },
       })
     }
-    // check email for backward compatibility
     if (!user) {
       user = await this.usersRepository.findOne({
         where: {
@@ -212,6 +209,63 @@ export class UserService {
     }
   }
 
+  async getSubmissionActivities(
+    submissionIds: number[],
+    userId?: number,
+  ): Promise<
+    Record<number, { likes: number; favorites: number; comments: number; liked: boolean; favorited: boolean }>
+  > {
+    if (submissionIds.length === 0) return {}
+
+    const countsRaw = await this.userActivitiesRepository
+      .createQueryBuilder('ua')
+      .select('ua.submission_id', 'sid')
+      .addSelect('SUM(CASE WHEN ua.like = 1 THEN 1 ELSE 0 END)', 'likes')
+      .addSelect('SUM(CASE WHEN ua.favorite = 1 THEN 1 ELSE 0 END)', 'favorites')
+      .where('ua.submission_id IN (:...ids)', { ids: submissionIds })
+      .groupBy('ua.submission_id')
+      .getRawMany()
+
+    const commentCountsRaw = await this.submissionsRepository.manager
+      .getRepository('Comments')
+      .createQueryBuilder('c')
+      .select('c.submission_id', 'sid')
+      .addSelect('COUNT(*)', 'count')
+      .where('c.submission_id IN (:...ids)', { ids: submissionIds })
+      .groupBy('c.submission_id')
+      .getRawMany()
+
+    const userActivitiesMap: Record<number, { like: boolean; favorite: boolean }> = {}
+    if (userId) {
+      const userActs = await this.userActivitiesRepository.find({
+        where: { userId, submissionId: In(submissionIds) },
+      })
+      for (const a of userActs) {
+        if (a.submissionId) {
+          userActivitiesMap[a.submissionId] = { like: a.like, favorite: a.favorite }
+        }
+      }
+    }
+
+    const result: Record<
+      number,
+      { likes: number; favorites: number; comments: number; liked: boolean; favorited: boolean }
+    > = {}
+    for (const id of submissionIds) {
+      const counts = countsRaw.find((r: any) => Number(r.sid) === id)
+      const cc = commentCountsRaw.find((r: any) => Number(r.sid) === id)
+      const ua = userActivitiesMap[id]
+      result[id] = {
+        likes: counts ? Number.parseInt(counts.likes, 10) : 0,
+        favorites: counts ? Number.parseInt(counts.favorites, 10) : 0,
+        comments: cc ? Number.parseInt(cc.count, 10) : 0,
+        liked: ua?.like ?? false,
+        favorited: ua?.favorite ?? false,
+      }
+    }
+    return result
+  }
+
   async act(
     user: Users,
     submissionId: number,
@@ -240,7 +294,6 @@ export class UserService {
     }
     await this.userActivitiesRepository.save(userActivitie)
 
-    // create/remove notifications for like/favorite
     const submission = await this.submissionsRepository.findOneBy({ id: submissionId })
     if (submission && submission.userId !== user.id) {
       if (body.like === true && !wasLiked) {
@@ -281,20 +334,13 @@ export class UserService {
     options: IPaginationOptions,
   ): Promise<Pagination<Submissions>> {
     where.userId = user.id
-    const queryBuilder = this.userActivitiesRepository
+    const qb = this.userActivitiesRepository
       .createQueryBuilder('ua')
       .leftJoinAndSelect('ua.submission', 'submission')
       .leftJoinAndSelect('submission.competition', 'competition')
       .leftJoinAndSelect('submission.scramble', 'scramble')
       .leftJoinAndSelect('submission.user', 'user')
-      .loadRelationCountAndMap('submission.likes', 'submission.userActivities', 'ual', qb =>
-        qb.andWhere('ual.like = 1'),
-      )
-      .loadRelationCountAndMap('submission.favorites', 'submission.userActivities', 'uaf', qb =>
-        qb.andWhere('uaf.favorite = 1'),
-      )
-      .where(where)
-      .orderBy('ua.created_at', 'DESC')
+    const queryBuilder = Submissions.withActivityCounts(qb, 'submission').where(where).orderBy('ua.created_at', 'DESC')
     const data = await paginate<UserActivities>(queryBuilder, options)
     return {
       items: data.items.map(x => {

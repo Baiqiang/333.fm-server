@@ -1,8 +1,9 @@
 import { IsArray, IsInt, IsOptional, IsString, MaxLength, MinLength } from 'class-validator'
 
 export class CreateCommentDto {
+  @IsOptional()
   @IsInt()
-  submissionId: number
+  submissionId?: number
 
   @IsString()
   @MinLength(1)

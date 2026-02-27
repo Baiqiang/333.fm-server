@@ -95,6 +95,19 @@ export function calculateMoves(scramble: string, solution: string, allowNISS = f
   return moves
 }
 
+export function transformWCAMoves(moves: number, fromLive = false): number {
+  if (moves > 0) {
+    return fromLive ? moves * 100 : moves
+  }
+  if (moves === -1) {
+    return DNF
+  }
+  if (moves === -2) {
+    return DNS
+  }
+  return 0
+}
+
 export function betterThan(a: number, b: number): boolean {
   // DNF and DNS are same
   if (a === DNF || a === DNS) {

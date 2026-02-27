@@ -67,6 +67,7 @@ export class UserController {
 
   @Post('act')
   public async act(@CurrentUser() user: Users, @Body('id') id: number, @Body() body: Record<string, boolean>) {
+    if (!id) throw new BadRequestException()
     if (!('like' in body) && !('favorite' in body) && !('decline' in body)) {
       throw new BadRequestException()
     }

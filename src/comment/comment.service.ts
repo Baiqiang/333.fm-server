@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common'
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { In, Repository } from 'typeorm'
 
@@ -51,11 +51,16 @@ export class CommentService {
   }
 
   async create(user: Users, dto: CreateCommentDto) {
-    const submission = await this.submissionsRepository.findOne({
+    if (!dto.submissionId) {
+      throw new BadRequestException('submissionId is required')
+    }
+
+    const targetSubmission = await this.submissionsRepository.findOne({
       where: { id: dto.submissionId },
       relations: ['user'],
     })
-    if (!submission) throw new NotFoundException('Submission not found')
+    if (!targetSubmission) throw new NotFoundException('Submission not found')
+    const ownerUserId = targetSubmission.userId
 
     let replyTo: Comments | null = null
     if (dto.replyToId) {
@@ -76,7 +81,6 @@ export class CommentService {
       comment.replyTo = replyTo
     }
 
-    // resolve mentions
     let mentionUsers: Users[] = []
     if (dto.mentionUserIds?.length) {
       mentionUsers = await this.usersRepository.find({
@@ -87,8 +91,7 @@ export class CommentService {
 
     await this.commentsRepository.save(comment)
 
-    // create notifications
-    await this.createNotifications(user, submission, comment, replyTo, mentionUsers)
+    await this.createNotifications(user, ownerUserId, comment, replyTo, mentionUsers, dto.submissionId)
 
     return this.commentsRepository.findOne({
       where: { id: comment.id },
@@ -107,49 +110,46 @@ export class CommentService {
 
   private async createNotifications(
     sourceUser: Users,
-    submission: Submissions,
+    ownerUserId: number,
     comment: Comments,
     replyTo: Comments | null,
     mentionUsers: Users[],
+    submissionId: number,
   ) {
     const notifications: Notifications[] = []
     const notifiedUserIds = new Set<number>()
 
-    // don't notify yourself
     notifiedUserIds.add(sourceUser.id)
 
-    // notify submission owner when someone comments
-    if (!notifiedUserIds.has(submission.userId)) {
+    if (!notifiedUserIds.has(ownerUserId)) {
       const notification = new Notifications()
       notification.type = NotificationType.COMMENT
-      notification.userId = submission.userId
+      notification.userId = ownerUserId
       notification.sourceUserId = sourceUser.id
-      notification.submissionId = submission.id
+      notification.submissionId = submissionId
       notification.commentId = comment.id
       notifications.push(notification)
-      notifiedUserIds.add(submission.userId)
+      notifiedUserIds.add(ownerUserId)
     }
 
-    // notify the reply target's author
     if (replyTo && !notifiedUserIds.has(replyTo.userId)) {
       const notification = new Notifications()
       notification.type = NotificationType.REPLY
       notification.userId = replyTo.userId
       notification.sourceUserId = sourceUser.id
-      notification.submissionId = submission.id
+      notification.submissionId = submissionId
       notification.commentId = comment.id
       notifications.push(notification)
       notifiedUserIds.add(replyTo.userId)
     }
 
-    // notify mentioned users
     for (const mentionUser of mentionUsers) {
       if (!notifiedUserIds.has(mentionUser.id)) {
         const notification = new Notifications()
         notification.type = NotificationType.MENTION
         notification.userId = mentionUser.id
         notification.sourceUserId = sourceUser.id
-        notification.submissionId = submission.id
+        notification.submissionId = submissionId
         notification.commentId = comment.id
         notifications.push(notification)
         notifiedUserIds.add(mentionUser.id)

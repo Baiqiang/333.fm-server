@@ -22,6 +22,7 @@ import { ProfileModule } from './profile/profile.module'
 import { StatsModule } from './stats/stats.module'
 import { TutorialModule } from './tutorial/tutorial.module'
 import { UserModule } from './user/user.module'
+import { WcaReconstructionModule } from './wca/reconstruction/reconstruction.module'
 
 @Module({
   imports: [
@@ -68,6 +69,7 @@ import { UserModule } from './user/user.module'
     AttachmentModule,
     BotModule,
     TutorialModule,
+    WcaReconstructionModule,
   ],
   controllers: [AppController],
   providers: [

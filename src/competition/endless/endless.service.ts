@@ -477,12 +477,11 @@ export class EndlessService {
         throw new BadRequestException('Previous scramble not solved')
       }
     }
-    const submissions = await this.submissionsRepository
+    const qb = this.submissionsRepository
       .createQueryBuilder('s')
       .leftJoinAndSelect('s.user', 'u')
       .leftJoinAndSelect('s.attachments', 'a')
-      .loadRelationCountAndMap('s.likes', 's.userActivities', 'ual', qb => qb.andWhere('ual.like = 1'))
-      .loadRelationCountAndMap('s.favorites', 's.userActivities', 'uaf', qb => qb.andWhere('uaf.favorite = 1'))
+    const submissions = await Submissions.withActivityCounts(qb)
       .where('s.scramble_id = :id', { id: scramble.id })
       .orderBy('s.moves', 'ASC')
       .getMany()

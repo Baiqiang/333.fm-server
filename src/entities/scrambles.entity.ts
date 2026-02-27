@@ -11,6 +11,7 @@ import {
 
 import { Competitions } from './competitions.entity'
 import { EndlessKickoffs } from './endless-kickoffs.entity'
+import { Users } from './users.entity'
 
 @Entity()
 export class Scrambles {
@@ -23,6 +24,15 @@ export class Scrambles {
   @Column({ length: 255 })
   @Index()
   scramble: string
+
+  @Column({ default: 1 })
+  roundNumber: number
+
+  @Column({ default: true })
+  verified: boolean
+
+  @Column({ nullable: true, default: null })
+  submittedById: number | null
 
   @Column()
   competitionId: number
@@ -38,6 +48,9 @@ export class Scrambles {
     onUpdate: 'CASCADE',
   })
   competition: Competitions
+
+  @ManyToOne(() => Users, { nullable: true, onDelete: 'SET NULL' })
+  submittedBy: Users | null
 
   @OneToMany(() => EndlessKickoffs, kickoff => kickoff.scramble)
   kickoffs: EndlessKickoffs[]

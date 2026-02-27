@@ -28,6 +28,7 @@ export enum CompetitionType {
   PERSONAL_PRACTICE,
   DAILY,
   LEAGUE,
+  WCA_RECONSTRUCTION,
 }
 
 export enum CompetitionSubType {
@@ -104,6 +105,10 @@ export class Competitions {
   @Column({ nullable: true })
   leagueSeasonId: number
 
+  @Column({ length: 50, nullable: true, default: null })
+  @Index()
+  wcaCompetitionId: string | null
+
   @CreateDateColumn()
   @Exclude()
   createdAt: Date
@@ -177,6 +182,8 @@ export class Competitions {
         }
         return `/league`
       }
+      case CompetitionType.WCA_RECONSTRUCTION:
+        return `/wca/reconstruction/${alias}`
       default:
         return ''
     }

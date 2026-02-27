@@ -22,6 +22,12 @@ const excludePracticeSubTypes = [
   CompetitionSubType.JZP_PRACTICE,
   CompetitionSubType.HTR_PRACTICE,
 ]
+
+function ywToStr(yw: number) {
+  const year = Math.floor(yw / 100)
+  const week = yw % 100
+  return `${year}-${week.toString().padStart(2, '0')}`
+}
 @Injectable()
 export class StatsService {
   constructor(
@@ -77,40 +83,37 @@ export class StatsService {
     return monday.toDate()
   }
 
+  private submissionsBefore(currentWeekStart?: Date) {
+    if (!currentWeekStart) {
+      currentWeekStart = this.getCurrentWeekStart()
+    }
+    return this.submissionsRepository
+      .createQueryBuilder('s')
+      .leftJoin('s.competition', 'c')
+      .where('c.type != :chain', { chain: CompetitionType.FMC_CHAIN })
+      .andWhere('c.subType NOT IN (:...practiceSubTypes)', { practiceSubTypes: excludePracticeSubTypes })
+      .andWhere('s.moves > 0')
+      .andWhere('s.created_at < :currentWeekStart', { currentWeekStart })
+  }
+
   private async loadSubmissionsByIds(ids: number[]) {
     if (ids.length === 0) return []
-    const submissions = await this.submissionsRepository
+    const qb = this.submissionsRepository
       .createQueryBuilder('s')
       .leftJoinAndSelect('s.user', 'u')
       .leftJoinAndSelect('s.competition', 'c')
       .leftJoinAndSelect('c.user', 'cUser')
       .leftJoinAndSelect('s.scramble', 'sc')
-      .loadRelationCountAndMap('s.likes', 's.userActivities', 'ual', qb => qb.andWhere('ual.like = 1'))
-      .loadRelationCountAndMap('s.favorites', 's.userActivities', 'uaf', qb => qb.andWhere('uaf.favorite = 1'))
-      .where('s.id IN (:...ids)', { ids })
-      .getMany()
+    const submissions = await Submissions.withActivityCounts(qb).where('s.id IN (:...ids)', { ids }).getMany()
     const map = new Map(submissions.map(s => [s.id, s]))
     return ids.map(id => map.get(id)).filter(Boolean) as Submissions[]
   }
 
   async getTopLiked(limit = 10) {
-    const currentWeekStart = this.getCurrentWeekStart()
     const likeCountExpr = '(SELECT COUNT(*) FROM user_activities ua WHERE ua.submission_id = s.id AND ua.`like` = 1)'
-    const ranked = await this.submissionsRepository
-      .createQueryBuilder('s')
+    const ranked = await this.submissionsBefore()
       .select('s.id', 'id')
       .addSelect(likeCountExpr, 'cnt')
-      .leftJoin('s.competition', 'c')
-      .where('c.type != :chain', { chain: CompetitionType.FMC_CHAIN })
-      .andWhere('c.subType NOT IN (:...practiceSubTypes)', {
-        practiceSubTypes: [
-          CompetitionSubType.EO_PRACTICE,
-          CompetitionSubType.DR_PRACTICE,
-          CompetitionSubType.HTR_PRACTICE,
-        ],
-      })
-      .andWhere('s.moves > 0')
-      .andWhere('s.created_at < :currentWeekStart', { currentWeekStart })
       .andWhere(`${likeCountExpr} > 0`)
       .orderBy('cnt', 'DESC')
       .limit(limit)
@@ -120,23 +123,10 @@ export class StatsService {
   }
 
   async getTopFavorited(limit = 10) {
-    const currentWeekStart = this.getCurrentWeekStart()
     const favCountExpr = '(SELECT COUNT(*) FROM user_activities ua WHERE ua.submission_id = s.id AND ua.favorite = 1)'
-    const ranked = await this.submissionsRepository
-      .createQueryBuilder('s')
+    const ranked = await this.submissionsBefore()
       .select('s.id', 'id')
       .addSelect(favCountExpr, 'cnt')
-      .leftJoin('s.competition', 'c')
-      .where('c.type != :chain', { chain: CompetitionType.FMC_CHAIN })
-      .andWhere('c.subType NOT IN (:...practiceSubTypes)', {
-        practiceSubTypes: [
-          CompetitionSubType.EO_PRACTICE,
-          CompetitionSubType.DR_PRACTICE,
-          CompetitionSubType.HTR_PRACTICE,
-        ],
-      })
-      .andWhere('s.moves > 0')
-      .andWhere('s.created_at < :currentWeekStart', { currentWeekStart })
       .andWhere(`${favCountExpr} > 0`)
       .orderBy('cnt', 'DESC')
       .limit(limit)
@@ -154,13 +144,7 @@ export class StatsService {
       .leftJoin('cm.submission', 's')
       .leftJoin('s.competition', 'c')
       .where('c.type != :chain', { chain: CompetitionType.FMC_CHAIN })
-      .andWhere('c.subType NOT IN (:...practiceSubTypes)', {
-        practiceSubTypes: [
-          CompetitionSubType.EO_PRACTICE,
-          CompetitionSubType.DR_PRACTICE,
-          CompetitionSubType.HTR_PRACTICE,
-        ],
-      })
+      .andWhere('c.subType NOT IN (:...practiceSubTypes)', { practiceSubTypes: excludePracticeSubTypes })
       .andWhere('s.moves > 0')
       .andWhere('s.created_at < :currentWeekStart', { currentWeekStart })
       .groupBy('cm.submission_id')
@@ -178,21 +162,11 @@ export class StatsService {
 
   /** 每周全场最佳：按提交时间所在周，该周内步数最短的一条（排除 CHAIN、排除当前周） */
   async getWeeklyBestSingles() {
-    const currentWeekStart = this.getCurrentWeekStart()
-
-    const rows = await this.submissionsRepository
-      .createQueryBuilder('s')
+    const rows = await this.submissionsBefore()
       .select('s.id', 'id')
       .addSelect('s.moves', 'moves')
       .addSelect('s.created_at', 'createdAt')
       .addSelect('YEARWEEK(s.created_at, 3)', 'yw')
-      .leftJoin('s.competition', 'c')
-      .where('c.type != :chain', { chain: CompetitionType.FMC_CHAIN })
-      .andWhere('c.subType NOT IN (:...practiceSubTypes)', {
-        practiceSubTypes: excludePracticeSubTypes,
-      })
-      .andWhere('s.moves > 0')
-      .andWhere('s.created_at < :currentWeekStart', { currentWeekStart })
       .orderBy('yw', 'ASC')
       .addOrderBy('s.moves', 'ASC')
       .addOrderBy('s.created_at', 'ASC')
@@ -215,11 +189,6 @@ export class StatsService {
       .sort((a, b) => a[0] - b[0])
       .slice(-10)
       .reverse()
-    const ywToStr = (yw: number) => {
-      const year = Math.floor(yw / 100)
-      const week = yw % 100
-      return `${year}-${week.toString().padStart(2, '0')}`
-    }
 
     return weekKeys
       .map(([yw, id]) => {
@@ -234,20 +203,10 @@ export class StatsService {
 
   /** 每周最活跃的选手：最近 10 周，每周按提交次数排序取前 10 名（排除 CHAIN、练习、当前周） */
   async getWeeklyActiveSubmitters(weeksLimit = 10, topPerWeek = 10) {
-    const currentWeekStart = this.getCurrentWeekStart()
-
-    const rows = await this.submissionsRepository
-      .createQueryBuilder('s')
+    const rows = await this.submissionsBefore()
       .select('YEARWEEK(s.created_at, 3)', 'yw')
       .addSelect('s.user_id', 'userId')
       .addSelect('COUNT(*)', 'cnt')
-      .leftJoin('s.competition', 'c')
-      .where('c.type != :chain', { chain: CompetitionType.FMC_CHAIN })
-      .andWhere('c.subType NOT IN (:...practiceSubTypes)', {
-        practiceSubTypes: excludePracticeSubTypes,
-      })
-      .andWhere('s.moves > 0')
-      .andWhere('s.created_at < :currentWeekStart', { currentWeekStart })
       .groupBy('yw')
       .addGroupBy('s.user_id')
       .orderBy('yw', 'DESC')
@@ -267,12 +226,6 @@ export class StatsService {
 
     const userIds = [...new Set(rows.map(r => r.userId))]
     const userMap = new Map((await this.usersRepository.find({ where: { id: In(userIds) } })).map(u => [u.id, u]))
-
-    const ywToStr = (yw: number) => {
-      const year = Math.floor(yw / 100)
-      const week = yw % 100
-      return `${year}-${week.toString().padStart(2, '0')}`
-    }
 
     return sortedWeeks.map(yw => ({
       week: ywToStr(yw),
@@ -299,9 +252,7 @@ export class StatsService {
       .addSelect('COUNT(*)', 'submissionCount')
       .addSelect('MIN(s.moves)', 'bestSingle')
       .where('c.type != :chain', { chain: CompetitionType.FMC_CHAIN })
-      .andWhere('c.subType NOT IN (:...practiceSubTypes)', {
-        practiceSubTypes: excludePracticeSubTypes,
-      })
+      .andWhere('c.subType NOT IN (:...practiceSubTypes)', { practiceSubTypes: excludePracticeSubTypes })
       .andWhere('s.moves > 0')
       .andWhere('s.mode = :mode', { mode: CompetitionMode.REGULAR })
       .groupBy('s.user_id')

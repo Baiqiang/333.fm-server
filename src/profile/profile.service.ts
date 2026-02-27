@@ -244,14 +244,13 @@ export class ProfileService {
   }
 
   async getUserEndlessSubmissions(user: Users, currentUser?: Users, alias?: string) {
-    const queryBuilder = this.submissionsRepository
+    const qb = this.submissionsRepository
       .createQueryBuilder('s')
       .leftJoinAndSelect('s.scramble', 'sc')
       .leftJoinAndSelect('s.competition', 'c')
       .leftJoinAndSelect('c.user', 'u')
       .leftJoinAndSelect('s.attachments', 'a')
-      .loadRelationCountAndMap('s.likes', 's.userActivities', 'ual', qb => qb.andWhere('ual.like = 1'))
-      .loadRelationCountAndMap('s.favorites', 's.userActivities', 'uaf', qb => qb.andWhere('uaf.favorite = 1'))
+    const queryBuilder = Submissions.withActivityCounts(qb)
       .where('s.user_id = :userId', { userId: user.id })
       .andWhere('c.type = :type', { type: CompetitionType.ENDLESS })
       .orderBy('s.created_at', 'DESC')
@@ -320,14 +319,13 @@ export class ProfileService {
   }
 
   async getUserSubmissions(user: Users, type: number, options: IPaginationOptions, currentUser?: Users) {
-    const queryBuilder = this.submissionsRepository
+    const qb = this.submissionsRepository
       .createQueryBuilder('s')
       .leftJoinAndSelect('s.scramble', 'sc')
       .leftJoinAndSelect('s.competition', 'c')
       .leftJoinAndSelect('c.user', 'u')
       .leftJoinAndSelect('s.attachments', 'a')
-      .loadRelationCountAndMap('s.likes', 's.userActivities', 'ual', qb => qb.andWhere('ual.like = 1'))
-      .loadRelationCountAndMap('s.favorites', 's.userActivities', 'uaf', qb => qb.andWhere('uaf.favorite = 1'))
+    const queryBuilder = Submissions.withActivityCounts(qb)
       .where('s.user_id = :userId', { userId: user.id })
       .orderBy('s.created_at', 'DESC')
     if (!Number.isNaN(type)) {
