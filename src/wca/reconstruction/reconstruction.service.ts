@@ -662,7 +662,7 @@ export class WcaReconstructionService {
       const personResult = roundResults?.find((r: any) => r.person?.wcaId === wcaId)
       if (!personResult?.attempts?.[scrambleNumber - 1]) return null
       const attemptResult = personResult.attempts[scrambleNumber - 1].result
-      return transformWCAMoves(attemptResult, true)
+      return transformWCAMoves(attemptResult)
     } catch (e) {
       this.logger.debug(`Failed to fetch WCA Live data: ${e}`)
       return null

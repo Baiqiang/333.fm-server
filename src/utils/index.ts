@@ -95,9 +95,9 @@ export function calculateMoves(scramble: string, solution: string, allowNISS = f
   return moves
 }
 
-export function transformWCAMoves(moves: number, fromLive = false): number {
+export function transformWCAMoves(moves: number): number {
   if (moves > 0) {
-    return fromLive ? moves * 100 : moves
+    return moves * 100
   }
   if (moves === -1) {
     return DNF
