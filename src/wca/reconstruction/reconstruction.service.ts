@@ -38,6 +38,8 @@ interface WcaApiResult {
   round_type_id: string
   format_id: string
   attempts: number[]
+  regional_single_record: string | null
+  regional_average_record: string | null
 }
 
 interface WcaApiScramble {
@@ -188,6 +190,8 @@ export class WcaReconstructionService {
 
     if (dto.attachments?.length) {
       submission.attachments = await this.attachmentService.findByIds(dto.attachments)
+    } else if (dto.attachments) {
+      submission.attachments = []
     }
 
     await this.submissionsRepository.save(submission)
@@ -317,8 +321,8 @@ export class WcaReconstructionService {
 
     const qb = this.submissionsRepository
       .createQueryBuilder('s')
-      // .leftJoinAndSelect('s.user', 'u')
       .leftJoinAndSelect('s.scramble', 'sc')
+      .leftJoinAndSelect('s.attachments', 'att')
     const submissions = await Submissions.withActivityCounts(qb)
       .where('s.competition_id = :cid', { cid: competition.id })
       .andWhere('s.user_id = :uid', { uid: targetUser.id })
@@ -330,7 +334,9 @@ export class WcaReconstructionService {
       await this.userService.loadUserActivities(currentUser, submissions)
     }
 
-    return { recon, submissions, competition }
+    const officialResults = await this.getUserOfficialResults(wcaCompetitionId, targetUser.wcaId)
+
+    return { recon, submissions, competition, officialResults }
   }
 
   async getCompetitionData(wcaCompetitionId: string, user?: Users) {
@@ -389,6 +395,7 @@ export class WcaReconstructionService {
         .createQueryBuilder('s')
         .leftJoinAndSelect('s.user', 'u')
         .leftJoinAndSelect('s.scramble', 'sc')
+        .leftJoinAndSelect('s.attachments', 'att')
       submissions = await Submissions.withActivityCounts(qb)
         .where('s.competition_id = :id', { id: competition.id })
         .orderBy('s.moves', 'ASC')
@@ -573,6 +580,39 @@ export class WcaReconstructionService {
   // endregion
 
   // region Private helpers
+
+  private async getUserOfficialResults(
+    wcaCompetitionId: string,
+    wcaId: string,
+  ): Promise<
+    Array<{
+      roundNumber: number
+      roundTypeId: string
+      pos: number
+      best: number
+      average: number
+      attempts: number[]
+      regionalSingleRecord: string | null
+      regionalAverageRecord: string | null
+    }>
+  > {
+    if (!wcaId) return []
+    const data = await this.getWcaOfficialResults(wcaCompetitionId)
+    if (!data) return []
+
+    return data.results
+      .filter(r => r.wca_id === wcaId)
+      .map(r => ({
+        roundNumber: data.roundMap.get(r.round_type_id) ?? 1,
+        roundTypeId: r.round_type_id,
+        pos: r.pos,
+        best: r.best,
+        average: r.average,
+        attempts: r.attempts,
+        regionalSingleRecord: r.regional_single_record,
+        regionalAverageRecord: r.regional_average_record,
+      }))
+  }
 
   private buildRoundNumberMap(roundTypeIds: string[]): Map<string, number> {
     const priority: Record<string, number> = {
