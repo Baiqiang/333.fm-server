@@ -3,6 +3,21 @@ import { Column, CreateDateColumn, Entity, Index, ManyToOne, PrimaryGeneratedCol
 import { Competitions } from './competitions.entity'
 import { Users } from './users.entity'
 
+export interface WcaOfficialRoundResult {
+  roundNumber: number
+  roundTypeId: string
+  pos: number
+  best: number
+  average: number
+  attempts: number[]
+  regionalSingleRecord: string | null
+  regionalAverageRecord: string | null
+}
+
+export interface WcaReconData {
+  officialResults?: WcaOfficialRoundResult[]
+}
+
 @Entity()
 @Index(['competitionId', 'userId'], { unique: true })
 export class WcaReconstructions {
@@ -20,6 +35,9 @@ export class WcaReconstructions {
 
   @Column({ default: true })
   isParticipant: boolean
+
+  @Column({ type: 'json', nullable: true, default: null })
+  wcaData: WcaReconData | null
 
   @CreateDateColumn()
   createdAt: Date

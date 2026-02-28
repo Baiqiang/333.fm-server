@@ -19,7 +19,7 @@ import { DNF } from '@/entities/results.entity'
 import { Scrambles } from '@/entities/scrambles.entity'
 import { SubmissionPhase, Submissions } from '@/entities/submissions.entity'
 import { Users } from '@/entities/users.entity'
-import { WcaReconstructions } from '@/entities/wca-reconstructions.entity'
+import { type WcaOfficialRoundResult, WcaReconstructions } from '@/entities/wca-reconstructions.entity'
 import { UserService } from '@/user/user.service'
 import { calculateMoves, transformWCAMoves } from '@/utils'
 
@@ -140,20 +140,33 @@ export class WcaReconstructionService {
     }
 
     const isParticipant = await this.isUserParticipant(wcaCompetitionId, user.wcaId)
+    const officialResults = await this.getUserOfficialResults(wcaCompetitionId, user.wcaId)
 
     let reconstruction = await this.reconstructionsRepository.findOne({
       where: { competitionId: competition.id, userId: user.id },
     })
+    const wcaData = { officialResults: officialResults.length > 0 ? officialResults : undefined }
     if (!reconstruction) {
       reconstruction = this.reconstructionsRepository.create({
         competitionId: competition.id,
         userId: user.id,
         isParticipant,
+        wcaData,
       })
       await this.reconstructionsRepository.save(reconstruction)
-    } else if (reconstruction.isParticipant !== isParticipant) {
-      reconstruction.isParticipant = isParticipant
-      await this.reconstructionsRepository.save(reconstruction)
+    } else {
+      let dirty = false
+      if (reconstruction.isParticipant !== isParticipant) {
+        reconstruction.isParticipant = isParticipant
+        dirty = true
+      }
+      if (officialResults.length > 0) {
+        reconstruction.wcaData = wcaData
+        dirty = true
+      }
+      if (dirty) {
+        await this.reconstructionsRepository.save(reconstruction)
+      }
     }
 
     let submission = await this.submissionsRepository.findOne({
@@ -232,7 +245,7 @@ export class WcaReconstructionService {
       .createQueryBuilder('r')
       .leftJoinAndSelect('r.user', 'u')
       .leftJoinAndSelect('r.competition', 'c')
-      .orderBy('r.updatedAt', 'DESC')
+      .orderBy('r.createdAt', 'DESC')
 
     const result = await paginate(qb, options)
     const recons = result.items
@@ -264,6 +277,7 @@ export class WcaReconstructionService {
         isParticipant: r.isParticipant,
         submissionCount: countMap[`${r.competitionId}-${r.userId}`] ?? 0,
         updatedAt: r.updatedAt,
+        wcaData: r.wcaData,
       })),
       meta: result.meta,
     }
@@ -335,7 +349,14 @@ export class WcaReconstructionService {
       await this.userService.loadUserActivities(currentUser, submissions)
     }
 
-    const officialResults = await this.getUserOfficialResults(wcaCompetitionId, targetUser.wcaId)
+    let officialResults = recon.wcaData?.officialResults ?? []
+    if (officialResults.length === 0 && targetUser.wcaId) {
+      officialResults = await this.getUserOfficialResults(wcaCompetitionId, targetUser.wcaId)
+      if (officialResults.length > 0) {
+        recon.wcaData = { ...recon.wcaData, officialResults }
+        await this.reconstructionsRepository.save(recon)
+      }
+    }
 
     return { recon, submissions, competition, officialResults }
   }
@@ -364,6 +385,35 @@ export class WcaReconstructionService {
           order: { createdAt: 'ASC' },
         })
       : []
+
+    if (officialResultsData && recons.length > 0) {
+      const { results, roundMap } = officialResultsData
+      const toSave: WcaReconstructions[] = []
+      for (const recon of recons) {
+        if (recon.wcaData?.officialResults?.length) continue
+        const wcaId = recon.user?.wcaId
+        if (!wcaId) continue
+        const userResults = results
+          .filter(r => r.wca_id === wcaId)
+          .map(r => ({
+            roundNumber: roundMap.get(r.round_type_id) ?? 1,
+            roundTypeId: r.round_type_id,
+            pos: r.pos,
+            best: r.best,
+            average: r.average,
+            attempts: r.attempts,
+            regionalSingleRecord: r.regional_single_record,
+            regionalAverageRecord: r.regional_average_record,
+          }))
+        if (userResults.length > 0) {
+          recon.wcaData = { ...recon.wcaData, officialResults: userResults }
+          toSave.push(recon)
+        }
+      }
+      if (toSave.length > 0) {
+        await this.reconstructionsRepository.save(toSave)
+      }
+    }
 
     let scrambles: Scrambles[]
     let mappedSubmissions: Record<number, Submissions[]> = {}
@@ -568,21 +618,7 @@ export class WcaReconstructionService {
 
   // region Private helpers
 
-  private async getUserOfficialResults(
-    wcaCompetitionId: string,
-    wcaId: string,
-  ): Promise<
-    Array<{
-      roundNumber: number
-      roundTypeId: string
-      pos: number
-      best: number
-      average: number
-      attempts: number[]
-      regionalSingleRecord: string | null
-      regionalAverageRecord: string | null
-    }>
-  > {
+  private async getUserOfficialResults(wcaCompetitionId: string, wcaId: string): Promise<WcaOfficialRoundResult[]> {
     if (!wcaId) return []
     const data = await this.getWcaOfficialResults(wcaCompetitionId)
     if (!data) return []
