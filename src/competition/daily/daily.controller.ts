@@ -6,9 +6,7 @@ import { JwtRequiredGuard } from '@/auth/guards/jwt-required.guard'
 import { PaginationDto } from '@/dtos/pagination.dto'
 import { SubmitSolutionDto } from '@/dtos/submit-solution.dto'
 import { CompetitionMode } from '@/entities/competitions.entity'
-import { Submissions } from '@/entities/submissions.entity'
 import { Users } from '@/entities/users.entity'
-import { UserService } from '@/user/user.service'
 
 import { CompetitionService } from '../competition.service'
 import { WeeklyService } from '../weekly/weekly.service'
@@ -20,7 +18,6 @@ export class DailyController {
     private readonly dailyService: DailyService,
     private readonly weeklyService: WeeklyService,
     private readonly competitionService: CompetitionService,
-    private readonly userService: UserService,
   ) {}
 
   @Get()
@@ -108,31 +105,7 @@ export class DailyController {
     if (!competition) {
       throw new NotFoundException()
     }
-    const submissions = await this.competitionService.getSubmissions(competition)
-    const ret: Record<number, Submissions[]> = {}
-    const userSubmissions: Record<number, Submissions> = {}
-    submissions.forEach(submission => {
-      if (!ret[submission.scrambleId]) {
-        ret[submission.scrambleId] = []
-      }
-      ret[submission.scrambleId].push(submission)
-      if (user) {
-        if (submission.userId === user.id) {
-          userSubmissions[submission.scrambleId] = submission
-        }
-      }
-    })
-    submissions.forEach(submission => {
-      if (userSubmissions[submission.scrambleId] || competition.hasEnded) {
-        submission.hideSolution = false
-      } else {
-        submission.hideSolution = true
-        submission.removeSolution()
-      }
-    })
-    if (user) {
-      await this.userService.loadUserActivities(user, submissions)
-    }
-    return ret
+    const { mappedSubmissions } = await this.competitionService.getSubmissions(competition, user)
+    return mappedSubmissions
   }
 }

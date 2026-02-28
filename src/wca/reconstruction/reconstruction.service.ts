@@ -6,6 +6,7 @@ import { firstValueFrom } from 'rxjs'
 import { Repository } from 'typeorm'
 
 import { AttachmentService } from '@/attachment/attachment.service'
+import { CompetitionService } from '@/competition/competition.service'
 import { SubmitWcaReconstructionDto, UpdateWcaReconstructionDescriptionDto } from '@/dtos/wca-reconstruction.dto'
 import {
   CompetitionFormat,
@@ -93,6 +94,7 @@ export class WcaReconstructionService {
     private readonly httpService: HttpService,
     private readonly attachmentService: AttachmentService,
     private readonly userService: UserService,
+    private readonly competitionService: CompetitionService,
   ) {}
 
   async submit(user: Users, dto: SubmitWcaReconstructionDto) {
@@ -172,7 +174,6 @@ export class WcaReconstructionService {
         mode: CompetitionMode.REGULAR,
         phase: SubmissionPhase.FINISHED,
         inverse: false,
-        cumulativeMoves: moves,
         cancelMoves: 0,
         verified: true,
       })
@@ -365,11 +366,14 @@ export class WcaReconstructionService {
       : []
 
     let scrambles: Scrambles[]
+    let mappedSubmissions: Record<number, Submissions[]> = {}
     if (competition) {
       scrambles = await this.scramblesRepository.find({
         where: { competitionId: competition.id },
         order: { roundNumber: 'ASC', number: 'ASC' },
       })
+      const tmp = await this.competitionService.getSubmissions(competition, user, false)
+      mappedSubmissions = tmp.mappedSubmissions
     } else if (officialScramblesData) {
       const { scrambles: officialScrambles, roundMap } = officialScramblesData
       scrambles = officialScrambles
@@ -388,23 +392,6 @@ export class WcaReconstructionService {
     } else {
       scrambles = []
     }
-
-    let submissions: Submissions[] = []
-    if (competition) {
-      const qb = this.submissionsRepository
-        .createQueryBuilder('s')
-        .leftJoinAndSelect('s.user', 'u')
-        .leftJoinAndSelect('s.scramble', 'sc')
-        .leftJoinAndSelect('s.attachments', 'att')
-      submissions = await Submissions.withActivityCounts(qb)
-        .where('s.competition_id = :id', { id: competition.id })
-        .orderBy('s.moves', 'ASC')
-        .getMany()
-      if (user) {
-        await this.userService.loadUserActivities(user, submissions)
-      }
-    }
-
     let currentUser: { isParticipant: boolean; attempts: Record<string, number> } | null = null
     if (user?.wcaId) {
       const attempts: Record<string, number> = {}
@@ -440,7 +427,7 @@ export class WcaReconstructionService {
       competition,
       recons,
       scrambles,
-      submissions,
+      submissions: mappedSubmissions,
       isPublished,
       hasOfficialScrambles,
       currentUser,

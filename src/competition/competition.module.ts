@@ -75,7 +75,7 @@ import { WeeklyService } from './weekly/weekly.service'
     UserModule,
     AuthModule,
   ],
-  exports: [WeeklyService],
+  exports: [CompetitionService],
   providers: [
     CompetitionService,
     WeeklyService,

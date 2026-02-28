@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm'
 
 import { AttachmentModule } from '@/attachment/attachment.module'
 import { AuthModule } from '@/auth/auth.module'
+import { CompetitionModule } from '@/competition/competition.module'
 import { Competitions } from '@/entities/competitions.entity'
 import { Scrambles } from '@/entities/scrambles.entity'
 import { Submissions } from '@/entities/submissions.entity'
@@ -21,6 +22,7 @@ import { WcaReconstructionService } from './reconstruction.service'
     AuthModule,
     AttachmentModule,
     UserModule,
+    CompetitionModule,
   ],
   providers: [WcaReconstructionService],
   controllers: [WcaReconstructionController],

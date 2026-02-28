@@ -17,7 +17,6 @@ import { JwtOrBotRequiredGuard } from '@/auth/guards/jwt-or-bot-required.guard'
 import { CreateCompetitionDto } from '@/dtos/create-comptition.dto'
 import { SubmitSolutionDto } from '@/dtos/submit-solution.dto'
 import { CompetitionFormat } from '@/entities/competitions.entity'
-import { Submissions } from '@/entities/submissions.entity'
 import { Users } from '@/entities/users.entity'
 import { UserService } from '@/user/user.service'
 
@@ -118,17 +117,7 @@ export class PracticeController {
   @UseGuards(JwtAuthGuard)
   async submissions(@Param('alias') alias: string, @CurrentUser() user: Users) {
     const competition = await this.getOrThrow(alias)
-    const submissions = await this.competitionService.getSubmissions(competition)
-    const ret: Record<number, Submissions[]> = {}
-    submissions.forEach(submission => {
-      if (!ret[submission.scrambleId]) {
-        ret[submission.scrambleId] = []
-      }
-      ret[submission.scrambleId].push(submission)
-    })
-    if (user) {
-      await this.userService.loadUserActivities(user, submissions)
-    }
-    return ret
+    const { mappedSubmissions } = await this.competitionService.getSubmissions(competition, user, false)
+    return mappedSubmissions
   }
 }

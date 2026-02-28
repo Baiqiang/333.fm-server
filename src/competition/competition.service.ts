@@ -11,6 +11,7 @@ import { Results } from '@/entities/results.entity'
 import { Scrambles } from '@/entities/scrambles.entity'
 import { Submissions } from '@/entities/submissions.entity'
 import { Users } from '@/entities/users.entity'
+import { UserService } from '@/user/user.service'
 import { calculateMoves } from '@/utils'
 
 import { ChainService } from './chain/chain.service'
@@ -37,6 +38,7 @@ export class CompetitionService {
     private readonly chainService: ChainService,
     @Inject(forwardRef(() => LeagueService))
     private readonly leagueService: LeagueService,
+    private readonly userService: UserService,
   ) {}
 
   @Cron('* * * * *')
@@ -128,7 +130,7 @@ export class CompetitionService {
     return this.competitionsRepository.find(options)
   }
 
-  async getSubmissions(competition: Competitions) {
+  async getSubmissions(competition: Competitions, currentUser?: Users, hideSolutionsForUser = true) {
     const qb = this.submissionsRepository
       .createQueryBuilder('s')
       .leftJoinAndSelect('s.user', 'u')
@@ -137,7 +139,36 @@ export class CompetitionService {
       .where('s.competition_id = :id', { id: competition.id })
       .orderBy('s.moves', 'ASC')
       .getMany()
-    return submissions
+    const mappedSubmissions: Record<number, Submissions[]> = {}
+    const userSubmissions: Record<number, Submissions> = {}
+    submissions.forEach(submission => {
+      if (!mappedSubmissions[submission.scrambleId]) {
+        mappedSubmissions[submission.scrambleId] = []
+      }
+      mappedSubmissions[submission.scrambleId].push(submission)
+      if (currentUser) {
+        if (submission.userId === currentUser.id) {
+          userSubmissions[submission.scrambleId] = submission
+        }
+      }
+    })
+    if (hideSolutionsForUser) {
+      submissions.forEach(submission => {
+        if (userSubmissions[submission.scrambleId] || competition.hasEnded) {
+          submission.hideSolution = false
+        } else {
+          submission.hideSolution = true
+          submission.removeSolution()
+        }
+      })
+    }
+    if (currentUser) {
+      await this.userService.loadUserActivities(currentUser, submissions)
+    }
+    return {
+      submissions,
+      mappedSubmissions,
+    }
   }
 
   async createSubmission(

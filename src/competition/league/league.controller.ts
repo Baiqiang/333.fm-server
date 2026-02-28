@@ -6,9 +6,7 @@ import { JwtAuthGuard } from '@/auth/guards/jwt.guard'
 import { JwtRequiredGuard } from '@/auth/guards/jwt-required.guard'
 import { SubmitSolutionDto } from '@/dtos/submit-solution.dto'
 import { CompetitionMode } from '@/entities/competitions.entity'
-import { Submissions } from '@/entities/submissions.entity'
 import { Users } from '@/entities/users.entity'
-import { UserService } from '@/user/user.service'
 
 import { CompetitionService } from '../competition.service'
 import { LeagueService } from './league.service'
@@ -18,7 +16,6 @@ export class LeagueController {
   constructor(
     private readonly leagueService: LeagueService,
     private readonly competitionService: CompetitionService,
-    private readonly userService: UserService,
   ) {}
 
   @Get('seasons')
@@ -191,45 +188,23 @@ export class LeagueController {
     if (!competition) {
       throw new NotFoundException('Competition not found')
     }
-    // return blank list if competition has ended
+    // return blank list if competition hasn't ended
     if (!user && !competition.hasEnded) {
       return []
     }
-    let submissions = await this.competitionService.getSubmissions(competition)
+    const { submissions, mappedSubmissions } = await this.competitionService.getSubmissions(competition, user)
     if (!competition.hasEnded) {
       const duel = await this.leagueService.getWeekDuel(competition, user)
       if (duel) {
         const opponent = duel.getOpponent(user)
         if (submissions.filter(s => s.userId === user.id).length < 3) {
-          submissions = submissions.filter(s => s.userId !== opponent.id)
+          Object.entries(mappedSubmissions).forEach(([scrambleId, submissions]) => {
+            mappedSubmissions[scrambleId] = submissions.filter(s => s.userId !== opponent.id)
+          })
         }
       }
     }
-    const ret: Record<number, Submissions[]> = {}
-    const userSubmissions: Record<number, Submissions> = {}
-    submissions.forEach(submission => {
-      if (!ret[submission.scrambleId]) {
-        ret[submission.scrambleId] = []
-      }
-      ret[submission.scrambleId].push(submission)
-      if (user) {
-        if (submission.userId === user.id) {
-          userSubmissions[submission.scrambleId] = submission
-        }
-      }
-    })
-    submissions.forEach(submission => {
-      if (userSubmissions[submission.scrambleId] || competition.hasEnded) {
-        submission.hideSolution = false
-      } else {
-        submission.hideSolution = true
-        submission.removeSolution()
-      }
-    })
-    if (user) {
-      await this.userService.loadUserActivities(user, submissions)
-    }
-    return ret
+    return mappedSubmissions
   }
 
   @Get('season/:number/:week/results')
