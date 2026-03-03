@@ -240,12 +240,16 @@ export class WcaReconstructionService {
     return reconstruction
   }
 
-  async getLatestRecons(options: IPaginationOptions) {
+  async getLatestRecons(options: IPaginationOptions, sort: string = 'latest') {
     const qb = this.reconstructionsRepository
       .createQueryBuilder('r')
       .leftJoinAndSelect('r.user', 'u')
       .leftJoinAndSelect('r.competition', 'c')
-      .orderBy('r.createdAt', 'DESC')
+    if (sort === 'compDate') {
+      qb.orderBy('c.startTime', 'DESC')
+    } else {
+      qb.orderBy('r.updatedAt', 'DESC')
+    }
 
     const result = await paginate(qb, options)
     const recons = result.items
@@ -278,6 +282,7 @@ export class WcaReconstructionService {
         submissionCount: countMap[`${r.competitionId}-${r.userId}`] ?? 0,
         updatedAt: r.updatedAt,
         wcaData: r.wcaData,
+        startTime: r.competition?.startTime,
       })),
       meta: result.meta,
     }
@@ -288,7 +293,7 @@ export class WcaReconstructionService {
       .createQueryBuilder('r')
       .leftJoinAndSelect('r.competition', 'c')
       .where('r.userId = :userId', { userId: user.id })
-      .orderBy('r.updatedAt', 'DESC')
+      .orderBy('c.startTime', 'DESC')
       .getMany()
 
     const countMap: Record<number, number> = {}
@@ -315,6 +320,8 @@ export class WcaReconstructionService {
       isParticipant: r.isParticipant,
       submissionCount: countMap[r.competitionId] ?? 0,
       updatedAt: r.updatedAt,
+      wcaData: r.wcaData,
+      startTime: r.competition?.startTime,
     }))
   }
 
@@ -552,18 +559,35 @@ export class WcaReconstructionService {
     })
     if (competition) return competition
 
+    const wcaComp = await this.fetchWcaCompetitionInfo(wcaCompetitionId)
+
     competition = this.competitionsRepository.create({
       alias: wcaCompetitionId,
-      name: wcaCompetitionId,
+      name: wcaComp?.name ?? wcaCompetitionId,
       type: CompetitionType.WCA_RECONSTRUCTION,
       format: CompetitionFormat.MO3,
       status: CompetitionStatus.ON_GOING,
-      startTime: new Date(),
+      startTime: wcaComp?.start_date ? new Date(wcaComp.start_date) : new Date(),
+      endTime: wcaComp?.end_date ? new Date(`${wcaComp.end_date}T23:59:59`) : null,
       wcaCompetitionId,
       userId: 1,
     })
     await this.competitionsRepository.save(competition)
     return competition
+  }
+
+  private async fetchWcaCompetitionInfo(
+    wcaCompetitionId: string,
+  ): Promise<{ name: string; start_date: string; end_date: string } | null> {
+    try {
+      const url = `${WCA_API_BASE}/competitions/${wcaCompetitionId}`
+      const response = await firstValueFrom(
+        this.httpService.get<{ name: string; start_date: string; end_date: string }>(url),
+      )
+      return response.data ?? null
+    } catch {
+      return null
+    }
   }
 
   // endregion

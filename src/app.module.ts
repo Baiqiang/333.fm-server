@@ -18,6 +18,7 @@ import { CommentModule } from './comment/comment.module'
 import { CompetitionModule } from './competition/competition.module'
 import configuration from './config/configuration'
 import { IfModule } from './if/if.module'
+import { PointModule } from './point/point.module'
 import { ProfileModule } from './profile/profile.module'
 import { StatsModule } from './stats/stats.module'
 import { TutorialModule } from './tutorial/tutorial.module'
@@ -64,6 +65,7 @@ import { WcaReconstructionModule } from './wca/reconstruction/reconstruction.mod
     AuthModule,
     AdminModule,
     CompetitionModule,
+    PointModule,
     ProfileModule,
     StatsModule,
     AttachmentModule,

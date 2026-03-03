@@ -20,8 +20,8 @@ export class WcaReconstructionController {
 
   @Get()
   @ApiQuery({ type: PaginationDto })
-  async getLatest(@Query() query: PaginationDto) {
-    return this.reconstructionService.getLatestRecons({ page: query.page, limit: query.limit })
+  async getLatest(@Query() query: PaginationDto, @Query('sort') sort?: string) {
+    return this.reconstructionService.getLatestRecons({ page: query.page, limit: query.limit }, sort)
   }
 
   @Get('user/:id')
