@@ -19,6 +19,7 @@ export class WcaService {
 
     this.logger.log(`Found ${competitions.length} WCA reconstruction competitions`)
 
+    let i = 0
     for (const comp of competitions) {
       const wcaId = comp.wcaCompetitionId
       if (!wcaId) continue
@@ -59,6 +60,10 @@ export class WcaService {
         }
       } catch (e) {
         this.logger.error(`Error processing ${wcaId}: ${e}`)
+      }
+      if (++i % 10 === 0) {
+        // sleep 5 seconds to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 5000))
       }
     }
 
