@@ -6,11 +6,27 @@ import { Competitions, CompetitionType } from '@/entities/competitions.entity'
 
 const WCA_API_BASE = 'https://www.worldcubeassociation.org/api/v0'
 
+function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
 @Injectable()
 export class WcaService {
   private readonly logger: Logger = new Logger(WcaService.name)
 
   constructor(@InjectRepository(Competitions) private readonly competitionsRepository: Repository<Competitions>) {}
+
+  private async fetchWithRetry(url: string, maxRetries = 5): Promise<Response> {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      const resp = await fetch(url)
+      if (resp.status !== 429) return resp
+      const retryAfter = resp.headers.get('retry-after')
+      const waitMs = retryAfter ? Number.parseInt(retryAfter, 10) * 1000 : 10_000 * 2 ** attempt
+      this.logger.warn(`429 on ${url}, retry in ${waitMs / 1000}s (${attempt + 1}/${maxRetries})`)
+      await sleep(waitMs)
+    }
+    throw new Error(`Exceeded max retries for ${url}`)
+  }
 
   async fixCompetitionDates() {
     const competitions = await this.competitionsRepository.find({
@@ -19,13 +35,12 @@ export class WcaService {
 
     this.logger.log(`Found ${competitions.length} WCA reconstruction competitions`)
 
-    let i = 0
     for (const comp of competitions) {
       const wcaId = comp.wcaCompetitionId
       if (!wcaId) continue
 
       try {
-        const resp = await fetch(`${WCA_API_BASE}/competitions/${wcaId}`)
+        const resp = await this.fetchWithRetry(`${WCA_API_BASE}/competitions/${wcaId}`)
         if (!resp.ok) {
           this.logger.warn(`Failed to fetch ${wcaId}: ${resp.status}`)
           continue
@@ -61,10 +76,8 @@ export class WcaService {
       } catch (e) {
         this.logger.error(`Error processing ${wcaId}: ${e}`)
       }
-      if (++i % 10 === 0) {
-        // sleep 5 seconds to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 5000))
-      }
+
+      await sleep(1000)
     }
 
     this.logger.log('Done')
