@@ -42,6 +42,14 @@ export class SearchSubmissionsDto extends PaginationDto {
   @IsOptional()
   @IsString()
   endDate?: string
+
+  @IsOptional()
+  @IsString()
+  sortBy?: 'moves' | 'createdAt'
+
+  @IsOptional()
+  @IsString()
+  sortOrder?: 'ASC' | 'DESC'
 }
 
 export class SearchScramblesDto extends PaginationDto {

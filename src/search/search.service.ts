@@ -114,7 +114,12 @@ export class SearchService {
       qb.andWhere('s.created_at <= :endDate', { endDate: `${dto.endDate} 23:59:59` })
     }
 
-    qb.orderBy('s.moves', 'ASC').addOrderBy('s.created_at', 'DESC')
+    const sortBy = dto.sortBy === 'moves' ? 's.moves' : 's.created_at'
+    const sortOrder = dto.sortOrder === 'ASC' ? 'ASC' : 'DESC'
+    qb.orderBy(sortBy, sortOrder)
+    if (dto.sortBy === 'moves') {
+      qb.addOrderBy('s.created_at', 'DESC')
+    }
 
     return paginate(qb, { page: dto.page, limit: dto.limit })
   }
