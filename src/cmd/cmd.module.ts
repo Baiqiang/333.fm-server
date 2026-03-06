@@ -35,6 +35,8 @@ import { LeagueCommand } from './league/league.command'
 import { LeagueService } from './league/league.service'
 import { PointCommand } from './point/point.command'
 import { PointService } from './point/point.service'
+import { SubmissionCommand } from './submission/submission.command'
+import { SubmissionService } from './submission/submission.service'
 import { UserCommand } from './user/user.command'
 import { UserService } from './user/user.service'
 import { WcaCommand } from './wca/wca.command'
@@ -90,6 +92,8 @@ import { WcaService } from './wca/wca.service'
     CmdService,
     PointService,
     PointCommand,
+    SubmissionService,
+    SubmissionCommand,
     UserService,
     UserCommand,
     LeagueService,

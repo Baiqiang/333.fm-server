@@ -1,4 +1,5 @@
 import { HttpModule } from '@nestjs/axios'
+import { BullModule } from '@nestjs/bull'
 import { Module } from '@nestjs/common'
 import { TypeOrmModule } from '@nestjs/typeorm'
 
@@ -12,19 +13,21 @@ import { Users } from '@/entities/users.entity'
 import { WcaReconstructions } from '@/entities/wca-reconstructions.entity'
 import { UserModule } from '@/user/user.module'
 
+import { ReconstructionSyncProcessor } from './processors/reconstruction-sync.processor'
 import { WcaReconstructionController } from './reconstruction.controller'
-import { WcaReconstructionService } from './reconstruction.service'
+import { RECON_SYNC_QUEUE, WcaReconstructionService } from './reconstruction.service'
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Competitions, Scrambles, Submissions, WcaReconstructions, Users]),
+    BullModule.registerQueue({ name: RECON_SYNC_QUEUE }),
     HttpModule,
     AuthModule,
     AttachmentModule,
     UserModule,
     CompetitionModule,
   ],
-  providers: [WcaReconstructionService],
+  providers: [WcaReconstructionService, ReconstructionSyncProcessor],
   controllers: [WcaReconstructionController],
   exports: [WcaReconstructionService],
 })

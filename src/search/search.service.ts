@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
+import { Algorithm } from 'insertionfinder'
 import { paginate } from 'nestjs-typeorm-paginate'
 import { Brackets, Repository } from 'typeorm'
 
@@ -7,6 +8,7 @@ import { Competitions, CompetitionStatus, CompetitionSubType, CompetitionType } 
 import { Scrambles } from '@/entities/scrambles.entity'
 import { Submissions } from '@/entities/submissions.entity'
 import { Users } from '@/entities/users.entity'
+import { formatAlgorithm, replaceQuote, rotationString } from '@/utils'
 
 import { SearchCompetitionsDto, SearchDto, SearchScramblesDto, SearchSubmissionsDto } from './search.dto'
 
@@ -99,7 +101,26 @@ export class SearchService {
     const qb = this.submissionBaseQuery()
 
     if (dto.q?.trim()) {
-      qb.andWhere('(s.solution LIKE :like OR s.comment LIKE :like)', { like: `%${dto.q.trim()}%` })
+      let q = replaceQuote(dto.q.trim())
+      let isNotation = false
+      try {
+        new Algorithm(q)
+        isNotation = true
+        if (q.endsWith("'")) {
+          q = q.slice(0, -1)
+        }
+      } catch {}
+      if (isNotation) {
+        const notations: string[] = []
+        for (const rotation of rotationString) {
+          notations.push(formatAlgorithm(`${rotation} ${q}`))
+        }
+        qb.andWhere('(s.solution REGEXP :regexp OR s.comment REGEXP :regexp)', {
+          regexp: `(${notations.join('|')})\\b`,
+        })
+      } else {
+        qb.andWhere('(s.solution LIKE :like OR s.comment LIKE :like)', { like: `%${dto.q.trim()}%` })
+      }
     }
     if (dto.minMoves !== undefined) {
       qb.andWhere('s.moves >= :minMoves', { minMoves: dto.minMoves })

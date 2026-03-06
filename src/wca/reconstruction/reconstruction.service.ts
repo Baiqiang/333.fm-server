@@ -1,6 +1,8 @@
 import { HttpService } from '@nestjs/axios'
+import { InjectQueue } from '@nestjs/bull'
 import { BadRequestException, Injectable, Logger } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
+import { Queue } from 'bull'
 import { IPaginationOptions, paginate } from 'nestjs-typeorm-paginate'
 import { firstValueFrom } from 'rxjs'
 import { Repository } from 'typeorm'
@@ -25,6 +27,12 @@ import { calculateMoves, transformWCAMoves } from '@/utils'
 
 const WCA_API_BASE = 'https://www.worldcubeassociation.org/api/v0'
 const WCA_LIVE_API = 'https://live.worldcubeassociation.org/api'
+
+export const RECON_SYNC_QUEUE = 'wca-recon-sync'
+
+export interface ReconSyncJobData {
+  wcaCompetitionId: string
+}
 
 interface WcaApiResult {
   id: number
@@ -95,6 +103,8 @@ export class WcaReconstructionService {
     private readonly attachmentService: AttachmentService,
     private readonly userService: UserService,
     private readonly competitionService: CompetitionService,
+    @InjectQueue(RECON_SYNC_QUEUE)
+    private readonly reconSyncQueue: Queue<ReconSyncJobData>,
   ) {}
 
   async submit(user: Users, dto: SubmitWcaReconstructionDto) {
@@ -511,6 +521,7 @@ export class WcaReconstructionService {
     const { scrambles: officialScrambles, roundMap } = data
     const fmScrambles = officialScrambles.filter(s => !s.is_extra)
     const synced: Scrambles[] = []
+    let hasChanges = false
 
     for (const s of fmScrambles) {
       const roundNumber = roundMap.get(s.round_type_id) ?? 1
@@ -525,6 +536,7 @@ export class WcaReconstructionService {
           existing.scramble = s.scramble
           existing.verified = true
           await this.scramblesRepository.save(existing)
+          hasChanges = true
         }
       } else {
         existing = this.scramblesRepository.create({
@@ -535,11 +547,112 @@ export class WcaReconstructionService {
           verified: true,
         })
         await this.scramblesRepository.save(existing)
+        hasChanges = true
       }
       synced.push(existing)
     }
 
+    if (hasChanges) {
+      await this.queueSyncWcaData(wcaCompetitionId)
+    }
+
     return synced
+  }
+
+  async queueSyncWcaData(wcaCompetitionId: string) {
+    await this.reconSyncQueue.add({ wcaCompetitionId }, { removeOnComplete: true, removeOnFail: 10 })
+    this.logger.log(`Queued WCA data sync for ${wcaCompetitionId}`)
+  }
+
+  async syncWcaDataForCompetition(wcaCompetitionId: string): Promise<number> {
+    const competition = await this.competitionsRepository.findOne({
+      where: { wcaCompetitionId },
+    })
+    if (!competition) return 0
+
+    const recons = await this.reconstructionsRepository.find({
+      where: { competitionId: competition.id },
+      relations: { user: true },
+    })
+    if (recons.length === 0) return 0
+
+    const officialResultsData = await this.getWcaOfficialResults(wcaCompetitionId)
+    const reconsToSave: WcaReconstructions[] = []
+
+    for (const recon of recons) {
+      const wcaId = recon.user?.wcaId
+      let dirty = false
+
+      // update isParticipant
+      let isParticipant = false
+      if (wcaId) {
+        if (officialResultsData) {
+          isParticipant = officialResultsData.results.some(r => r.wca_id === wcaId)
+        } else {
+          isParticipant = await this.isUserInWcaLive(wcaCompetitionId, wcaId)
+        }
+      }
+      if (recon.isParticipant !== isParticipant) {
+        recon.isParticipant = isParticipant
+        dirty = true
+      }
+
+      // update wcaData
+      if (wcaId && officialResultsData) {
+        const userResults = officialResultsData.results
+          .filter(r => r.wca_id === wcaId)
+          .map(r => ({
+            roundNumber: officialResultsData.roundMap.get(r.round_type_id) ?? 1,
+            roundTypeId: r.round_type_id,
+            pos: r.pos,
+            best: r.best,
+            average: r.average,
+            attempts: r.attempts,
+            regionalSingleRecord: r.regional_single_record,
+            regionalAverageRecord: r.regional_average_record,
+          }))
+        if (userResults.length > 0) {
+          recon.wcaData = { ...recon.wcaData, officialResults: userResults }
+          dirty = true
+        }
+      }
+
+      if (dirty) {
+        reconsToSave.push(recon)
+      }
+    }
+
+    if (reconsToSave.length > 0) {
+      await this.reconstructionsRepository.save(reconsToSave)
+    }
+
+    // update wcaMoves for all submissions
+    const submissions = await this.submissionsRepository.find({
+      where: { competitionId: competition.id },
+      relations: { scramble: true },
+    })
+
+    const userIds = [...new Set(submissions.map(s => s.userId))]
+    const users = userIds.length > 0 ? await this.usersRepository.findByIds(userIds) : []
+    const wcaIdMap = new Map(users.filter(u => u.wcaId).map(u => [u.id, u.wcaId]))
+
+    const subsToSave: Submissions[] = []
+    for (const sub of submissions) {
+      const wcaId = wcaIdMap.get(sub.userId)
+      if (!wcaId || !sub.scramble) continue
+
+      const wcaMoves = await this.getWcaMoves(wcaCompetitionId, wcaId, sub.scramble.roundNumber, sub.scramble.number)
+      if (wcaMoves !== null && sub.wcaMoves !== wcaMoves) {
+        sub.wcaMoves = wcaMoves
+        subsToSave.push(sub)
+      }
+    }
+
+    if (subsToSave.length > 0) {
+      await this.submissionsRepository.save(subsToSave)
+    }
+
+    return reconsToSave.length + subsToSave.length
   }
 
   async isUserParticipant(wcaCompetitionId: string, wcaId: string): Promise<boolean> {

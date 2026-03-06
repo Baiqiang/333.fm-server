@@ -13,6 +13,33 @@ dayjs.extend(advancedFormat)
 dayjs.extend(weekOfYear)
 dayjs.extend(weekYear)
 
+export const rotationString = [
+  '',
+  'y',
+  'y2',
+  "y'",
+  'x',
+  'x y',
+  'x y2',
+  "x y'",
+  'x2',
+  'x2 y',
+  'z2',
+  "x2 y'",
+  "x'",
+  "x' y",
+  "x' y2",
+  "x' y'",
+  'z',
+  'z y',
+  'z y2',
+  "z y'",
+  "z'",
+  "z' y",
+  "z' y2",
+  "z' y'",
+]
+
 export function replaceQuote(string: string): string {
   return string.replace(/[‘’`′]/g, "'")
 }

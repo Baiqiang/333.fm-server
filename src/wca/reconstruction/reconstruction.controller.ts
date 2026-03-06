@@ -79,8 +79,13 @@ export class WcaReconstructionController {
   }
 
   @Post(':competitionId/sync-scrambles')
-  @UseGuards(JwtRequiredGuard)
   async syncScrambles(@Param('competitionId') competitionId: string) {
     return this.reconstructionService.syncScramblesFromWca(competitionId)
+  }
+
+  @Post(':competitionId/sync-wca-data')
+  async syncWcaData(@Param('competitionId') competitionId: string) {
+    await this.reconstructionService.queueSyncWcaData(competitionId)
+    return { queued: true }
   }
 }
