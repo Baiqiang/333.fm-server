@@ -258,7 +258,7 @@ export class WcaReconstructionService {
     if (sort === 'compDate') {
       qb.orderBy('c.startTime', 'DESC')
     } else {
-      qb.orderBy('r.updatedAt', 'DESC')
+      qb.orderBy('r.createdAt', 'DESC')
     }
 
     const result = await paginate(qb, options)
