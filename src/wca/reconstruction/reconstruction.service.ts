@@ -290,6 +290,7 @@ export class WcaReconstructionService {
         description: r.description,
         isParticipant: r.isParticipant,
         submissionCount: countMap[`${r.competitionId}-${r.userId}`] ?? 0,
+        createdAt: r.createdAt,
         updatedAt: r.updatedAt,
         wcaData: r.wcaData,
         startTime: r.competition?.startTime,
