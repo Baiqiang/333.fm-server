@@ -558,6 +558,11 @@ export class WcaReconstructionService {
       currentUser = { isParticipant, attempts }
     }
 
+    // queue
+    if (scrambles.some(s => !s.verified) && isPublished) {
+      await this.queueSyncWcaData(wcaCompetitionId)
+    }
+
     return {
       competition,
       recons,
