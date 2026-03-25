@@ -23,7 +23,7 @@ import { Results } from '@/entities/results.entity'
 import { Scrambles } from '@/entities/scrambles.entity'
 import { Submissions } from '@/entities/submissions.entity'
 import { Users } from '@/entities/users.entity'
-import { calculateMoves } from '@/utils'
+import { betterThan, calculateMoves, setRanks } from '@/utils'
 import { calculateScores, DEFAULT_ELO, updateElo } from '@/utils/elo-calculator'
 
 const { encode_col: encodeCol } = XLSX.utils
@@ -396,6 +396,374 @@ export class LeagueService {
     user.avatar = ''
     user.avatarThumb = ''
     return user
+  }
+
+  async dnfResult(seasonNumber: number, week: number, userRef: string) {
+    const season = await this.leagueSeasonsRepository.findOne({ where: { number: seasonNumber } })
+    if (!season) {
+      console.error(`Season S${seasonNumber} not found`)
+      return
+    }
+    const competition = await this.competitionsRepository.findOne({
+      where: { alias: `league-${season.number}-${week}` },
+    })
+    if (!competition) {
+      console.error(`Competition for S${season.number} Week ${week} not found`)
+      return
+    }
+    const user = await this.resolveUser(userRef)
+    if (!user) {
+      console.error(`User ${userRef} not found`)
+      return
+    }
+    const results = await this.resultsRepository.find({
+      where: {
+        competitionId: competition.id,
+        userId: user.id,
+      },
+    })
+    if (results.length === 0) {
+      console.error(`No result found for ${user.name} (${user.wcaId || user.id}) in S${season.number} Week ${week}`)
+      return
+    }
+    const submissions = await this.submissionsRepository.find({
+      where: {
+        competitionId: competition.id,
+        userId: user.id,
+      },
+    })
+    for (const submission of submissions) {
+      submission.moves = DNF
+    }
+    for (const result of results) {
+      result.values = result.values.map(() => DNF)
+      result.updateBestAndAverage()
+    }
+    await this.submissionsRepository.save(submissions)
+    await this.resultsRepository.save(results)
+    await this.recalculateCompetitionRanks(competition.id)
+    await this.recalculateSeason(season.number)
+    console.log(`DNFed ${user.name} (${user.wcaId || user.id}) in S${season.number} Week ${week}`)
+  }
+
+  private async resolveUser(userRef: string) {
+    if (/^\d+$/.test(userRef)) {
+      return this.usersRepository.findOne({ where: { id: Number(userRef) } })
+    }
+    return this.usersRepository.findOne({ where: { wcaId: userRef.toUpperCase(), source: Not('MERGED') } })
+  }
+
+  private async recalculateCompetitionRanks(competitionId: number) {
+    const results = await this.resultsRepository.find({
+      where: { competitionId },
+    })
+    const regularResults = results.filter(result => result.mode === CompetitionMode.REGULAR)
+    const unlimitedResults = results.filter(result => result.mode === CompetitionMode.UNLIMITED)
+    setRanks(regularResults)
+    setRanks(unlimitedResults)
+    await this.resultsRepository.save(results)
+  }
+
+  async recalculateSeason(seasonNumber: number) {
+    const season = await this.leagueSeasonsRepository.findOne({ where: { number: seasonNumber } })
+    if (!season) {
+      console.error(`Season S${seasonNumber} not found`)
+      return
+    }
+    const competitions = await this.competitionsRepository.find({
+      where: { leagueSeasonId: season.id },
+      order: { startTime: 'ASC', id: 'ASC' },
+    })
+    let standings = await this.leagueStandingsRepository.find({
+      where: { seasonId: season.id },
+      relations: { user: true, tier: true },
+    })
+    if (standings.length === 0) {
+      const players = await this.leaguePlayersRepository.find({
+        where: { seasonId: season.id },
+      })
+      standings = await this.leagueStandingsRepository.save(
+        players.map(player => {
+          const standing = new LeagueStandings()
+          standing.seasonId = season.id
+          standing.tierId = player.tierId
+          standing.userId = player.userId
+          return standing
+        }),
+      )
+      standings = await this.leagueStandingsRepository.find({
+        where: { seasonId: season.id },
+        relations: { user: true, tier: true },
+      })
+    }
+    const duels = await this.leagueDuelsRepository.find({
+      where: { seasonId: season.id },
+      relations: {
+        competition: true,
+        user1: true,
+        user2: true,
+      },
+      order: {
+        competitionId: 'ASC',
+        id: 'ASC',
+      },
+    })
+    standings.forEach(standing => {
+      standing.position = 0
+      standing.points = 0
+      standing.wins = 0
+      standing.draws = 0
+      standing.losses = 0
+      standing.bestMo3 = 0
+    })
+    duels.forEach(duel => {
+      duel.user1Points = 0
+      duel.user2Points = 0
+    })
+    const standingsMap = Object.fromEntries(standings.map(standing => [standing.userId, standing]))
+    const leagueResults: LeagueResults[] = []
+    for (const competition of competitions) {
+      const competitionResults = await this.resultsRepository.find({
+        where: {
+          competitionId: competition.id,
+          mode: CompetitionMode.REGULAR,
+        },
+      })
+      const resultMap = Object.fromEntries(competitionResults.map(result => [result.userId, result]))
+      for (const duel of duels) {
+        if (duel.competitionId !== competition.id || !duel.competition.hasEnded) {
+          continue
+        }
+        duel.user1Result = resultMap[duel.user1Id]
+        duel.user2Result = resultMap[duel.user2Id]
+        this.calculateDuelPoints(duel, standingsMap, leagueResults)
+      }
+    }
+    const standingsByTier: Record<number, LeagueStandings[]> = {}
+    for (const standing of standings) {
+      standingsByTier[standing.tierId] = standingsByTier[standing.tierId] || []
+      standingsByTier[standing.tierId].push(standing)
+    }
+    for (const tierStandings of Object.values(standingsByTier)) {
+      this.updateStandingRanks(
+        tierStandings,
+        duels.filter(duel => duel.tierId === tierStandings[0].tierId && duel.competition.hasEnded),
+      )
+    }
+    await this.leagueStandingsRepository.manager.transaction(async em => {
+      await em.save(standings)
+      await em.save(duels)
+      await em.delete(LeagueResults, { seasonId: season.id })
+      await em.save(leagueResults)
+    })
+    await this.recalculateSeasonElo(
+      season,
+      competitions.filter(competition => competition.hasEnded),
+    )
+    console.log(`Recalculated league standings and ELO for S${season.number}`)
+  }
+
+  private async recalculateSeasonElo(season: LeagueSeasons, competitions: Competitions[]) {
+    await this.leagueEloHistoriesRepository.delete({ seasonId: season.id })
+    const players = await this.leaguePlayersRepository.find({ where: { seasonId: season.id } })
+    const playerUserIds = [...new Set(players.map(player => player.userId))]
+    const previousSeasonIds = (
+      await this.leagueSeasonsRepository.find({
+        where: { number: LessThan(season.number) },
+      })
+    ).map(previousSeason => previousSeason.id)
+    const eloMap: Record<number, number> = {}
+    for (const userId of playerUserIds) {
+      if (previousSeasonIds.length > 0) {
+        const lastHistory = await this.leagueEloHistoriesRepository.findOne({
+          where: { userId, seasonId: In(previousSeasonIds) },
+          order: { id: 'DESC' },
+        })
+        if (lastHistory) {
+          eloMap[userId] = lastHistory.points
+          continue
+        }
+      }
+      eloMap[userId] = DEFAULT_ELO
+    }
+    for (const competition of competitions) {
+      const week = parseInt(competition.alias.split('-').pop() || '0', 10)
+      const results = await this.resultsRepository.find({
+        where: { competitionId: competition.id },
+      })
+      const resultMap = Object.fromEntries(
+        results.filter(result => playerUserIds.includes(result.userId)).map(result => [result.userId, result]),
+      )
+      const weekUserIds: number[] = []
+      const weekElos: number[] = []
+      const weekSolves: number[][] = []
+      for (const userId of playerUserIds) {
+        const result = resultMap[userId]
+        const values = result ? result.values.map(value => (value === 0 ? DNS : value)) : [DNS, DNS, DNS]
+        weekUserIds.push(userId)
+        weekElos.push(eloMap[userId] ?? DEFAULT_ELO)
+        weekSolves.push(values)
+      }
+      if (weekUserIds.length < 2) {
+        continue
+      }
+      const scoreList = calculateScores(weekSolves)
+      const newEloList = updateElo(weekElos, scoreList)
+      const historyEntities: LeagueEloHistories[] = []
+      for (let i = 0; i < weekUserIds.length; i++) {
+        const userId = weekUserIds[i]
+        const oldElo = weekElos[i]
+        const newElo = newEloList[i]
+        eloMap[userId] = newElo
+        const history = new LeagueEloHistories()
+        history.seasonId = season.id
+        history.competitionId = competition.id
+        history.week = week
+        history.userId = userId
+        history.points = newElo
+        history.delta = newElo - oldElo
+        historyEntities.push(history)
+      }
+      await this.leagueEloHistoriesRepository.save(historyEntities)
+    }
+    for (const userId of playerUserIds) {
+      let elo = await this.leagueElosRepository.findOne({ where: { userId } })
+      if (!elo) {
+        elo = new LeagueElos()
+        elo.userId = userId
+      }
+      elo.points = eloMap[userId] ?? DEFAULT_ELO
+      await this.leagueElosRepository.save(elo)
+    }
+  }
+
+  updateStandingRanks(standings: LeagueStandings[], duels: LeagueDuels[]) {
+    standings.sort((a, b) => b.points - a.points)
+    const pointsMappedStandings: Record<number, LeagueStandings[]> = {}
+    for (const [i, standing] of standings.entries()) {
+      standing.position = i + 1
+      pointsMappedStandings[standing.points] = pointsMappedStandings[standing.points] || []
+      pointsMappedStandings[standing.points].push(standing)
+    }
+    for (const smallTables of Object.values(pointsMappedStandings)) {
+      const count = smallTables.length
+      if (count === 1) {
+        continue
+      }
+      const smallTablePoints = Object.fromEntries(smallTables.map(standing => [standing.userId, 0]))
+      const minPosition = smallTables[0].position
+      for (let i = 0; i < count - 1; i++) {
+        for (let j = i + 1; j < count; j++) {
+          const a = smallTables[i]
+          const b = smallTables[j]
+          const duel = duels.find(
+            d =>
+              (d.user1Id === a.userId && d.user2Id === b.userId) || (d.user1Id === b.userId && d.user2Id === a.userId),
+          )
+          if (!duel) {
+            continue
+          }
+          const aPoints = duel.getUserPoints(a.user)
+          const bPoints = duel.getUserPoints(duel.getOpponent(a.user))
+          if (aPoints > bPoints) {
+            smallTablePoints[a.userId] += 2
+          } else if (aPoints < bPoints) {
+            smallTablePoints[b.userId] += 2
+          } else {
+            smallTablePoints[a.userId] += 1
+            smallTablePoints[b.userId] += 1
+          }
+        }
+      }
+      smallTables.sort((a, b) => {
+        if (smallTablePoints[a.userId] !== smallTablePoints[b.userId]) {
+          return smallTablePoints[b.userId] - smallTablePoints[a.userId]
+        }
+        if (a.wins !== b.wins) {
+          return b.wins - a.wins
+        }
+        if (a.bestMo3 !== b.bestMo3) {
+          if (a.bestMo3 === 0) {
+            return 1
+          }
+          if (b.bestMo3 === 0) {
+            return -1
+          }
+          return a.bestMo3 - b.bestMo3
+        }
+        return 0
+      })
+      smallTables.forEach((standing, i) => {
+        standing.position = minPosition + i
+      })
+    }
+  }
+
+  calculateDuelPoints(
+    duel: LeagueDuels,
+    mappedStandings: Record<number, LeagueStandings>,
+    leagueResults: LeagueResults[],
+  ) {
+    const result1 = duel.user1Result?.values || [DNS, DNS, DNS]
+    const result2 = duel.user2Result?.values || [DNS, DNS, DNS]
+    let user1Points = 0
+    let user2Points = 0
+    for (let i = 0; i < 3; i++) {
+      if (betterThan(result1[i], result2[i])) {
+        user1Points++
+      } else if (betterThan(result2[i], result1[i])) {
+        user2Points++
+      } else {
+        user1Points += 0.5
+        user2Points += 0.5
+      }
+    }
+    duel.user1Points = user1Points
+    duel.user2Points = user2Points
+    const user1Standing = mappedStandings[duel.user1Id]
+    const user2Standing = mappedStandings[duel.user2Id]
+    const week = parseInt(duel.competition.alias.split('-').pop() || '0', 10)
+    const user1Result = new LeagueResults()
+    user1Result.userId = duel.user1Id
+    user1Result.seasonId = duel.seasonId
+    user1Result.competitionId = duel.competitionId
+    user1Result.week = week
+    const user2Result = new LeagueResults()
+    user2Result.userId = duel.user2Id
+    user2Result.seasonId = duel.seasonId
+    user2Result.competitionId = duel.competitionId
+    user2Result.week = week
+    if (user1Points > user2Points) {
+      user1Standing.points += 2
+      user1Standing.wins++
+      user2Standing.losses++
+      user1Result.points = 2
+    } else if (user1Points < user2Points) {
+      user2Standing.points += 2
+      user2Standing.wins++
+      user1Standing.losses++
+      user2Result.points = 2
+    } else {
+      user1Standing.points++
+      user2Standing.points++
+      user1Standing.draws++
+      user2Standing.draws++
+      user1Result.points = 1
+      user2Result.points = 1
+    }
+    if (
+      duel.user1Result?.average > 0 &&
+      (duel.user1Result.average < user1Standing.bestMo3 || user1Standing.bestMo3 === 0)
+    ) {
+      user1Standing.bestMo3 = duel.user1Result.average
+    }
+    if (
+      duel.user2Result?.average > 0 &&
+      (duel.user2Result.average < user2Standing.bestMo3 || user2Standing.bestMo3 === 0)
+    ) {
+      user2Standing.bestMo3 = duel.user2Result.average
+    }
+    leagueResults.push(user1Result, user2Result)
   }
 
   async calcualteElo(seasonNumber: number) {

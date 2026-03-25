@@ -29,6 +29,10 @@ export class LeagueCommand extends CommandRunner {
         this.logger.log(`Importing ELO from ${passedParam[1]} for S${passedParam[2]}`)
         await this.leagueService.importElo(passedParam[1], Number(passedParam[2]))
         break
+      case 'dnf-result':
+        this.logger.log(`DNFing result for ${passedParam[3]} in S${passedParam[1]} Week ${passedParam[2]}`)
+        await this.leagueService.dnfResult(Number(passedParam[1]), Number(passedParam[2]), passedParam[3])
+        break
       default:
         break
     }
