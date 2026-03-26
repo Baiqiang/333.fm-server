@@ -79,11 +79,8 @@ export class ChainService {
   }
 
   async getSubmissions(competition: Competitions, scramble: Scrambles, parent: Submissions | null, user?: Users) {
-    const queryBuilder = this.submissionsRepository
-      .createQueryBuilder('s')
-      .leftJoinAndSelect('s.user', 'u')
-      .loadRelationCountAndMap('s.likes', 's.userActivities', 'ual', qb => qb.andWhere('ual.like = 1'))
-      .loadRelationCountAndMap('s.favorites', 's.userActivities', 'uaf', qb => qb.andWhere('uaf.favorite = 1'))
+    const qb = this.submissionsRepository.createQueryBuilder('s').leftJoinAndSelect('s.user', 'u')
+    const queryBuilder = Submissions.withActivityCounts(qb)
       .where('s.competition_id = :competitionId and s.scramble_id = :scrambleId', {
         competitionId: competition.id,
         scrambleId: scramble.id,

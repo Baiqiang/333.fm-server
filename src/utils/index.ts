@@ -6,15 +6,42 @@ import weekYear from 'dayjs/plugin/weekYear'
 import { Algorithm, Cube } from 'insertionfinder'
 
 import { SubmitSolutionDto } from '@/dtos/submit-solution.dto'
-import { DNF, Results } from '@/entities/results.entity'
+import { DNF, DNS, Results } from '@/entities/results.entity'
 import { SolutionMode, SubmissionPhase, Submissions } from '@/entities/submissions.entity'
 
 dayjs.extend(advancedFormat)
 dayjs.extend(weekOfYear)
 dayjs.extend(weekYear)
 
+export const rotationString = [
+  '',
+  'y',
+  'y2',
+  "y'",
+  'x',
+  'x y',
+  'x y2',
+  "x y'",
+  'x2',
+  'x2 y',
+  'z2',
+  "x2 y'",
+  "x'",
+  "x' y",
+  "x' y2",
+  "x' y'",
+  'z',
+  'z y',
+  'z y2',
+  "z y'",
+  "z'",
+  "z' y",
+  "z' y2",
+  "z' y'",
+]
+
 export function replaceQuote(string: string): string {
-  return string.replace(/[‘’`]/g, "'")
+  return string.replace(/[‘’`′]/g, "'")
 }
 
 export function removeComment(string: string | string[]): string {
@@ -93,6 +120,27 @@ export function calculateMoves(scramble: string, solution: string, allowNISS = f
     moves = DNF
   }
   return moves
+}
+
+export function transformWCAMoves(moves: number): number {
+  if (moves > 0) {
+    return moves * 100
+  }
+  if (moves === -1) {
+    return DNF
+  }
+  if (moves === -2) {
+    return DNS
+  }
+  return 0
+}
+
+export function betterThan(a: number, b: number): boolean {
+  // DNF and DNS are same
+  if (a === DNF || a === DNS) {
+    return false
+  }
+  return a < b
 }
 
 export function countMoves(skeleton: string): number {
@@ -302,7 +350,7 @@ export function calculateMean(values: number[]): number {
   if (dnfResults.length > 0) {
     return DNF
   }
-  return values.reduce((a, b) => a + b, 0) / values.length
+  return Math.round(values.reduce((a, b) => a + b, 0) / values.length)
 }
 
 export function calculateAverage(values: number[]): number {
@@ -312,7 +360,7 @@ export function calculateAverage(values: number[]): number {
   }
   const max = Math.max(...values)
   const min = Math.min(...values)
-  return (values.reduce((a, b) => a + b, 0) - max - min) / (values.length - 2)
+  return Math.round((values.reduce((a, b) => a + b, 0) - max - min) / (values.length - 2))
 }
 
 export function groupBy<T>(array: T[], key: string): T[] {
@@ -365,4 +413,13 @@ export function getTopDistinctN<T extends Rankable>(
 
 export interface Rankable {
   rank: number
+}
+
+export class ColumnNumericTransformer {
+  to(data: number): number {
+    return data
+  }
+  from(data: string): number {
+    return parseFloat(data)
+  }
 }

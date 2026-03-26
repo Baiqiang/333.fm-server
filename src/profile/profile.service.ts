@@ -10,6 +10,11 @@ import {
   CompetitionStatus,
   CompetitionType,
 } from '@/entities/competitions.entity'
+import { LeagueDuels } from '@/entities/league-duels.entity'
+import { LeagueEloHistories } from '@/entities/league-elo-histories.entity'
+import { LeagueElos } from '@/entities/league-elos.entity'
+import { LeagueResults } from '@/entities/league-results.entity'
+import { LeagueStandings } from '@/entities/league-standings.entity'
 import { Results } from '@/entities/results.entity'
 import { Scrambles } from '@/entities/scrambles.entity'
 import { Submissions } from '@/entities/submissions.entity'
@@ -27,12 +32,23 @@ export class ProfileService {
     private readonly submissionsRepository: TreeRepository<Submissions>,
     @InjectRepository(Results)
     private readonly resultsRepository: Repository<Results>,
+    @InjectRepository(LeagueDuels)
+    private readonly leagueDuelsRepository: Repository<LeagueDuels>,
+    @InjectRepository(LeagueEloHistories)
+    private readonly leagueEloHistoriesRepository: Repository<LeagueEloHistories>,
+    @InjectRepository(LeagueElos)
+    private readonly leagueElosRepository: Repository<LeagueElos>,
+    @InjectRepository(LeagueResults)
+    private readonly leagueResultsRepository: Repository<LeagueResults>,
+    @InjectRepository(LeagueStandings)
+    private readonly leagueStandingsRepository: Repository<LeagueStandings>,
     private readonly userService: UserService,
   ) {}
 
   async getUserRecords(user: Users) {
     const weeklyRecord = await this.getRecordByType(user, CompetitionType.WEEKLY, true)
     const dailyRecord = await this.getRecordByType(user, CompetitionType.DAILY, true)
+    const leagueRecord = await this.getRecordByType(user, CompetitionType.LEAGUE, true)
     const practiceRecord = await this.getRecordByType(user, CompetitionType.PERSONAL_PRACTICE)
     const endlessCompetitions = await this.competitionsRepository.find({
       where: {
@@ -76,6 +92,18 @@ export class ProfileService {
     }
     const endlessRecords = Object.values(endlessStatsMap)
     endlessRecords.sort((a, b) => b.competition.id - a.competition.id)
+    const submissionsCount = await this.submissionsRepository
+      .createQueryBuilder('s')
+      .select([
+        'c.type as type',
+        'COUNT(s.id) as count',
+        'COUNT(DISTINCT s.scramble_id) as scrambleCount',
+        'COUNT(DISTINCT c.id) as competitionCount',
+      ])
+      .leftJoin('s.competition', 'c')
+      .where('s.user_id = :userId', { userId: user.id })
+      .groupBy('c.type')
+      .getRawMany<{ type: CompetitionType; count: number; scrambleCount: number; competitionCount: number }>()
     return {
       competitionRecords: [
         {
@@ -87,11 +115,16 @@ export class ProfileService {
           record: dailyRecord,
         },
         {
+          type: 'league',
+          record: leagueRecord,
+        },
+        {
           type: 'practice',
           record: practiceRecord,
         },
       ].filter(({ record }) => record.single > 0),
       endlessRecords,
+      submissionsCount,
     }
   }
 
@@ -100,11 +133,13 @@ export class ProfileService {
       .createQueryBuilder('r')
       .leftJoin('r.competition', 'c')
       .where('r.user_id = :userId', { userId: user.id })
-      .andWhere('r.mode = :mode', { mode: CompetitionMode.REGULAR })
       .andWhere('c.type = :type', {
         type,
       })
       .select(['MIN(r.best) AS single'])
+    if (type !== CompetitionType.LEAGUE) {
+      bestQb.andWhere('r.mode = :mode', { mode: CompetitionMode.REGULAR })
+    }
     if (ended) {
       bestQb.andWhere('c.status = :status', { status: CompetitionStatus.ENDED })
     }
@@ -209,14 +244,13 @@ export class ProfileService {
   }
 
   async getUserEndlessSubmissions(user: Users, currentUser?: Users, alias?: string) {
-    const queryBuilder = this.submissionsRepository
+    const qb = this.submissionsRepository
       .createQueryBuilder('s')
       .leftJoinAndSelect('s.scramble', 'sc')
       .leftJoinAndSelect('s.competition', 'c')
       .leftJoinAndSelect('c.user', 'u')
       .leftJoinAndSelect('s.attachments', 'a')
-      .loadRelationCountAndMap('s.likes', 's.userActivities', 'ual', qb => qb.andWhere('ual.like = 1'))
-      .loadRelationCountAndMap('s.favorites', 's.userActivities', 'uaf', qb => qb.andWhere('uaf.favorite = 1'))
+    const queryBuilder = Submissions.withActivityCounts(qb)
       .where('s.user_id = :userId', { userId: user.id })
       .andWhere('c.type = :type', { type: CompetitionType.ENDLESS })
       .orderBy('s.created_at', 'DESC')
@@ -285,14 +319,13 @@ export class ProfileService {
   }
 
   async getUserSubmissions(user: Users, type: number, options: IPaginationOptions, currentUser?: Users) {
-    const queryBuilder = this.submissionsRepository
+    const qb = this.submissionsRepository
       .createQueryBuilder('s')
       .leftJoinAndSelect('s.scramble', 'sc')
       .leftJoinAndSelect('s.competition', 'c')
       .leftJoinAndSelect('c.user', 'u')
       .leftJoinAndSelect('s.attachments', 'a')
-      .loadRelationCountAndMap('s.likes', 's.userActivities', 'ual', qb => qb.andWhere('ual.like = 1'))
-      .loadRelationCountAndMap('s.favorites', 's.userActivities', 'uaf', qb => qb.andWhere('uaf.favorite = 1'))
+    const queryBuilder = Submissions.withActivityCounts(qb)
       .where('s.user_id = :userId', { userId: user.id })
       .orderBy('s.created_at', 'DESC')
     if (!Number.isNaN(type)) {
@@ -334,6 +367,9 @@ export class ProfileService {
         ) {
           submission.hideSolution = false
         }
+        if (submission.competition.type === CompetitionType.LEAGUE) {
+          submission.hideSolution = !submission.competition.hasEnded
+        }
         if (submission.hideSolution) {
           submission.removeSolution()
           submission.moves = 0
@@ -354,5 +390,71 @@ export class ProfileService {
       data.meta.filters = competitions
     }
     return data
+  }
+
+  async getUserLeagueStats(user: Users) {
+    const duels = await this.leagueDuelsRepository.find({
+      where: [{ user1Id: user.id }, { user2Id: user.id }],
+      relations: {
+        competition: true,
+        tier: true,
+        season: true,
+        user1: true,
+        user2: true,
+      },
+      order: {
+        competitionId: 'ASC',
+      },
+    })
+
+    const standings = await this.leagueStandingsRepository.find({
+      where: {
+        userId: user.id,
+      },
+      relations: {
+        season: true,
+        tier: true,
+      },
+      order: {
+        seasonId: 'ASC',
+      },
+    })
+
+    const eloHistories = await this.leagueEloHistoriesRepository.find({
+      where: {
+        userId: user.id,
+      },
+      relations: {
+        season: true,
+      },
+      order: {
+        seasonId: 'ASC',
+        week: 'ASC',
+      },
+    })
+
+    const elo = await this.leagueElosRepository.findOne({
+      where: {
+        userId: user.id,
+      },
+    })
+
+    const leagueResults = await this.leagueResultsRepository.find({
+      where: {
+        userId: user.id,
+      },
+      order: {
+        seasonId: 'ASC',
+        week: 'ASC',
+      },
+    })
+
+    return {
+      duels,
+      standings,
+      eloHistories,
+      currentElo: elo?.points ?? 0,
+      leagueResults,
+    }
   }
 }

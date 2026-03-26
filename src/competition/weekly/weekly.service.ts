@@ -107,6 +107,7 @@ export class WeeklyService {
         // if regular results contains 0, it must be DNF or DNS, thus the average is DNF
         result.average = DNF
       }
+      result.updateBestAndAverage()
       // if there's no unlimited result, copy the regular result
       if (!unlimitedResult) {
         const newResult = new Results()
@@ -134,12 +135,8 @@ export class WeeklyService {
           }
           return DNS
         })
-        result.best = Math.min(...result.values)
-        result.average = Math.round(result.values.reduce((a, b) => a + b, 0) / result.values.length)
-        if (result.values.some(v => v === DNF || v === DNS)) {
-          result.average = DNF
-        }
       }
+      result.updateBestAndAverage()
     }
     setRanks(regularResults)
     setRanks(unlimitedResults)

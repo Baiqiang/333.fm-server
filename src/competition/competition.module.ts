@@ -3,9 +3,19 @@ import { Module } from '@nestjs/common'
 import { TypeOrmModule } from '@nestjs/typeorm'
 
 import { AttachmentModule } from '@/attachment/attachment.module'
+import { AuthModule } from '@/auth/auth.module'
 import { Challenges } from '@/entities/challenges.entity'
 import { Competitions } from '@/entities/competitions.entity'
 import { EndlessKickoffs } from '@/entities/endless-kickoffs.entity'
+import { LeagueDuels } from '@/entities/league-duels.entity'
+import { LeagueEloHistories } from '@/entities/league-elo-histories.entity'
+import { LeagueElos } from '@/entities/league-elos.entity'
+import { LeagueParticipants } from '@/entities/league-participants.entity'
+import { LeaguePlayers } from '@/entities/league-players.entity'
+import { LeagueResults } from '@/entities/league-results.entity'
+import { LeagueSeasons } from '@/entities/league-seasons.entity'
+import { LeagueStandings } from '@/entities/league-standings.entity'
+import { LeagueTiers } from '@/entities/league-tiers.entity'
 import { Results } from '@/entities/results.entity'
 import { Scrambles } from '@/entities/scrambles.entity'
 import { Submissions } from '@/entities/submissions.entity'
@@ -23,12 +33,14 @@ import { DailyService } from './daily/daily.service'
 import { EndlessController } from './endless/endless.controller'
 import { EndlessService } from './endless/endless.service'
 import { EndlessProcessor } from './endless/processors/endless.processor'
+import { AdminController } from './league/admin/admin.controller'
+import { LeagueController } from './league/league.controller'
+import { LeagueService } from './league/league.service'
 import { PracticeController } from './practice/practice.controller'
 import { PracticeService } from './practice/practice.service'
 import { PracticeProcessor } from './practice/processors/practice.processor'
 import { WeeklyController } from './weekly/weekly.controller'
 import { WeeklyService } from './weekly/weekly.service'
-
 @Module({
   imports: [
     AttachmentModule,
@@ -41,6 +53,15 @@ import { WeeklyService } from './weekly/weekly.service'
       Submissions,
       Users,
       UserActivities,
+      LeagueSeasons,
+      LeagueTiers,
+      LeaguePlayers,
+      LeagueDuels,
+      LeagueStandings,
+      LeagueResults,
+      LeagueParticipants,
+      LeagueElos,
+      LeagueEloHistories,
     ]),
     BullModule.registerQueue(
       {
@@ -54,8 +75,9 @@ import { WeeklyService } from './weekly/weekly.service'
       },
     ),
     UserModule,
+    AuthModule,
   ],
-  exports: [WeeklyService],
+  exports: [CompetitionService],
   providers: [
     CompetitionService,
     WeeklyService,
@@ -66,6 +88,7 @@ import { WeeklyService } from './weekly/weekly.service'
     ChainProcessor,
     PracticeService,
     PracticeProcessor,
+    LeagueService,
   ],
   controllers: [
     CompetitionController,
@@ -74,6 +97,8 @@ import { WeeklyService } from './weekly/weekly.service'
     EndlessController,
     ChainController,
     PracticeController,
+    LeagueController,
+    AdminController,
   ],
 })
 export class CompetitionModule {}

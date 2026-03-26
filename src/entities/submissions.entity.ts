@@ -8,6 +8,7 @@ import {
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
+  SelectQueryBuilder,
   Tree,
   TreeChildren,
   TreeParent,
@@ -15,6 +16,7 @@ import {
 } from 'typeorm'
 
 import { Attachments } from './attachment.entity'
+import { Comments } from './comments.entity'
 import { CompetitionMode, Competitions } from './competitions.entity'
 import { Results } from './results.entity'
 import { Scrambles } from './scrambles.entity'
@@ -82,6 +84,9 @@ export class Submissions {
   @Column({ default: 0 })
   damage: number
 
+  @Column({ default: true })
+  verified: boolean
+
   @Column()
   competitionId: number
 
@@ -96,6 +101,9 @@ export class Submissions {
 
   @Column({ nullable: true })
   parentId: number
+
+  @Column({ nullable: true, default: null })
+  wcaMoves: number | null
 
   @CreateDateColumn()
   createdAt: Date
@@ -131,6 +139,9 @@ export class Submissions {
   @OneToMany(() => UserActivities, userActivities => userActivities.submission)
   userActivities: UserActivities[]
 
+  @OneToMany(() => Comments, comment => comment.submission)
+  comments: Comments[]
+
   @ManyToMany(() => Attachments, {
     eager: true,
   })
@@ -144,14 +155,25 @@ export class Submissions {
   parent: Submissions
 
   removeSolution() {
+    this.moves = 0
     this.solution = ''
     this.comment = ''
+  }
+
+  static withActivityCounts<T>(qb: SelectQueryBuilder<T>, alias = 's') {
+    return qb
+      .loadRelationCountAndMap(`${alias}.likes`, `${alias}.userActivities`, 'ual', sub => sub.andWhere('ual.like = 1'))
+      .loadRelationCountAndMap(`${alias}.favorites`, `${alias}.userActivities`, 'uaf', sub =>
+        sub.andWhere('uaf.favorite = 1'),
+      )
+      .loadRelationCountAndMap(`${alias}.commentCount`, `${alias}.comments`)
   }
 
   likes: number
   liked: boolean
   favorites: number
   favorited: boolean
+  commentCount: number
 
   viewed: boolean
   declined: boolean

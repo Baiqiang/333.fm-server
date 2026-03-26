@@ -6,6 +6,7 @@ import { FindOptionsWhere, In, Repository } from 'typeorm'
 import { WCAProfile } from '@/auth/strategies/wca.strategy'
 import { BotService } from '@/bot/bot.service'
 import { InsertionFinders } from '@/entities/insertion-finders.entity'
+import { Notifications, NotificationType } from '@/entities/notifications.entity'
 import { Submissions } from '@/entities/submissions.entity'
 import { UserActivities } from '@/entities/user-activities.entity'
 import { UserInsertionFinders } from '@/entities/user-insertion-finders.entity'
@@ -25,18 +26,18 @@ export class UserService {
     private readonly userActivitiesRepository: Repository<UserActivities>,
     @InjectRepository(Submissions)
     private readonly submissionsRepository: Repository<Submissions>,
+    @InjectRepository(Notifications)
+    private readonly notificationsRepository: Repository<Notifications>,
     private readonly botService: BotService,
   ) {}
 
   async findOrCreate(profile: WCAProfile) {
-    // profile.id is unique
     let user = await this.usersRepository.findOne({
       where: {
         source: 'WCA',
         sourceId: profile.id.toString(),
       },
     })
-    // check wca id for backward compatibility
     if (!user && profile.wca_id) {
       user = await this.usersRepository.findOne({
         where: {
@@ -45,7 +46,6 @@ export class UserService {
         },
       })
     }
-    // check email for backward compatibility
     if (!user) {
       user = await this.usersRepository.findOne({
         where: {
@@ -63,6 +63,19 @@ export class UserService {
     user.avatarThumb = profile.avatar.thumb_url || ''
     user.source = 'WCA'
     user.sourceId = profile.id.toString()
+    await this.usersRepository.save(user)
+    return user
+  }
+
+  async createDummyUser(wcaId: string, name: string, avatarThumb?: string) {
+    const user = new Users()
+    user.wcaId = wcaId
+    user.name = name
+    user.source = 'WCA'
+    user.sourceId = wcaId
+    user.email = `${wcaId}@333.fm`
+    user.avatar = ''
+    user.avatarThumb = avatarThumb || ''
     await this.usersRepository.save(user)
     return user
   }
@@ -196,6 +209,63 @@ export class UserService {
     }
   }
 
+  async getSubmissionActivities(
+    submissionIds: number[],
+    userId?: number,
+  ): Promise<
+    Record<number, { likes: number; favorites: number; comments: number; liked: boolean; favorited: boolean }>
+  > {
+    if (submissionIds.length === 0) return {}
+
+    const countsRaw = await this.userActivitiesRepository
+      .createQueryBuilder('ua')
+      .select('ua.submission_id', 'sid')
+      .addSelect('SUM(CASE WHEN ua.like = 1 THEN 1 ELSE 0 END)', 'likes')
+      .addSelect('SUM(CASE WHEN ua.favorite = 1 THEN 1 ELSE 0 END)', 'favorites')
+      .where('ua.submission_id IN (:...ids)', { ids: submissionIds })
+      .groupBy('ua.submission_id')
+      .getRawMany()
+
+    const commentCountsRaw = await this.submissionsRepository.manager
+      .getRepository('Comments')
+      .createQueryBuilder('c')
+      .select('c.submission_id', 'sid')
+      .addSelect('COUNT(*)', 'count')
+      .where('c.submission_id IN (:...ids)', { ids: submissionIds })
+      .groupBy('c.submission_id')
+      .getRawMany()
+
+    const userActivitiesMap: Record<number, { like: boolean; favorite: boolean }> = {}
+    if (userId) {
+      const userActs = await this.userActivitiesRepository.find({
+        where: { userId, submissionId: In(submissionIds) },
+      })
+      for (const a of userActs) {
+        if (a.submissionId) {
+          userActivitiesMap[a.submissionId] = { like: a.like, favorite: a.favorite }
+        }
+      }
+    }
+
+    const result: Record<
+      number,
+      { likes: number; favorites: number; comments: number; liked: boolean; favorited: boolean }
+    > = {}
+    for (const id of submissionIds) {
+      const counts = countsRaw.find((r: any) => Number(r.sid) === id)
+      const cc = commentCountsRaw.find((r: any) => Number(r.sid) === id)
+      const ua = userActivitiesMap[id]
+      result[id] = {
+        likes: counts ? Number.parseInt(counts.likes, 10) : 0,
+        favorites: counts ? Number.parseInt(counts.favorites, 10) : 0,
+        comments: cc ? Number.parseInt(cc.count, 10) : 0,
+        liked: ua?.like ?? false,
+        favorited: ua?.favorite ?? false,
+      }
+    }
+    return result
+  }
+
   async act(
     user: Users,
     submissionId: number,
@@ -205,6 +275,8 @@ export class UserService {
       userId: user.id,
       submissionId,
     })
+    const wasLiked = userActivitie?.like || false
+    const wasFavorited = userActivitie?.favorite || false
     if (!userActivitie) {
       userActivitie = new UserActivities()
       userActivitie.user = user
@@ -221,7 +293,39 @@ export class UserService {
       }
     }
     await this.userActivitiesRepository.save(userActivitie)
+
+    const submission = await this.submissionsRepository.findOneBy({ id: submissionId })
+    if (submission && submission.userId !== user.id) {
+      if (body.like === true && !wasLiked) {
+        await this.createActNotification(user, submission, NotificationType.LIKE)
+      } else if (body.like === false && wasLiked) {
+        await this.removeActNotification(user, submissionId, NotificationType.LIKE)
+      }
+      if (body.favorite === true && !wasFavorited) {
+        await this.createActNotification(user, submission, NotificationType.FAVORITE)
+      } else if (body.favorite === false && wasFavorited) {
+        await this.removeActNotification(user, submissionId, NotificationType.FAVORITE)
+      }
+    }
+
     return userActivitie
+  }
+
+  private async createActNotification(sourceUser: Users, submission: Submissions, type: NotificationType) {
+    const notification = new Notifications()
+    notification.type = type
+    notification.userId = submission.userId
+    notification.sourceUserId = sourceUser.id
+    notification.submissionId = submission.id
+    await this.notificationsRepository.save(notification)
+  }
+
+  private async removeActNotification(sourceUser: Users, submissionId: number, type: NotificationType) {
+    await this.notificationsRepository.delete({
+      type,
+      sourceUserId: sourceUser.id,
+      submissionId,
+    })
   }
 
   async getActivities(
@@ -230,20 +334,13 @@ export class UserService {
     options: IPaginationOptions,
   ): Promise<Pagination<Submissions>> {
     where.userId = user.id
-    const queryBuilder = this.userActivitiesRepository
+    const qb = this.userActivitiesRepository
       .createQueryBuilder('ua')
       .leftJoinAndSelect('ua.submission', 'submission')
       .leftJoinAndSelect('submission.competition', 'competition')
       .leftJoinAndSelect('submission.scramble', 'scramble')
       .leftJoinAndSelect('submission.user', 'user')
-      .loadRelationCountAndMap('submission.likes', 'submission.userActivities', 'ual', qb =>
-        qb.andWhere('ual.like = 1'),
-      )
-      .loadRelationCountAndMap('submission.favorites', 'submission.userActivities', 'uaf', qb =>
-        qb.andWhere('uaf.favorite = 1'),
-      )
-      .where(where)
-      .orderBy('ua.created_at', 'DESC')
+    const queryBuilder = Submissions.withActivityCounts(qb, 'submission').where(where).orderBy('ua.created_at', 'DESC')
     const data = await paginate<UserActivities>(queryBuilder, options)
     return {
       items: data.items.map(x => {

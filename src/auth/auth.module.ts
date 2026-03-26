@@ -27,5 +27,6 @@ import { WCAStrategy } from './strategies/wca.strategy'
   ],
   controllers: [AuthController],
   providers: [AuthService, WCAStrategy, JwtStrategy, BotStrategy],
+  exports: [AuthService],
 })
 export class AuthModule {}

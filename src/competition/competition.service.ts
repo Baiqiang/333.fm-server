@@ -1,7 +1,7 @@
-import { BadRequestException, forwardRef, Inject, Injectable } from '@nestjs/common'
+import { BadRequestException, forwardRef, Inject, Injectable, Logger } from '@nestjs/common'
 import { Cron } from '@nestjs/schedule'
 import { InjectRepository } from '@nestjs/typeorm'
-import { FindManyOptions, FindOneOptions, Repository } from 'typeorm'
+import { FindManyOptions, FindOneOptions, In, Not, Repository } from 'typeorm'
 
 import { AttachmentService } from '@/attachment/attachment.service'
 import { SubmitSolutionDto } from '@/dtos/submit-solution.dto'
@@ -11,14 +11,19 @@ import { Results } from '@/entities/results.entity'
 import { Scrambles } from '@/entities/scrambles.entity'
 import { Submissions } from '@/entities/submissions.entity'
 import { Users } from '@/entities/users.entity'
+import { UserService } from '@/user/user.service'
 import { calculateMoves } from '@/utils'
 
 import { ChainService } from './chain/chain.service'
 import { EndlessService } from './endless/endless.service'
+import { LeagueService } from './league/league.service'
 import { WeeklyService } from './weekly/weekly.service'
 
 @Injectable()
 export class CompetitionService {
+  private readonly logger = new Logger(CompetitionService.name)
+  private updating = false
+
   constructor(
     @InjectRepository(Competitions)
     private readonly competitionsRepository: Repository<Competitions>,
@@ -31,53 +36,81 @@ export class CompetitionService {
     private readonly endlessService: EndlessService,
     @Inject(forwardRef(() => ChainService))
     private readonly chainService: ChainService,
+    @Inject(forwardRef(() => LeagueService))
+    private readonly leagueService: LeagueService,
+    private readonly userService: UserService,
   ) {}
 
   @Cron('* * * * *')
   async updateCompetitions() {
-    const onGoings = await this.competitionsRepository.find({
-      where: {
-        status: CompetitionStatus.ON_GOING,
-      },
-    })
-    const now = new Date()
-    for (const competition of onGoings) {
-      if (competition.endTime !== null && competition.endTime <= now) {
-        competition.status = CompetitionStatus.ENDED
-        switch (competition.type) {
-          case CompetitionType.WEEKLY:
-          case CompetitionType.DAILY:
-            await this.weeklyService.calculateResults(competition)
-            break
+    if (this.updating) {
+      return
+    }
+    this.updating = true
+    try {
+      const onGoings = await this.competitionsRepository.find({
+        where: {
+          status: CompetitionStatus.ON_GOING,
+          type: Not(In([CompetitionType.PERSONAL_PRACTICE])), // don't update personal practice competitions
+        },
+      })
+      const now = new Date()
+      if (onGoings.length > 0) {
+        this.logger.log(`Updating ${onGoings.length} on-going competitions`)
+      }
+      for (const competition of onGoings) {
+        if (competition.endTime !== null && competition.endTime <= now) {
+          competition.status = CompetitionStatus.ENDED
+          switch (competition.type) {
+            case CompetitionType.WEEKLY:
+            case CompetitionType.DAILY:
+              await this.weeklyService.calculateResults(competition)
+              break
+            case CompetitionType.LEAGUE:
+              await this.weeklyService.calculateResults(competition)
+              await this.leagueService.calculatePoints(competition)
+              await this.leagueService.calculateElos(competition)
+              break
 
-          default:
-            break
+            default:
+              break
+          }
         }
       }
-    }
-    await this.competitionsRepository.save(onGoings)
-    const notStarteds = await this.competitionsRepository.find({
-      where: {
-        status: CompetitionStatus.NOT_STARTED,
-      },
-    })
-    for (const competition of notStarteds) {
-      if (competition.startTime <= now) {
-        competition.status = CompetitionStatus.ON_GOING
-        switch (competition.type) {
-          case CompetitionType.ENDLESS:
-            await this.endlessService.start(competition)
-            break
-          case CompetitionType.FMC_CHAIN:
-            await this.chainService.start(competition)
-            break
+      await this.competitionsRepository.save(onGoings)
+      const notStarteds = await this.competitionsRepository.find({
+        where: {
+          status: CompetitionStatus.NOT_STARTED,
+        },
+      })
+      if (notStarteds.length > 0) {
+        this.logger.log(`Updating ${notStarteds.length} not started competitions`)
+      }
+      for (const competition of notStarteds) {
+        if (competition.startTime <= now) {
+          competition.status = CompetitionStatus.ON_GOING
+          switch (competition.type) {
+            case CompetitionType.ENDLESS:
+              await this.endlessService.start(competition)
+              break
+            case CompetitionType.FMC_CHAIN:
+              await this.chainService.start(competition)
+              break
+            case CompetitionType.LEAGUE:
+              competition.status = await this.leagueService.calculateCompetitionStatus(competition)
+              break
 
-          default:
-            break
+            default:
+              break
+          }
         }
       }
+      await this.competitionsRepository.save(notStarteds)
+    } catch (error) {
+      this.logger.error(error)
+    } finally {
+      this.updating = false
     }
-    await this.competitionsRepository.save(notStarteds)
   }
 
   getLatest() {
@@ -97,17 +130,45 @@ export class CompetitionService {
     return this.competitionsRepository.find(options)
   }
 
-  async getSubmissions(competition: Competitions) {
-    const submissions = await this.submissionsRepository
+  async getSubmissions(competition: Competitions, currentUser?: Users, hideSolutionsForUser = true) {
+    const qb = this.submissionsRepository
       .createQueryBuilder('s')
       .leftJoinAndSelect('s.user', 'u')
       .leftJoinAndSelect('s.attachments', 'a')
-      .loadRelationCountAndMap('s.likes', 's.userActivities', 'ual', qb => qb.andWhere('ual.like = 1'))
-      .loadRelationCountAndMap('s.favorites', 's.userActivities', 'uaf', qb => qb.andWhere('uaf.favorite = 1'))
+    const submissions = await Submissions.withActivityCounts(qb)
       .where('s.competition_id = :id', { id: competition.id })
       .orderBy('s.moves', 'ASC')
       .getMany()
-    return submissions
+    const mappedSubmissions: Record<number, Submissions[]> = {}
+    const userSubmissions: Record<number, Submissions> = {}
+    submissions.forEach(submission => {
+      if (!mappedSubmissions[submission.scrambleId]) {
+        mappedSubmissions[submission.scrambleId] = []
+      }
+      mappedSubmissions[submission.scrambleId].push(submission)
+      if (currentUser) {
+        if (submission.userId === currentUser.id) {
+          userSubmissions[submission.scrambleId] = submission
+        }
+      }
+    })
+    if (hideSolutionsForUser) {
+      submissions.forEach(submission => {
+        if (userSubmissions[submission.scrambleId] || competition.hasEnded) {
+          submission.hideSolution = false
+        } else {
+          submission.hideSolution = true
+          submission.removeSolution()
+        }
+      })
+    }
+    if (currentUser) {
+      await this.userService.loadUserActivities(currentUser, submissions)
+    }
+    return {
+      submissions,
+      mappedSubmissions,
+    }
   }
 
   async createSubmission(
@@ -126,11 +187,12 @@ export class CompetitionService {
     submission.user = user
     submission.solution = dto.solution
     submission.comment = dto.comment
-    const attachments = await this.attachmentService.findByIds(dto.attachments)
-    submission.attachments = attachments
+    if (dto.attachments) {
+      const attachments = await this.attachmentService.findByIds(dto.attachments)
+      submission.attachments = attachments
+    }
     if (typeof options?.moves === 'undefined') {
-      const moves = calculateMoves(scramble.scramble, dto.solution)
-      submission.moves = moves
+      submission.moves = calculateMoves(scramble.scramble, dto.solution)
     } else {
       submission.moves = options.moves
     }

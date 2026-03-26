@@ -16,12 +16,6 @@ export class IfController {
     private readonly userService: UserService,
   ) {}
 
-  @Get('latest')
-  public async getLatest(): Promise<InsertionFinders['summary'][]> {
-    const latest = await this.ifService.getLatest()
-    return latest.map(insertionFinder => insertionFinder.summary)
-  }
-
   @Get(':hash')
   public async getIFByHash(@Param('hash') hash: string): Promise<InsertionFinders['detail']> {
     const insertionFinder = await this.ifService.getIFByHash(hash)

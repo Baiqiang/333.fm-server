@@ -53,6 +53,24 @@ export class ProfileController {
     return this.profileService.getUserResultsByType(user, CompetitionType.DAILY)
   }
 
+  @Get(':id/league')
+  async league(@Param('id') id: string) {
+    const user = await this.userService.findOne(id)
+    if (!user) {
+      throw new NotFoundException()
+    }
+    return this.profileService.getUserResultsByType(user, CompetitionType.LEAGUE)
+  }
+
+  @Get(':id/league-stats')
+  async leagueStats(@Param('id') id: string) {
+    const user = await this.userService.findOne(id)
+    if (!user) {
+      throw new NotFoundException()
+    }
+    return this.profileService.getUserLeagueStats(user)
+  }
+
   @Get(':id/practice')
   async practice(@Param('id') id: string) {
     const user = await this.userService.findOne(id)

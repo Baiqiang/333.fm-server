@@ -19,6 +19,7 @@ export const DNF = 99999998
 export const DNS = 99999999
 
 @Entity()
+@Index(['competitionId', 'userId'])
 @Index(['competitionId', 'best'])
 @Index(['competitionId', 'average', 'best'])
 export class Results {
@@ -61,6 +62,7 @@ export class Results {
   @ManyToOne(() => Users, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE',
+    eager: true,
   })
   user: Users
 
@@ -84,5 +86,13 @@ export class Results {
     result.userId = this.userId
     result.user = this.user
     return result
+  }
+
+  updateBestAndAverage() {
+    this.best = Math.min(...this.values.filter(v => v > 0))
+    this.average = calculateMean(this.values.filter(v => v > 0))
+    if (this.values.some(v => v === DNF || v === DNS)) {
+      this.average = DNF
+    }
   }
 }

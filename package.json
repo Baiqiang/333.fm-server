@@ -7,6 +7,7 @@
   "license": "UNLICENSED",
   "scripts": {
     "build": "nest build",
+    "cmd": "ts-node -r tsconfig-paths/register src/cmd.ts",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
@@ -40,6 +41,7 @@
     "class-validator": "^0.14.1",
     "dayjs": "^1.11.13",
     "insertionfinder": "^0.5.0",
+    "msgpackr": "^1.11.8",
     "mysql2": "^3.11.3",
     "nest-commander": "^3.15.0",
     "nestjs-typeorm-paginate": "^4.0.4",
@@ -51,7 +53,8 @@
     "rxjs": "^7.8.1",
     "twisty_puzzle_solver": "file:./pkg/twisty_puzzle_solver",
     "typeorm": "^0.3.20",
-    "typeorm-naming-strategies": "^4.1.0"
+    "typeorm-naming-strategies": "^4.1.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.1.0",

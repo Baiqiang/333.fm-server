@@ -14,11 +14,17 @@ import { AppService } from './app.service'
 import { AttachmentModule } from './attachment/attachment.module'
 import { AuthModule } from './auth/auth.module'
 import { BotModule } from './bot/bot.module'
+import { CommentModule } from './comment/comment.module'
 import { CompetitionModule } from './competition/competition.module'
 import configuration from './config/configuration'
 import { IfModule } from './if/if.module'
+import { PointModule } from './point/point.module'
 import { ProfileModule } from './profile/profile.module'
+import { SearchModule } from './search/search.module'
+import { StatsModule } from './stats/stats.module'
+import { TutorialModule } from './tutorial/tutorial.module'
 import { UserModule } from './user/user.module'
+import { WcaReconstructionModule } from './wca/reconstruction/reconstruction.module'
 
 @Module({
   imports: [
@@ -56,12 +62,18 @@ import { UserModule } from './user/user.module'
     }),
     IfModule,
     UserModule,
+    CommentModule,
     AuthModule,
     AdminModule,
     CompetitionModule,
+    PointModule,
     ProfileModule,
+    SearchModule,
+    StatsModule,
     AttachmentModule,
     BotModule,
+    TutorialModule,
+    WcaReconstructionModule,
   ],
   controllers: [AppController],
   providers: [
