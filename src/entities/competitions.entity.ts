@@ -10,8 +10,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm'
 
-import { Challenge } from '@/competition/endless/endless.service'
-
+import { Challenges } from './challenges.entity'
 import { EndlessKickoffs } from './endless-kickoffs.entity'
 import { LeagueDuels } from './league-duels.entity'
 import { LeagueSeasons } from './league-seasons.entity'
@@ -147,7 +146,11 @@ export class Competitions {
   nextCompetition?: Competitions
 
   levels: Level[]
-  challenges?: Challenge[]
+
+  @OneToMany(() => Challenges, challenge => challenge.competition, {
+    cascade: true,
+  })
+  challenges?: Challenges[]
 
   attendees: number
   ownerResult: Results

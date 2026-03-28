@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm'
 
 import { AttachmentModule } from '@/attachment/attachment.module'
 import { AuthModule } from '@/auth/auth.module'
+import { Challenges } from '@/entities/challenges.entity'
 import { Competitions } from '@/entities/competitions.entity'
 import { EndlessKickoffs } from '@/entities/endless-kickoffs.entity'
 import { LeagueDuels } from '@/entities/league-duels.entity'
@@ -45,6 +46,7 @@ import { WeeklyService } from './weekly/weekly.service'
     AttachmentModule,
     TypeOrmModule.forFeature([
       Competitions,
+      Challenges,
       EndlessKickoffs,
       Results,
       Scrambles,

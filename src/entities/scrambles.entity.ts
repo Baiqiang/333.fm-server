@@ -37,6 +37,12 @@ export class Scrambles {
   @Column()
   competitionId: number
 
+  @Column({ default: 0 })
+  currentHP: number
+
+  @Column({ default: 0 })
+  initialHP: number
+
   @CreateDateColumn()
   createdAt: Date
 

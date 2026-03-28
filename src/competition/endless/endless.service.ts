@@ -6,6 +6,7 @@ import { Queue } from 'bull'
 import { Repository } from 'typeorm'
 
 import { SubmitSolutionDto } from '@/dtos/submit-solution.dto'
+import { Challenges, getRandomBossHitPoints, matchesChallengeLevel } from '@/entities/challenges.entity'
 import { Competitions, CompetitionStatus, CompetitionSubType, CompetitionType } from '@/entities/competitions.entity'
 import { EndlessKickoffs } from '@/entities/endless-kickoffs.entity'
 import { DNF, Results } from '@/entities/results.entity'
@@ -27,6 +28,7 @@ export interface Progress {
   scramble: Scrambles
   submission?: Submissions
   kickedBy?: EndlessKickoffs[]
+  dnfPenalty?: boolean
 }
 
 export interface EndlessJob {
@@ -36,6 +38,7 @@ export interface EndlessJob {
   scrambleNumber: number
   submissionId: number
   moves: number
+  previousLevelDnfPenalty: boolean
 }
 
 export interface UserLevel {
@@ -49,14 +52,6 @@ export interface UserBest extends UserLevel {
   best: number
 }
 
-export interface Challenge {
-  startLevel?: number
-  endLevel?: number
-  levels?: number[]
-  single: number
-  team: [number, number]
-}
-
 @Injectable()
 export class EndlessService {
   constructor(
@@ -66,6 +61,8 @@ export class EndlessService {
     private readonly submissionsRepository: Repository<Submissions>,
     @InjectRepository(Results)
     private readonly resultsRepository: Repository<Results>,
+    @InjectRepository(Challenges)
+    private readonly challengesRepository: Repository<Challenges>,
     @Inject(forwardRef(() => CompetitionService))
     private readonly competitionService: CompetitionService,
     @InjectQueue('endless')
@@ -93,6 +90,19 @@ export class EndlessService {
       default:
         scramble.scramble = generateScramble()
         break
+    }
+    const challenges = await this.challengesRepository.find({
+      where: {
+        competitionId: competition.id,
+      },
+      order: {
+        id: 'ASC',
+      },
+    })
+    const challenge = challenges.find(entry => matchesChallengeLevel(entry, 1))
+    if (challenge?.isBoss) {
+      scramble.initialHP = getRandomBossHitPoints(challenge.bossChallenge)
+      scramble.currentHP = scramble.initialHP
     }
     await this.scramblesRepository.save(scramble)
   }
@@ -214,14 +224,14 @@ export class EndlessService {
         }
       }),
     )
-    switch (competition.subType) {
-      case CompetitionSubType.REGULAR:
-        competition.challenges = [this.configService.get<Challenge>('endless.kickoffMoves')]
-        break
-      case CompetitionSubType.BOSS_CHALLENGE:
-        competition.challenges = this.configService.get<Challenge[]>('endless.bossChallenges')
-        break
-    }
+    competition.challenges = await this.challengesRepository.find({
+      where: {
+        competitionId: competition.id,
+      },
+      order: {
+        id: 'ASC',
+      },
+    })
   }
 
   handleScramble(scramble: Scrambles, competition: Competitions) {
@@ -375,10 +385,12 @@ export class EndlessService {
         level: latestSubmission.scramble.number,
         scramble: latestSubmission.scramble,
         submission: latestSubmission,
+        dnfPenalty: false,
       },
       next: {
         level: latestSubmission.scramble.number + 1,
         scramble: nextScramble,
+        dnfPenalty: competition.subType === CompetitionSubType.BOSS_CHALLENGE && latestSubmission.moves === DNF,
       },
     }
   }
@@ -417,6 +429,7 @@ export class EndlessService {
     if (scramble === null) {
       throw new BadRequestException('Invalid level')
     }
+    let dnfPenalty = false
     if (level > 1) {
       const prevSubmission = await this.submissionsRepository.findOne({
         where: {
@@ -430,6 +443,7 @@ export class EndlessService {
       if (prevSubmission === null) {
         throw new BadRequestException('Previous scramble not solved')
       }
+      dnfPenalty = competition.subType === CompetitionSubType.BOSS_CHALLENGE && prevSubmission.moves === DNF
     }
     let submission: Submissions = null
     if (user) {
@@ -440,8 +454,14 @@ export class EndlessService {
         },
       })
     }
+    const canViewKickoffMoves = submission !== null
     const kickedBy = scramble.kickoffs.map(k => {
-      k.removeSolution()
+      if (!canViewKickoffMoves) {
+        k.removeSolution()
+      } else if (k.submission) {
+        k.submission.solution = ''
+        k.submission.comment = ''
+      }
       return k
     })
     delete scramble.kickoffs
@@ -451,6 +471,7 @@ export class EndlessService {
       scramble,
       submission,
       kickedBy,
+      dnfPenalty,
     }
   }
 
@@ -502,6 +523,7 @@ export class EndlessService {
       throw new BadRequestException('Invalid scramble')
     }
     // check for previous level
+    let previousLevelDnfPenalty = false
     if (scramble.number > 1) {
       const prevScramble = await this.scramblesRepository.findOne({
         where: {
@@ -509,15 +531,17 @@ export class EndlessService {
           number: scramble.number - 1,
         },
       })
-      const prevSubmission = await this.submissionsRepository.findOne({
+      const previousLevelSubmission = await this.submissionsRepository.findOne({
         where: {
           scrambleId: prevScramble.id,
           userId: user.id,
         },
       })
-      if (prevSubmission === null) {
+      if (previousLevelSubmission === null) {
         throw new BadRequestException('Previous scramble not solved')
       }
+      previousLevelDnfPenalty =
+        competition.subType === CompetitionSubType.BOSS_CHALLENGE && previousLevelSubmission.moves === DNF
     }
     const prevSubmission = await this.submissionsRepository.findOne({
       where: {
@@ -528,8 +552,17 @@ export class EndlessService {
     if (prevSubmission !== null) {
       throw new BadRequestException('Already submitted')
     }
+    const competitionChallenges = await this.challengesRepository.find({
+      where: {
+        competitionId: competition.id,
+      },
+      order: {
+        id: 'ASC',
+      },
+    })
+    const currentChallenge = competitionChallenges.find(entry => matchesChallengeLevel(entry, scramble.number))
     const moves = calculateMoves(scramble.scramble, solution.solution)
-    if (moves === DNF) {
+    if (moves === DNF && currentChallenge?.isBoss !== true) {
       throw new BadRequestException('DNF')
     }
     const submission = await this.competitionService.createSubmission(competition, scramble, user, solution, {
@@ -568,6 +601,7 @@ export class EndlessService {
       scrambleNumber: scramble.number,
       submissionId: submission.id,
       moves,
+      previousLevelDnfPenalty,
     })
     return submission
   }

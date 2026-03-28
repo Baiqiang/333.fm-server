@@ -5,13 +5,20 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { Job } from 'bull'
 import { LessThanOrEqual, Repository } from 'typeorm'
 
+import {
+  Challenges,
+  defaultChallenge,
+  getDamage,
+  getRandomBossHitPoints,
+  matchesChallengeLevel,
+} from '@/entities/challenges.entity'
 import { Competitions, CompetitionSubType } from '@/entities/competitions.entity'
 import { EndlessKickoffs } from '@/entities/endless-kickoffs.entity'
 import { Scrambles } from '@/entities/scrambles.entity'
 import { Submissions } from '@/entities/submissions.entity'
 import { generateScramble, ScrambleType } from '@/utils/scramble'
 
-import { Challenge, EndlessJob } from '../endless.service'
+import { EndlessJob } from '../endless.service'
 
 @Processor('endless')
 export class EndlessProcessor {
@@ -30,20 +37,23 @@ export class EndlessProcessor {
 
   @Process()
   async process(job: Job<EndlessJob>) {
-    const { competitionId, userId, scrambleId, scrambleNumber, submissionId, moves } = job.data
-    let challenge: Challenge = {
-      single: 8000,
-      team: [8000, 1],
+    const { competitionId, userId, scrambleId, scrambleNumber, submissionId, moves, previousLevelDnfPenalty } = job.data
+    const competition = await this.competitionsRepository.findOne({
+      where: {
+        id: competitionId,
+      },
+      relations: {
+        challenges: true,
+      },
+    })
+    if (competition === null) {
+      return
     }
-    let scrambleType: ScrambleType = ScrambleType.NORMAL
-    const competition = await this.competitionsRepository.findOneBy({ id: competitionId })
     if (competition.hasEnded) {
       return
     }
+    let scrambleType: ScrambleType = ScrambleType.NORMAL
     switch (competition.subType) {
-      case CompetitionSubType.BOSS_CHALLENGE:
-        challenge = this.getBossChallenge(scrambleNumber)
-        break
       case CompetitionSubType.EO_PRACTICE:
         scrambleType = ScrambleType.EO
         break
@@ -56,15 +66,6 @@ export class EndlessProcessor {
       case CompetitionSubType.JZP_PRACTICE:
         scrambleType = ScrambleType.JZP
         break
-      case CompetitionSubType.REGULAR:
-        challenge = this.configService.get<Challenge>('endless.kickoffMoves')
-      default:
-        break
-    }
-    const { single, team } = challenge
-    // if the result is greater than 30, nothing to do
-    if (moves > team[0]) {
-      return
     }
     const next = await this.scramblesRepository.findOne({
       where: {
@@ -76,30 +77,96 @@ export class EndlessProcessor {
     if (next !== null) {
       return
     }
+    const challenge = this.getChallenge(scrambleNumber, competition.challenges)
+    if (!challenge) {
+      return
+    }
     let generateNext = false
     let singleKickedOff = false
     let goodSubmissions: Submissions[] = []
-    if (moves <= single) {
-      generateNext = true
-      singleKickedOff = true
-    } else {
-      goodSubmissions = await this.submissionsRepository.find({
-        where: {
-          scrambleId,
-          moves: LessThanOrEqual(team[0]),
-        },
-      })
-      if (goodSubmissions.length >= team[1]) {
+    if (challenge.isRegular) {
+      const { single, team } = challenge.regularChallenge
+      // if the result is greater than team required, do nothing
+      if (moves > team[0]) {
+        return
+      }
+      if (moves <= single) {
         generateNext = true
+        singleKickedOff = true
+      } else {
+        goodSubmissions = await this.submissionsRepository.find({
+          where: {
+            scrambleId,
+            moves: LessThanOrEqual(team[0]),
+          },
+        })
+        if (goodSubmissions.length >= team[1]) {
+          generateNext = true
+        }
+      }
+      if (!generateNext) {
+        return
+      }
+    } else if (challenge.isBoss) {
+      const { instantKill } = challenge.bossChallenge
+      if (!previousLevelDnfPenalty && moves <= instantKill) {
+        const scramble = await this.scramblesRepository.findOneBy({
+          id: scrambleId,
+        })
+        if (scramble) {
+          scramble.currentHP = 0
+          await this.scramblesRepository.save(scramble)
+        }
+        generateNext = true
+        singleKickedOff = true
+      } else {
+        let damage = getDamage(moves)
+        if (previousLevelDnfPenalty) {
+          damage = Math.floor(damage / 2)
+        }
+        if (damage > 0) {
+          const scramble = await this.scramblesRepository.findOneBy({
+            id: scrambleId,
+          })
+          const submission = await this.submissionsRepository.findOneBy({
+            id: submissionId,
+          })
+          this.logger.log(
+            `Level ${scramble.number} has ${scramble.currentHP} HP, submission ${submission.id} (${moves}) makes ${submission.damage} damage`,
+          )
+          scramble.currentHP -= damage
+          if (scramble.currentHP <= 0) {
+            scramble.currentHP = 0
+          }
+          submission.damage = damage
+          await this.scramblesRepository.save(scramble)
+          await this.submissionsRepository.save(submission)
+          if (scramble.currentHP <= 0) {
+            generateNext = true
+            goodSubmissions = await this.submissionsRepository.find({
+              where: {
+                scrambleId,
+              },
+            })
+          }
+        }
       }
     }
     if (!generateNext) {
+      return
+    }
+    const nextChallenge = this.getChallenge(scrambleNumber + 1, competition.challenges)
+    if (!nextChallenge) {
       return
     }
     const scramble = new Scrambles()
     scramble.competitionId = competitionId
     scramble.number = scrambleNumber + 1
     scramble.scramble = generateScramble(scrambleType)
+    if (nextChallenge.isBoss) {
+      scramble.initialHP = getRandomBossHitPoints(nextChallenge.bossChallenge)
+      scramble.currentHP = scramble.initialHP
+    }
     await this.scramblesRepository.save(scramble)
     this.logger.log(`Generated scramble ${scramble.id} kicked off ${singleKickedOff} user ${userId}`)
     // set kickoff
@@ -124,12 +191,10 @@ export class EndlessProcessor {
     await this.kickoffsRepository.save(kickoffs)
   }
 
-  getBossChallenge(level: number): Challenge {
-    const bossChallenges = this.configService.get<Challenge[]>('endless.bossChallenges')
-    let bossChallenge = bossChallenges.find(c => c.levels?.includes(level))
-    if (bossChallenge === undefined) {
-      bossChallenge = bossChallenges.find(c => c.startLevel <= level && c.endLevel >= level)
+  getChallenge(level: number, challenges: Challenges[]): Challenges | undefined {
+    if (challenges.length === 0) {
+      return defaultChallenge
     }
-    return bossChallenge ?? bossChallenges[bossChallenges.length - (level % 10 === 0 ? 1 : 2)]
+    return challenges.find(challenge => matchesChallengeLevel(challenge, level))
   }
 }

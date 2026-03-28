@@ -6,6 +6,7 @@ import { SnakeNamingStrategy } from 'typeorm-naming-strategies'
 import configuration from '@/config/configuration'
 import { Algs } from '@/entities/algs.entity'
 import { Attachments } from '@/entities/attachment.entity'
+import { Challenges } from '@/entities/challenges.entity'
 import { Comments } from '@/entities/comments.entity'
 import { Competitions } from '@/entities/competitions.entity'
 import { EndlessKickoffs } from '@/entities/endless-kickoffs.entity'
@@ -31,6 +32,8 @@ import { UserRoles } from '@/entities/user-roles.entity'
 import { Users } from '@/entities/users.entity'
 
 import { CmdService } from './cmd.service'
+import { EndlessCommand } from './endless/endless.command'
+import { EndlessCommandService } from './endless/endless.service'
 import { LeagueCommand } from './league/league.command'
 import { LeagueService } from './league/league.service'
 import { PointCommand } from './point/point.command'
@@ -62,6 +65,7 @@ import { WcaService } from './wca/wca.service'
     }),
     TypeOrmModule.forFeature([
       Algs,
+      Challenges,
       Competitions,
       EndlessKickoffs,
       InsertionFinders,
@@ -90,6 +94,8 @@ import { WcaService } from './wca/wca.service'
   ],
   providers: [
     CmdService,
+    EndlessCommandService,
+    EndlessCommand,
     PointService,
     PointCommand,
     SubmissionService,
