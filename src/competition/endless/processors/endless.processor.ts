@@ -5,7 +5,13 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { Job } from 'bull'
 import { LessThanOrEqual, Repository } from 'typeorm'
 
-import { Challenges, defaultChallenge, getDamage } from '@/entities/challenges.entity'
+import {
+  Challenges,
+  defaultChallenge,
+  getDamage,
+  getRandomBossHitPoints,
+  matchesChallengeLevel,
+} from '@/entities/challenges.entity'
 import { Competitions, CompetitionSubType } from '@/entities/competitions.entity'
 import { EndlessKickoffs } from '@/entities/endless-kickoffs.entity'
 import { Scrambles } from '@/entities/scrambles.entity'
@@ -31,7 +37,7 @@ export class EndlessProcessor {
 
   @Process()
   async process(job: Job<EndlessJob>) {
-    const { competitionId, userId, scrambleId, scrambleNumber, submissionId, moves } = job.data
+    const { competitionId, userId, scrambleId, scrambleNumber, submissionId, moves, previousLevelDnfPenalty } = job.data
     const competition = await this.competitionsRepository.findOne({
       where: {
         id: competitionId,
@@ -40,6 +46,9 @@ export class EndlessProcessor {
         challenges: true,
       },
     })
+    if (competition === null) {
+      return
+    }
     if (competition.hasEnded) {
       return
     }
@@ -68,7 +77,10 @@ export class EndlessProcessor {
     if (next !== null) {
       return
     }
-    const challenge = this.getChallenge(moves, competition.challenges)
+    const challenge = this.getChallenge(scrambleNumber, competition.challenges)
+    if (!challenge) {
+      return
+    }
     let generateNext = false
     let singleKickedOff = false
     let goodSubmissions: Submissions[] = []
@@ -97,11 +109,21 @@ export class EndlessProcessor {
       }
     } else if (challenge.isBoss) {
       const { instantKill } = challenge.bossChallenge
-      if (moves <= instantKill) {
+      if (!previousLevelDnfPenalty && moves <= instantKill) {
+        const scramble = await this.scramblesRepository.findOneBy({
+          id: scrambleId,
+        })
+        if (scramble) {
+          scramble.currentHP = 0
+          await this.scramblesRepository.save(scramble)
+        }
         generateNext = true
         singleKickedOff = true
       } else {
-        const damage = getDamage(moves)
+        let damage = getDamage(moves)
+        if (previousLevelDnfPenalty) {
+          damage = Math.floor(damage / 2)
+        }
         if (damage > 0) {
           const scramble = await this.scramblesRepository.findOneBy({
             id: scrambleId,
@@ -141,10 +163,9 @@ export class EndlessProcessor {
     scramble.competitionId = competitionId
     scramble.number = scrambleNumber + 1
     scramble.scramble = generateScramble(scrambleType)
-    if (challenge.isBoss) {
-      const { minHitPoints, maxHitPoints } = nextChallenge.bossChallenge
-      const hitPoints = Math.floor(Math.random() * (maxHitPoints - minHitPoints + 1)) + minHitPoints
-      scramble.currentHP = hitPoints
+    if (nextChallenge.isBoss) {
+      scramble.initialHP = getRandomBossHitPoints(nextChallenge.bossChallenge)
+      scramble.currentHP = scramble.initialHP
     }
     await this.scramblesRepository.save(scramble)
     this.logger.log(`Generated scramble ${scramble.id} kicked off ${singleKickedOff} user ${userId}`)
@@ -174,10 +195,6 @@ export class EndlessProcessor {
     if (challenges.length === 0) {
       return defaultChallenge
     }
-    let challenge = challenges.find(c => c.levels?.includes(level))
-    if (challenge === undefined) {
-      challenge = challenges.find(c => c.startLevel <= level && c.endLevel >= level)
-    }
-    return challenge
+    return challenges.find(challenge => matchesChallengeLevel(challenge, level))
   }
 }
