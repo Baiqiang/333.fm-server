@@ -13,7 +13,7 @@ import { DNF, Results } from '@/entities/results.entity'
 import { Scrambles } from '@/entities/scrambles.entity'
 import { Submissions } from '@/entities/submissions.entity'
 import { Users } from '@/entities/users.entity'
-import { calculateMoves, getCubieCube, getTopDistinctN, getTopN, sortResult } from '@/utils'
+import { calculateMoves, calculateTrimmedMean, getCubieCube, getTopDistinctN, getTopN, sortResult } from '@/utils'
 import { generateScramble, ScrambleType } from '@/utils/scramble'
 
 import { CompetitionService } from '../competition.service'
@@ -335,7 +335,7 @@ export class EndlessService {
       highestLevels: getTopDistinctN(submissionsMap, 10, ['level'], true),
       singles: getTopN(singles, 10, ['best']),
       means: getTopN(
-        results.filter(r => r.values.length >= 3),
+        results.filter(r => r.values.filter(v => v > 0 && v !== DNF).length >= 3 && r.average !== DNF),
         10,
       ),
       rollingMo3: getTopDistinctN(allRollingMo3, 10),
@@ -592,7 +592,7 @@ export class EndlessService {
     await this.submissionsRepository.save(submission)
     result.values.push(submission.moves)
     result.best = Math.min(...result.values)
-    result.average = Math.round(result.values.reduce((a, b) => a + b, 0) / result.values.length)
+    result.average = calculateTrimmedMean(result.values)
     await this.resultsRepository.save(result)
     await this.queue.add({
       competitionId: competition.id,

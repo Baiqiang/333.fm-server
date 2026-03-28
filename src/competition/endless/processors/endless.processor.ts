@@ -132,7 +132,7 @@ export class EndlessProcessor {
             id: submissionId,
           })
           this.logger.log(
-            `Level ${scramble.number} has ${scramble.currentHP} HP, submission ${submission.id} (${moves}) makes ${submission.damage} damage`,
+            `Level ${scramble.number} has ${scramble.currentHP} HP, submission ${submission.id} (${moves}) makes ${damage} damage`,
           )
           scramble.currentHP -= damage
           if (scramble.currentHP <= 0) {

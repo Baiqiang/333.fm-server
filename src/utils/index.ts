@@ -353,6 +353,17 @@ export function calculateMean(values: number[]): number {
   return Math.round(values.reduce((a, b) => a + b, 0) / values.length)
 }
 
+export function calculateTrimmedMean(values: number[], trimRatio = 0.05): number {
+  const validValues = values.filter(v => v > 0 && v !== DNF && v !== DNS).sort((a, b) => a - b)
+  if (validValues.length === 0) {
+    return DNF
+  }
+  const trimCount = Math.ceil(validValues.length * trimRatio)
+  const trimmedValues =
+    validValues.length > trimCount * 2 ? validValues.slice(trimCount, validValues.length - trimCount) : validValues
+  return Math.round(trimmedValues.reduce((a, b) => a + b, 0) / trimmedValues.length)
+}
+
 export function calculateAverage(values: number[]): number {
   const dnfResults = values.filter(v => v === DNF)
   if (dnfResults.length > 1) {
