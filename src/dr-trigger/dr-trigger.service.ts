@@ -185,9 +185,10 @@ export class DRTriggerService {
     return this.endGame(game)
   }
 
-  async getGame(user: Users, gameId: number) {
+  async getGame(gameId: number) {
     const game = await this.gamesRepository.findOne({
-      where: { id: gameId, userId: user.id },
+      where: { id: gameId },
+      relations: ['user'],
     })
     if (!game) {
       throw new BadRequestException('Game not found')
@@ -399,6 +400,7 @@ export class DRTriggerService {
       remainingTime: Math.max(0, remainingTime),
       totalTimeBonus: game.totalTimeBonus,
       createdAt: game.createdAt,
+      user: game.user,
     }
   }
 

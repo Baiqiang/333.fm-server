@@ -36,9 +36,8 @@ export class DRTriggerController {
   }
 
   @Get('game/:id')
-  @UseGuards(JwtRequiredGuard)
-  async getGame(@CurrentUser() user: Users, @Param('id', ParseIntPipe) id: number) {
-    return this.drTriggerService.getGame(user, id)
+  async getGame(@Param('id', ParseIntPipe) id: number) {
+    return this.drTriggerService.getGame(id)
   }
 
   @Get('my-games')
