@@ -33,6 +33,7 @@ export class DRTriggers {
   corners: string | null
 
   @Column({ default: 0 })
+  @Index()
   optimalMoves: number
 
   @Column({ type: 'json' })

@@ -200,6 +200,22 @@ export class DRTriggerService {
       order: { id: 'ASC' },
     })
 
+    let lastTrigger: any = null
+    if (game.status === DRTriggerGameStatus.ENDED && game.currentTriggerId) {
+      const trigger = await this.triggersRepository.findOne({ where: { id: game.currentTriggerId } })
+      if (trigger) {
+        const scramble = this.recoverScrambleFromGameState(game)
+        lastTrigger = {
+          scramble,
+          caseId: trigger.caseId,
+          rzp: trigger.rzp,
+          arm: trigger.arm,
+          optimalMoves: trigger.optimalMoves,
+          solutions: trigger.solutions,
+        }
+      }
+    }
+
     return {
       game: this.formatGame(game),
       rounds: rounds.map(r => ({
@@ -219,6 +235,7 @@ export class DRTriggerService {
             }
           : null,
       })),
+      lastTrigger,
     }
   }
 
@@ -360,11 +377,12 @@ export class DRTriggerService {
       }
     }
 
+    const lastScramble = this.recoverScrambleFromGameState(game)
+
     game.status = DRTriggerGameStatus.ENDED
     if (!allCleared) {
       game.remainingTime = 0
     }
-    game.currentTriggerId = null
     game.currentRoundStartedAt = null
     await this.gamesRepository.save(game)
 
@@ -372,6 +390,21 @@ export class DRTriggerService {
       where: { gameId: game.id },
       order: { id: 'ASC' },
     })
+
+    let lastTrigger: any = null
+    if (!allCleared && game.currentTriggerId) {
+      const trigger = await this.triggersRepository.findOne({ where: { id: game.currentTriggerId } })
+      if (trigger) {
+        lastTrigger = {
+          scramble: lastScramble,
+          caseId: trigger.caseId,
+          rzp: trigger.rzp,
+          arm: trigger.arm,
+          optimalMoves: trigger.optimalMoves,
+          solutions: trigger.solutions,
+        }
+      }
+    }
 
     return {
       game: this.formatGame(game),
@@ -381,6 +414,7 @@ export class DRTriggerService {
         timeBonus: r.timeBonus,
         duration: Number(r.duration),
       })),
+      lastTrigger,
       ended: true,
       allCleared,
     }
