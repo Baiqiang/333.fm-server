@@ -9,6 +9,9 @@ import { Attachments } from '@/entities/attachment.entity'
 import { Challenges } from '@/entities/challenges.entity'
 import { Comments } from '@/entities/comments.entity'
 import { Competitions } from '@/entities/competitions.entity'
+import { DRTriggerGameRounds } from '@/entities/dr-trigger-game-rounds.entity'
+import { DRTriggerGames } from '@/entities/dr-trigger-games.entity'
+import { DRTriggers } from '@/entities/dr-triggers.entity'
 import { EndlessKickoffs } from '@/entities/endless-kickoffs.entity'
 import { InsertionFinders } from '@/entities/insertion-finders.entity'
 import { LeagueDuels } from '@/entities/league-duels.entity'
@@ -32,6 +35,8 @@ import { UserRoles } from '@/entities/user-roles.entity'
 import { Users } from '@/entities/users.entity'
 
 import { CmdService } from './cmd.service'
+import { DRTriggerCommand } from './dr-trigger/dr-trigger.command'
+import { DRTriggerCommandService } from './dr-trigger/dr-trigger.service'
 import { EndlessCommand } from './endless/endless.command'
 import { EndlessCommandService } from './endless/endless.service'
 import { LeagueCommand } from './league/league.command'
@@ -90,10 +95,15 @@ import { WcaService } from './wca/wca.service'
       LeagueEloHistories,
       Comments,
       Notifications,
+      DRTriggers,
+      DRTriggerGames,
+      DRTriggerGameRounds,
     ]),
   ],
   providers: [
     CmdService,
+    DRTriggerCommandService,
+    DRTriggerCommand,
     EndlessCommandService,
     EndlessCommand,
     PointService,

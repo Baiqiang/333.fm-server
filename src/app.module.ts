@@ -16,6 +16,7 @@ import { AuthModule } from './auth/auth.module'
 import { BotModule } from './bot/bot.module'
 import { CommentModule } from './comment/comment.module'
 import { CompetitionModule } from './competition/competition.module'
+import { DRTriggerModule } from './dr-trigger/dr-trigger.module'
 import configuration from './config/configuration'
 import { IfModule } from './if/if.module'
 import { PointModule } from './point/point.module'
@@ -66,6 +67,7 @@ import { WcaReconstructionModule } from './wca/reconstruction/reconstruction.mod
     AuthModule,
     AdminModule,
     CompetitionModule,
+    DRTriggerModule,
     PointModule,
     ProfileModule,
     SearchModule,
