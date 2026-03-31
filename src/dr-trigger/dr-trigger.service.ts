@@ -254,7 +254,7 @@ export class DRTriggerService {
     }
     console.log(solutions[0].solution)
     const prefix = "R' U' F"
-    const alg = new Algorithm('(' + drPart.join('') + solutions[0].solution + ')')
+    const alg = new Algorithm(solutions[0].solution + drPart.join(''))
     alg.clearFlags()
     const cube = new Cube()
     cube.twist(new Algorithm(prefix + alg.toString() + prefix))
@@ -280,7 +280,9 @@ export class DRTriggerService {
 
     // valid scramble
     if (scramble.includes('Error')) {
-      scramble = alg.toString()
+      const alg2 = new Algorithm('(' + alg.toString() + ')')
+      alg2.clearFlags()
+      scramble = alg2.toString()
     } else {
       scramble = [prefix, scramble.trim(), prefix].join(' ')
     }
