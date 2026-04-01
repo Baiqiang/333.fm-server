@@ -9,8 +9,8 @@ import {
   UpdateDateColumn,
 } from 'typeorm'
 
-import { Users } from './users.entity'
 import { DRTriggerGameRounds } from './dr-trigger-game-rounds.entity'
+import { Users } from './users.entity'
 
 export enum DRTriggerGameStatus {
   ONGOING,
@@ -42,6 +42,10 @@ export class DRTriggerGames {
   @Column({ default: 5 })
   @Index()
   difficulty: number
+
+  @Column({ length: 20, nullable: true, default: null })
+  @Index()
+  rzp: string | null
 
   @Column({ nullable: true, default: null })
   currentTriggerId: number

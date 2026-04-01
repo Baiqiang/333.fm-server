@@ -14,7 +14,7 @@ export class DRTriggerController {
   @Post('start')
   @UseGuards(JwtRequiredGuard)
   async start(@CurrentUser() user: Users, @Body() dto: DRTriggerStartDto) {
-    return this.drTriggerService.startGame(user, dto.difficulty ?? 5)
+    return this.drTriggerService.startGame(user, dto.difficulty ?? 5, dto.rzp)
   }
 
   @Post('submit')
@@ -47,7 +47,16 @@ export class DRTriggerController {
   }
 
   @Get('leaderboard')
-  async leaderboard() {
-    return this.drTriggerService.getLeaderboard()
+  async leaderboard(
+    @Query('difficulty') difficulty?: string,
+    @Query('rzp') rzp?: string,
+  ) {
+    const diff = difficulty !== undefined ? Number.parseInt(difficulty) : undefined
+    return this.drTriggerService.getLeaderboard(diff, rzp)
+  }
+
+  @Get('rzps')
+  async rzps() {
+    return this.drTriggerService.getDistinctRzps()
   }
 }

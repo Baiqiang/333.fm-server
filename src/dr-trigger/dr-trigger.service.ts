@@ -33,7 +33,7 @@ export class DRTriggerService {
     min2phase.initFull()
   }
 
-  async startGame(user: Users, difficulty = 5) {
+  async startGame(user: Users, difficulty = 5, rzp?: string) {
     const existing = await this.gamesRepository.findOne({
       where: { userId: user.id, status: DRTriggerGameStatus.ONGOING },
     })
@@ -41,8 +41,9 @@ export class DRTriggerService {
       throw new BadRequestException('You already have an ongoing game')
     }
 
-    const maxOptimal = difficulty > 0 ? difficulty * 100 : 0
-    const trigger = await this.getRandomTrigger([], maxOptimal)
+    const isRzpMode = !!rzp
+    const maxOptimal = isRzpMode ? 0 : (difficulty > 0 ? difficulty * 100 : 0)
+    const trigger = await this.getRandomTrigger([], maxOptimal, isRzpMode ? rzp : undefined)
     if (!trigger) {
       throw new BadRequestException('No triggers available for this difficulty')
     }
@@ -54,7 +55,8 @@ export class DRTriggerService {
     game.status = DRTriggerGameStatus.ONGOING
     game.remainingTime = INITIAL_TIME
     game.levels = 0
-    game.difficulty = difficulty
+    game.difficulty = isRzpMode ? 0 : difficulty
+    game.rzp = isRzpMode ? rzp! : null
     game.currentTriggerId = trigger.id
     game.currentRoundStartedAt = Date.now()
     const hash = createHash('sha256').update(`${user.id}-${Date.now()}-${Math.random()}`).digest('hex').substring(0, 64)
@@ -123,9 +125,10 @@ export class DRTriggerService {
       return this.endGame(game)
     }
 
-    const maxOptimal = game.difficulty > 0 ? game.difficulty * 100 : 0
+    const isRzpMode = !!game.rzp
+    const maxOptimal = isRzpMode ? 0 : (game.difficulty > 0 ? game.difficulty * 100 : 0)
     const usedTriggerIds = await this.getUsedTriggerIds(game.id)
-    const nextTrigger = await this.getRandomTrigger(usedTriggerIds, maxOptimal)
+    const nextTrigger = await this.getRandomTrigger(usedTriggerIds, maxOptimal, isRzpMode ? game.rzp! : undefined)
 
     if (!nextTrigger) {
       return this.endGame(game, true)
@@ -250,15 +253,36 @@ export class DRTriggerService {
     return { games, total, page, limit }
   }
 
-  async getLeaderboard() {
-    const highestLevels = await this.gamesRepository.find({
-      where: { status: DRTriggerGameStatus.ENDED },
-      relations: ['user'],
-      order: { levels: 'DESC', remainingTime: 'DESC' },
-      take: 50,
-    })
+  async getLeaderboard(difficulty?: number, rzp?: string) {
+    const qb = this.gamesRepository.createQueryBuilder('g')
+      .leftJoinAndSelect('g.user', 'user')
+      .where('g.status = :status', { status: DRTriggerGameStatus.ENDED })
+      .orderBy('g.levels', 'DESC')
+      .addOrderBy('g.remainingTime', 'DESC')
+      .take(50)
 
+    if (rzp) {
+      qb.andWhere('g.rzp = :rzp', { rzp })
+    }
+    else if (difficulty !== undefined) {
+      qb.andWhere('g.difficulty = :difficulty', { difficulty })
+      qb.andWhere('g.rzp IS NULL')
+    }
+    else {
+      qb.andWhere('g.rzp IS NULL')
+    }
+
+    const highestLevels = await qb.getMany()
     return { highestLevels }
+  }
+
+  async getDistinctRzps() {
+    const results = await this.triggersRepository
+      .createQueryBuilder('t')
+      .select('DISTINCT t.rzp', 'rzp')
+      .orderBy('t.rzp', 'ASC')
+      .getRawMany()
+    return results.map(r => r.rzp)
   }
 
   // --- Scramble generation ---
@@ -355,12 +379,15 @@ export class DRTriggerService {
     return rounds.map(r => r.triggerId)
   }
 
-  private async getRandomTrigger(excludeIds: number[], maxOptimal = 0): Promise<DRTriggers | null> {
+  private async getRandomTrigger(excludeIds: number[], maxOptimal = 0, rzp?: string): Promise<DRTriggers | null> {
     const qb = this.triggersRepository.createQueryBuilder('t').orderBy('RAND()').limit(1)
     if (excludeIds.length > 0) {
       qb.where('t.id NOT IN (:...excludeIds)', { excludeIds })
     }
-    if (maxOptimal > 0) {
+    if (rzp) {
+      qb.andWhere('t.rzp = :rzp', { rzp })
+    }
+    else if (maxOptimal > 0) {
       qb.andWhere('t.optimalMoves <= :maxOptimal', { maxOptimal })
     }
     return qb.getOne()
@@ -431,6 +458,7 @@ export class DRTriggerService {
       status: game.status,
       levels: game.levels,
       difficulty: game.difficulty,
+      rzp: game.rzp,
       remainingTime: Math.max(0, remainingTime),
       totalTimeBonus: game.totalTimeBonus,
       createdAt: game.createdAt,

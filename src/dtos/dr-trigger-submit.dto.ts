@@ -4,6 +4,10 @@ export class DRTriggerStartDto {
   @IsOptional()
   @IsInt()
   difficulty?: number
+
+  @IsOptional()
+  @IsString()
+  rzp?: string
 }
 
 export class DRTriggerSubmitDto {
