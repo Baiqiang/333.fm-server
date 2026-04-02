@@ -1,3 +1,4 @@
+import { CacheModule } from '@nestjs/cache-manager'
 import { Module } from '@nestjs/common'
 import { TypeOrmModule } from '@nestjs/typeorm'
 
@@ -10,7 +11,7 @@ import { DRTriggerController } from './dr-trigger.controller'
 import { DRTriggerService } from './dr-trigger.service'
 
 @Module({
-  imports: [TypeOrmModule.forFeature([DRTriggers, DRTriggerGames, DRTriggerGameRounds]), AuthModule],
+  imports: [CacheModule.register(), TypeOrmModule.forFeature([DRTriggers, DRTriggerGames, DRTriggerGameRounds]), AuthModule],
   controllers: [DRTriggerController],
   providers: [DRTriggerService],
 })

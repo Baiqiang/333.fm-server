@@ -1,4 +1,16 @@
-import { Body, Controller, DefaultValuePipe, Get, Param, ParseIntPipe, Post, Query, UseGuards } from '@nestjs/common'
+import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager'
+import {
+  Body,
+  Controller,
+  DefaultValuePipe,
+  Get,
+  Param,
+  ParseIntPipe,
+  Post,
+  Query,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common'
 
 import { CurrentUser } from '@/auth/decorators/current-user.decorator'
 import { JwtRequiredGuard } from '@/auth/guards/jwt-required.guard'
@@ -47,16 +59,45 @@ export class DRTriggerController {
   }
 
   @Get('leaderboard')
-  async leaderboard(
-    @Query('difficulty') difficulty?: string,
-    @Query('rzp') rzp?: string,
-  ) {
+  async leaderboard(@Query('difficulty') difficulty?: string, @Query('rzp') rzp?: string) {
     const diff = difficulty !== undefined ? Number.parseInt(difficulty) : undefined
     return this.drTriggerService.getLeaderboard(diff, rzp)
   }
 
   @Get('rzps')
+  @UseInterceptors(CacheInterceptor)
+  @CacheTTL(3600000)
   async rzps() {
     return this.drTriggerService.getDistinctRzps()
+  }
+
+  @Get('cases')
+  async cases(
+    @Query('moves') moves?: string,
+    @Query('rzp') rzp?: string,
+    @Query('arm') arm?: string,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
+  ) {
+    const m = moves !== undefined ? Number.parseInt(moves) : undefined
+    return this.drTriggerService.getCases(m, rzp, arm, page)
+  }
+
+  @Get('case/:id')
+  async getCase(@Param('id', ParseIntPipe) id: number) {
+    return this.drTriggerService.getCase(id)
+  }
+
+  @Get('distinct-moves')
+  @UseInterceptors(CacheInterceptor)
+  @CacheTTL(3600000)
+  async distinctMoves() {
+    return this.drTriggerService.getDistinctMoves()
+  }
+
+  @Get('distinct-arms')
+  @UseInterceptors(CacheInterceptor)
+  @CacheTTL(3600000)
+  async distinctArms() {
+    return this.drTriggerService.getDistinctArms()
   }
 }

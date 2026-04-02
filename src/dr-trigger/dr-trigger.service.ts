@@ -42,7 +42,7 @@ export class DRTriggerService {
     }
 
     const isRzpMode = !!rzp
-    const maxOptimal = isRzpMode ? 0 : (difficulty > 0 ? difficulty * 100 : 0)
+    const maxOptimal = isRzpMode ? 0 : difficulty > 0 ? difficulty * 100 : 0
     const trigger = await this.getRandomTrigger([], maxOptimal, isRzpMode ? rzp : undefined)
     if (!trigger) {
       throw new BadRequestException('No triggers available for this difficulty')
@@ -126,7 +126,7 @@ export class DRTriggerService {
     }
 
     const isRzpMode = !!game.rzp
-    const maxOptimal = isRzpMode ? 0 : (game.difficulty > 0 ? game.difficulty * 100 : 0)
+    const maxOptimal = isRzpMode ? 0 : game.difficulty > 0 ? game.difficulty * 100 : 0
     const usedTriggerIds = await this.getUsedTriggerIds(game.id)
     const nextTrigger = await this.getRandomTrigger(usedTriggerIds, maxOptimal, isRzpMode ? game.rzp! : undefined)
 
@@ -254,7 +254,8 @@ export class DRTriggerService {
   }
 
   async getLeaderboard(difficulty?: number, rzp?: string) {
-    const qb = this.gamesRepository.createQueryBuilder('g')
+    const qb = this.gamesRepository
+      .createQueryBuilder('g')
       .leftJoinAndSelect('g.user', 'user')
       .where('g.status = :status', { status: DRTriggerGameStatus.ENDED })
       .orderBy('g.levels', 'DESC')
@@ -263,12 +264,10 @@ export class DRTriggerService {
 
     if (rzp) {
       qb.andWhere('g.rzp = :rzp', { rzp })
-    }
-    else if (difficulty !== undefined) {
+    } else if (difficulty !== undefined) {
       qb.andWhere('g.difficulty = :difficulty', { difficulty })
       qb.andWhere('g.rzp IS NULL')
-    }
-    else {
+    } else {
       qb.andWhere('g.rzp IS NULL')
     }
 
@@ -285,10 +284,66 @@ export class DRTriggerService {
     return results.map(r => r.rzp)
   }
 
+  async getCases(moves?: number, rzp?: string, arm?: string, page = 1, limit = 50) {
+    const qb = this.triggersRepository.createQueryBuilder('t').orderBy('t.caseId', 'ASC')
+
+    if (moves !== undefined && moves > 0) {
+      qb.andWhere('t.optimalMoves = :moves', { moves: moves * 100 })
+    }
+    if (rzp) {
+      qb.andWhere('t.rzp = :rzp', { rzp })
+    }
+    if (arm) {
+      qb.andWhere('t.arm = :arm', { arm })
+    }
+
+    const [items, total] = await qb
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount()
+
+    return {
+      items,
+      meta: {
+        totalItems: total,
+        itemCount: items.length,
+        itemsPerPage: limit,
+        totalPages: Math.ceil(total / limit),
+        currentPage: page,
+      },
+    }
+  }
+
+  async getCase(id: number) {
+    const trigger = await this.triggersRepository.findOne({ where: { id } })
+    if (!trigger) {
+      throw new BadRequestException('Case not found')
+    }
+    return trigger
+  }
+
+  async getDistinctMoves() {
+    const results = await this.triggersRepository
+      .createQueryBuilder('t')
+      .select('DISTINCT t.optimalMoves', 'optimalMoves')
+      .orderBy('t.optimalMoves', 'ASC')
+      .getRawMany()
+    return results.map(r => Number(r.optimalMoves) / 100)
+  }
+
+  async getDistinctArms() {
+    const results = await this.triggersRepository
+      .createQueryBuilder('t')
+      .select('DISTINCT t.arm', 'arm')
+      .orderBy('t.arm', 'ASC')
+      .getRawMany()
+    return results.map(r => r.arm)
+  }
+
   // --- Scramble generation ---
 
   private generateScramble(trigger: DRTriggers): string {
-    const solutions = trigger.solutions.filter(s => !s.eoBreaking)
+    const solutions = trigger.solutions //.filter(s => !s.eoBreaking)
 
     const drPart: string[] = []
     for (let i = 0; i < 100; i++) {
@@ -386,8 +441,7 @@ export class DRTriggerService {
     }
     if (rzp) {
       qb.andWhere('t.rzp = :rzp', { rzp })
-    }
-    else if (maxOptimal > 0) {
+    } else if (maxOptimal > 0) {
       qb.andWhere('t.optimalMoves <= :maxOptimal', { maxOptimal })
     }
     return qb.getOne()
