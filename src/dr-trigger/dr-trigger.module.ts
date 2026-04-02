@@ -11,7 +11,11 @@ import { DRTriggerController } from './dr-trigger.controller'
 import { DRTriggerService } from './dr-trigger.service'
 
 @Module({
-  imports: [CacheModule.register(), TypeOrmModule.forFeature([DRTriggers, DRTriggerGames, DRTriggerGameRounds]), AuthModule],
+  imports: [
+    CacheModule.register(),
+    TypeOrmModule.forFeature([DRTriggers, DRTriggerGames, DRTriggerGameRounds]),
+    AuthModule,
+  ],
   controllers: [DRTriggerController],
   providers: [DRTriggerService],
 })

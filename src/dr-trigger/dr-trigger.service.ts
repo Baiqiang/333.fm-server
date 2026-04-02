@@ -284,17 +284,45 @@ export class DRTriggerService {
     return results.map(r => r.rzp)
   }
 
-  async getCases(moves?: number, rzp?: string, arm?: string, page = 1, limit = 50) {
+  async getCases(
+    moves?: number,
+    filters?: { rzpc?: string; rzpe?: string; armc?: string; arme?: string },
+    page = 1,
+    limit = 50,
+  ) {
     const qb = this.triggersRepository.createQueryBuilder('t').orderBy('t.caseId', 'ASC')
 
     if (moves !== undefined && moves > 0) {
       qb.andWhere('t.optimalMoves = :moves', { moves: moves * 100 })
     }
-    if (rzp) {
-      qb.andWhere('t.rzp = :rzp', { rzp })
+    if (filters?.rzpc || filters?.rzpe) {
+      const allRzps = await this.getDistinctRzps()
+      const matching = allRzps.filter(r => {
+        const m = r.match(/^(\d+)c(\d+)e$/)
+        if (!m) return false
+        if (filters.rzpc && m[1] !== filters.rzpc) return false
+        if (filters.rzpe && m[2] !== filters.rzpe) return false
+        return true
+      })
+      if (matching.length > 0) {
+        qb.andWhere('t.rzp IN (:...rzps)', { rzps: matching })
+      } else {
+        qb.andWhere('1 = 0')
+      }
     }
-    if (arm) {
-      qb.andWhere('t.arm = :arm', { arm })
+    if (filters?.armc || filters?.arme) {
+      const allArms = await this.getDistinctArms()
+      const matching = allArms.filter(a => {
+        if (a.length !== 2) return false
+        if (filters.armc && a[0] !== filters.armc) return false
+        if (filters.arme && a[1] !== filters.arme) return false
+        return true
+      })
+      if (matching.length > 0) {
+        qb.andWhere('t.arm IN (:...arms)', { arms: matching })
+      } else {
+        qb.andWhere('1 = 0')
+      }
     }
 
     const [items, total] = await qb

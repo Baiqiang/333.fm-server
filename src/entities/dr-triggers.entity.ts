@@ -8,7 +8,8 @@ export interface DRTriggerSolution {
 }
 
 @Entity()
-@Index(['rzp'])
+@Index(['optimalMoves', 'rzp'])
+@Index(['optimalMoves', 'arm'])
 export class DRTriggers {
   @PrimaryGeneratedColumn()
   id: number
@@ -21,6 +22,7 @@ export class DRTriggers {
   rzp: string
 
   @Column({ length: 20 })
+  @Index()
   arm: string
 
   @Column({ default: 0 })

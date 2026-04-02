@@ -74,12 +74,14 @@ export class DRTriggerController {
   @Get('cases')
   async cases(
     @Query('moves') moves?: string,
-    @Query('rzp') rzp?: string,
-    @Query('arm') arm?: string,
+    @Query('rzpc') rzpc?: string,
+    @Query('rzpe') rzpe?: string,
+    @Query('armc') armc?: string,
+    @Query('arme') arme?: string,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
   ) {
     const m = moves !== undefined ? Number.parseInt(moves) : undefined
-    return this.drTriggerService.getCases(m, rzp, arm, page)
+    return this.drTriggerService.getCases(m, { rzpc, rzpe, armc, arme }, page)
   }
 
   @Get('case/:id')
