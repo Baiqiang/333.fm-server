@@ -331,6 +331,8 @@ export class DRTriggerService {
     }
 
     const [items, total] = await qb
+      .orderBy('t.rzp', 'ASC')
+      .addOrderBy('t.optimalMoves', 'ASC')
       .skip((page - 1) * limit)
       .take(limit)
       .getManyAndCount()
