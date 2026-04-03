@@ -55,6 +55,49 @@ export class DRTriggerCommandService {
     this.logger.log(`Done. Total: ${totalCases} cases, ${totalSolutions} solutions`)
   }
 
+  async fixEoBreaking() {
+    const total = await this.triggersRepository.count()
+    this.logger.log(`Processing ${total} triggers...`)
+
+    const batchSize = 500
+    let updated = 0
+    let eoCount = 0
+    let eoOnlyCount = 0
+
+    for (let offset = 0; offset < total; offset += batchSize) {
+      const triggers = await this.triggersRepository.find({
+        order: { id: 'ASC' },
+        skip: offset,
+        take: batchSize,
+      })
+
+      const toSave: DRTriggers[] = []
+      for (const t of triggers) {
+        const minLen = Math.min(...t.solutions.map(s => s.length))
+        const optimalSolutions = t.solutions.filter(s => s.length === minLen)
+        const hasEo = optimalSolutions.some(s => s.eoBreaking)
+        const allEo = optimalSolutions.every(s => s.eoBreaking)
+
+        if (t.eoBreaking !== hasEo || t.eoBreakingOnly !== allEo) {
+          t.eoBreaking = hasEo
+          t.eoBreakingOnly = allEo
+          toSave.push(t)
+          if (hasEo) eoCount++
+          if (allEo) eoOnlyCount++
+        }
+      }
+
+      if (toSave.length > 0) {
+        await this.triggersRepository.save(toSave)
+        updated += toSave.length
+      }
+
+      this.logger.log(`Processed ${Math.min(offset + batchSize, total)}/${total}`)
+    }
+
+    this.logger.log(`Done. Updated ${updated} triggers. eoBreaking: ${eoCount}, eoBreakingOnly: ${eoOnlyCount}`)
+  }
+
   async reset() {
     const count = await this.triggersRepository.count()
     if (count === 0) {
@@ -107,7 +150,11 @@ export class DRTriggerCommandService {
       const solutions = solutionsMap.get(caseId) || []
       if (solutions.length === 0) continue
       trigger.solutions = solutions
-      trigger.optimalMoves = Math.min(...solutions.map(s => s.length)) * 100
+      const minLen = Math.min(...solutions.map(s => s.length))
+      trigger.optimalMoves = minLen * 100
+      const optSols = solutions.filter(s => s.length === minLen)
+      trigger.eoBreaking = optSols.some(s => s.eoBreaking)
+      trigger.eoBreakingOnly = optSols.every(s => s.eoBreaking)
       cases.push(trigger)
     }
 

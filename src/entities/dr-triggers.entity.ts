@@ -38,6 +38,12 @@ export class DRTriggers {
   @Index()
   optimalMoves: number
 
+  @Column({ default: false })
+  eoBreaking: boolean
+
+  @Column({ default: false })
+  eoBreakingOnly: boolean
+
   @Column({ type: 'json' })
   solutions: DRTriggerSolution[]
 

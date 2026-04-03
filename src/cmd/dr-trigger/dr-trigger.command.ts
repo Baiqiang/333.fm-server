@@ -19,9 +19,11 @@ export class DRTriggerCommand extends CommandRunner {
       case 'reset':
         await this.service.reset()
         break
+      case 'fix-eo':
+        await this.service.fixEoBreaking()
+        break
       default:
-        this.logger.warn('Usage: npm run cmd -- dr-trigger seed')
-        this.logger.warn('   or: npm run cmd -- dr-trigger reset')
+        this.logger.warn('Usage: npm run cmd -- dr-trigger seed|reset|fix-eo')
         break
     }
   }

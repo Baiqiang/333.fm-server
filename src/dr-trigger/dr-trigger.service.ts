@@ -286,7 +286,7 @@ export class DRTriggerService {
 
   async getCases(
     moves?: number,
-    filters?: { rzpc?: string; rzpe?: string; armc?: string; arme?: string },
+    filters?: { rzpc?: string; rzpe?: string; armc?: string; arme?: string; eo?: string },
     page = 1,
     limit = 50,
   ) {
@@ -323,6 +323,11 @@ export class DRTriggerService {
       } else {
         qb.andWhere('1 = 0')
       }
+    }
+    if (filters?.eo === 'include') {
+      qb.andWhere('t.eoBreaking = :eo', { eo: true })
+    } else if (filters?.eo === 'only') {
+      qb.andWhere('t.eoBreakingOnly = :eo', { eo: true })
     }
 
     const [items, total] = await qb
