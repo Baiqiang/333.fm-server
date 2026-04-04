@@ -1,6 +1,6 @@
 import {
-  BadRequestException,
   Body,
+  ConflictException,
   Controller,
   Get,
   NotFoundException,
@@ -47,7 +47,11 @@ export class PracticeController {
     if (last) {
       const [finished, validSolution] = await this.practiceService.checkFinished(user, last)
       if (!finished) {
-        throw new BadRequestException('Finish current practice before creating new one')
+        last.user = user
+        throw new ConflictException({
+          message: 'Finish current practice before creating new one',
+          competition: last,
+        })
       }
       // try to create daily comp
       if (validSolution && dto.format === CompetitionFormat.BO1) {
