@@ -16,14 +16,25 @@ export class DRTriggerCommand extends CommandRunner {
       case 'seed':
         await this.service.seed()
         break
+      case 'symmetry':
+        await this.service.analyzeSymmetry(parseInt(passedParam[1]) || 6)
+        break
+      case 'count-table':
+        await this.service.printCountTable()
+        break
       case 'reset':
         await this.service.reset()
         break
       case 'fix-eo':
         await this.service.fixEoBreaking()
         break
+      case 'compute-symmetry':
+        await this.service.computeSymmetryGroups()
+        break
       default:
-        this.logger.warn('Usage: npm run cmd -- dr-trigger seed|reset|fix-eo')
+        this.logger.warn(
+          'Usage: npm run cmd -- dr-trigger seed|symmetry [maxMoves]|count-table|reset|fix-eo|compute-symmetry',
+        )
         break
     }
   }

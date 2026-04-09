@@ -47,6 +47,14 @@ export class DRTriggers {
   @Column({ type: 'json' })
   solutions: DRTriggerSolution[]
 
+  @Column({ length: 32, nullable: true, default: null })
+  @Index()
+  symmetryGroup: string | null
+
+  @Column({ default: false })
+  @Index()
+  isSymmetryRepresentative: boolean
+
   @CreateDateColumn()
   createdAt: Date
 }

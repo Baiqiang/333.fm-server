@@ -53,6 +53,10 @@ export class DRTriggerGames {
   @Column({ type: 'bigint', nullable: true, default: null })
   currentRoundStartedAt: number
 
+  @Column({ default: true })
+  @Index()
+  merged: boolean
+
   @Column({ length: 1024, default: '' })
   sessionHash: string
 

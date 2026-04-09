@@ -1,4 +1,4 @@
-import { IsInt, IsOptional, IsString } from 'class-validator'
+import { IsBoolean, IsInt, IsOptional, IsString } from 'class-validator'
 
 export class DRTriggerStartDto {
   @IsOptional()
@@ -8,6 +8,10 @@ export class DRTriggerStartDto {
   @IsOptional()
   @IsString()
   rzp?: string
+
+  @IsOptional()
+  @IsBoolean()
+  merged?: boolean
 }
 
 export class DRTriggerSubmitDto {

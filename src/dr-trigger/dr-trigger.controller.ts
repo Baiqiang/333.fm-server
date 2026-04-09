@@ -26,7 +26,7 @@ export class DRTriggerController {
   @Post('start')
   @UseGuards(JwtRequiredGuard)
   async start(@CurrentUser() user: Users, @Body() dto: DRTriggerStartDto) {
-    return this.drTriggerService.startGame(user, dto.difficulty ?? 5, dto.rzp)
+    return this.drTriggerService.startGame(user, dto.difficulty ?? 5, dto.rzp, dto.merged ?? true)
   }
 
   @Post('submit')
@@ -59,9 +59,14 @@ export class DRTriggerController {
   }
 
   @Get('leaderboard')
-  async leaderboard(@Query('difficulty') difficulty?: string, @Query('rzp') rzp?: string) {
+  async leaderboard(
+    @Query('difficulty') difficulty?: string,
+    @Query('rzp') rzp?: string,
+    @Query('merged') merged?: string,
+  ) {
     const diff = difficulty !== undefined ? Number.parseInt(difficulty) : undefined
-    return this.drTriggerService.getLeaderboard(diff, rzp)
+    const m = merged !== undefined ? merged === 'true' : undefined
+    return this.drTriggerService.getLeaderboard(diff, rzp, m)
   }
 
   @Get('rzps')
@@ -80,14 +85,21 @@ export class DRTriggerController {
     @Query('arme') arme?: string,
     @Query('eo') eo?: string,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
+    @Query('merged') merged?: string,
   ) {
     const m = moves !== undefined ? Number.parseInt(moves) : undefined
-    return this.drTriggerService.getCases(m, { rzpc, rzpe, armc, arme, eo }, page)
+    const isMerged = merged !== 'false'
+    return this.drTriggerService.getCases(m, { rzpc, rzpe, armc, arme, eo }, page, 50, isMerged)
   }
 
   @Get('case/:id')
   async getCase(@Param('id', ParseIntPipe) id: number) {
     return this.drTriggerService.getCase(id)
+  }
+
+  @Get('symmetry-group/:group')
+  async symmetryGroup(@Param('group') group: string) {
+    return this.drTriggerService.getSymmetryGroupCases(group)
   }
 
   @Get('distinct-moves')

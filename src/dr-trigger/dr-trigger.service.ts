@@ -33,7 +33,7 @@ export class DRTriggerService {
     min2phase.initFull()
   }
 
-  async startGame(user: Users, difficulty = 5, rzp?: string) {
+  async startGame(user: Users, difficulty = 5, rzp?: string, merged = true) {
     const existing = await this.gamesRepository.findOne({
       where: { userId: user.id, status: DRTriggerGameStatus.ONGOING },
     })
@@ -43,7 +43,7 @@ export class DRTriggerService {
 
     const isRzpMode = !!rzp
     const maxOptimal = isRzpMode ? 0 : difficulty > 0 ? difficulty * 100 : 0
-    const trigger = await this.getRandomTrigger([], maxOptimal, isRzpMode ? rzp : undefined)
+    const trigger = await this.getRandomTrigger([], maxOptimal, isRzpMode ? rzp : undefined, merged)
     if (!trigger) {
       throw new BadRequestException('No triggers available for this difficulty')
     }
@@ -57,6 +57,7 @@ export class DRTriggerService {
     game.levels = 0
     game.difficulty = isRzpMode ? 0 : difficulty
     game.rzp = isRzpMode ? rzp! : null
+    game.merged = merged
     game.currentTriggerId = trigger.id
     game.currentRoundStartedAt = Date.now()
     const hash = createHash('sha256').update(`${user.id}-${Date.now()}-${Math.random()}`).digest('hex').substring(0, 64)
@@ -128,7 +129,12 @@ export class DRTriggerService {
     const isRzpMode = !!game.rzp
     const maxOptimal = isRzpMode ? 0 : game.difficulty > 0 ? game.difficulty * 100 : 0
     const usedTriggerIds = await this.getUsedTriggerIds(game.id)
-    const nextTrigger = await this.getRandomTrigger(usedTriggerIds, maxOptimal, isRzpMode ? game.rzp! : undefined)
+    const nextTrigger = await this.getRandomTrigger(
+      usedTriggerIds,
+      maxOptimal,
+      isRzpMode ? game.rzp! : undefined,
+      game.merged,
+    )
 
     if (!nextTrigger) {
       return this.endGame(game, true)
@@ -253,7 +259,7 @@ export class DRTriggerService {
     return { games, total, page, limit }
   }
 
-  async getLeaderboard(difficulty?: number, rzp?: string) {
+  async getLeaderboard(difficulty?: number, rzp?: string, merged?: boolean) {
     const qb = this.gamesRepository
       .createQueryBuilder('g')
       .leftJoinAndSelect('g.user', 'user')
@@ -269,6 +275,10 @@ export class DRTriggerService {
       qb.andWhere('g.rzp IS NULL')
     } else {
       qb.andWhere('g.rzp IS NULL')
+    }
+
+    if (merged !== undefined) {
+      qb.andWhere('g.merged = :merged', { merged })
     }
 
     const highestLevels = await qb.getMany()
@@ -289,8 +299,13 @@ export class DRTriggerService {
     filters?: { rzpc?: string; rzpe?: string; armc?: string; arme?: string; eo?: string },
     page = 1,
     limit = 50,
+    merged = true,
   ) {
     const qb = this.triggersRepository.createQueryBuilder('t').orderBy('t.caseId', 'ASC')
+
+    if (merged) {
+      qb.andWhere('t.isSymmetryRepresentative = true')
+    }
 
     if (moves !== undefined && moves > 0) {
       qb.andWhere('t.optimalMoves = :moves', { moves: moves * 100 })
@@ -337,8 +352,26 @@ export class DRTriggerService {
       .take(limit)
       .getManyAndCount()
 
+    let symmetryGroupSizes: Record<string, number> = {}
+    if (merged && items.length > 0) {
+      const groups = items.map(i => i.symmetryGroup).filter(Boolean) as string[]
+      if (groups.length > 0) {
+        const counts = await this.triggersRepository
+          .createQueryBuilder('t')
+          .select('t.symmetryGroup', 'symmetryGroup')
+          .addSelect('COUNT(*)', 'count')
+          .where('t.symmetryGroup IN (:...groups)', { groups })
+          .groupBy('t.symmetryGroup')
+          .getRawMany<{ symmetryGroup: string; count: string }>()
+        symmetryGroupSizes = Object.fromEntries(counts.map(c => [c.symmetryGroup, Number(c.count)]))
+      }
+    }
+
     return {
-      items,
+      items: items.map(item => ({
+        ...item,
+        symmetryGroupSize: merged ? (symmetryGroupSizes[item.symmetryGroup!] ?? 1) : undefined,
+      })),
       meta: {
         totalItems: total,
         itemCount: items.length,
@@ -355,6 +388,13 @@ export class DRTriggerService {
       throw new BadRequestException('Case not found')
     }
     return trigger
+  }
+
+  async getSymmetryGroupCases(symmetryGroup: string) {
+    return this.triggersRepository.find({
+      where: { symmetryGroup },
+      order: { caseId: 'ASC' },
+    })
   }
 
   async getDistinctMoves() {
@@ -384,13 +424,11 @@ export class DRTriggerService {
     for (let i = 0; i < 100; i++) {
       drPart.push(DR_MOVES[Math.floor(Math.random() * DR_MOVES.length)])
     }
-    console.log(solutions[0].solution)
     const prefix = "R' U' F"
     const alg = new Algorithm(solutions[0].solution + drPart.join(''))
     alg.clearFlags()
     const cube = new Cube()
     cube.twist(new Algorithm(prefix + alg.toString() + prefix))
-    console.log(alg.toString())
     const faceletString = cube.toFaceletString()
     let scramble = new min2phase.Search().solution(
       [
@@ -469,10 +507,18 @@ export class DRTriggerService {
     return rounds.map(r => r.triggerId)
   }
 
-  private async getRandomTrigger(excludeIds: number[], maxOptimal = 0, rzp?: string): Promise<DRTriggers | null> {
+  private async getRandomTrigger(
+    excludeIds: number[],
+    maxOptimal = 0,
+    rzp?: string,
+    merged = true,
+  ): Promise<DRTriggers | null> {
     const qb = this.triggersRepository.createQueryBuilder('t').orderBy('RAND()').limit(1)
     if (excludeIds.length > 0) {
       qb.where('t.id NOT IN (:...excludeIds)', { excludeIds })
+    }
+    if (merged) {
+      qb.andWhere('t.isSymmetryRepresentative = true')
     }
     if (rzp) {
       qb.andWhere('t.rzp = :rzp', { rzp })
@@ -548,6 +594,7 @@ export class DRTriggerService {
       levels: game.levels,
       difficulty: game.difficulty,
       rzp: game.rzp,
+      merged: game.merged,
       remainingTime: Math.max(0, remainingTime),
       totalTimeBonus: game.totalTimeBonus,
       createdAt: game.createdAt,
