@@ -210,7 +210,7 @@ export class DRTriggerService {
     })
 
     let lastTrigger: any = null
-    if (game.status === DRTriggerGameStatus.ENDED && game.currentTriggerId) {
+    if (game.status === DRTriggerGameStatus.ENDED && game.currentTriggerId && game.remainingTime === 0) {
       const trigger = await this.triggersRepository.findOne({ where: { id: game.currentTriggerId } })
       if (trigger) {
         const scramble = this.recoverScrambleFromGameState(game)
