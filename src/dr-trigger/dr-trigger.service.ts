@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common'
+import { Cron } from '@nestjs/schedule'
 import { InjectRepository } from '@nestjs/typeorm'
 import { createHash } from 'crypto'
 import { Algorithm, Cube } from 'insertionfinder'
@@ -31,6 +32,24 @@ export class DRTriggerService {
     private readonly roundsRepository: Repository<DRTriggerGameRounds>,
   ) {
     min2phase.initFull()
+  }
+
+  @Cron('*/5 * * * *')
+  async cleanupTimedOutGames() {
+    const ongoing = await this.gamesRepository.find({
+      where: { status: DRTriggerGameStatus.ONGOING },
+    })
+    let cleaned = 0
+    for (const game of ongoing) {
+      const elapsed = Date.now() - Number(game.currentRoundStartedAt)
+      if (Number(game.remainingTime) - elapsed <= 0) {
+        await this.endGame(game)
+        cleaned++
+      }
+    }
+    if (cleaned > 0) {
+      this.logger.log(`Cleaned up ${cleaned} timed-out game(s)`)
+    }
   }
 
   async startGame(user: Users, difficulty = 5, rzp?: string, merged = true) {

@@ -43,6 +43,38 @@ function invertMove(move: string): string {
   return move + "'"
 }
 
+function movePower(move: string): number {
+  if (move.endsWith("'")) return 3
+  if (move.endsWith('2')) return 2
+  return 1
+}
+
+function buildMove(face: string, power: number): string | null {
+  const p = ((power % 4) + 4) % 4
+  if (p === 0) return null
+  if (p === 1) return face
+  if (p === 2) return face + '2'
+  return face + "'"
+}
+
+function simplifyMoves(moves: string[]): void {
+  let i = 0
+  while (i < moves.length - 1) {
+    if (moves[i][0] !== moves[i + 1][0]) {
+      i++
+      continue
+    }
+    const face = moves[i][0]
+    const merged = buildMove(face, movePower(moves[i]) + movePower(moves[i + 1]))
+    if (merged) {
+      moves.splice(i, 2, merged)
+    } else {
+      moves.splice(i, 2)
+    }
+    if (i > 0) i--
+  }
+}
+
 function formatNissDisplay(solution: string): string {
   const tokens = solution.split(/\s+/).filter(Boolean)
   if (!tokens.includes('@')) return solution
@@ -341,6 +373,7 @@ function modifySolution(display: string, movePool: string[], isDRType: boolean):
     if (removable.length > 0) {
       const [si, mi] = removable[Math.floor(Math.random() * removable.length)]
       segments[si].moves.splice(mi, 1)
+      simplifyMoves(segments[si].moves)
       if (segments[si].moves.length === 0) segments.splice(si, 1)
       return segmentsToDisplay(segments)
     }
@@ -471,10 +504,18 @@ export class QuizService {
       })
     }
 
+    if (
+      submission &&
+      !submission.finished &&
+      submission.startedAt &&
+      Date.now() - Number(submission.startedAt) >= QUIZ_DURATION
+    ) {
+      await this.finalizeExpiredSubmission(submission, quiz)
+    }
+
     const isFinished = submission?.finished ?? false
     const now = Date.now()
-    const isExpired = submission?.startedAt ? now - Number(submission.startedAt) >= QUIZ_DURATION : false
-    const revealAnswers = isFinished || isExpired || !isToday
+    const revealAnswers = isFinished || !isToday
 
     const questions = quiz.questions.map((q, idx) => ({
       index: idx,
@@ -503,16 +544,15 @@ export class QuizService {
         ? {
             id: submission.id,
             started: !!submission.startedAt,
-            finished: submission.finished || isExpired,
+            finished: submission.finished,
             answers: submission.answers,
-            correctCount: isFinished || isExpired ? submission.correctCount : undefined,
+            correctCount: isFinished ? submission.correctCount : undefined,
             totalQuestions: submission.totalQuestions,
-            remainingTime:
-              isFinished || isExpired
-                ? Number(submission.remainingTime)
-                : submission.startedAt
-                  ? Math.max(0, QUIZ_DURATION - (now - Number(submission.startedAt)))
-                  : QUIZ_DURATION,
+            remainingTime: isFinished
+              ? Number(submission.remainingTime)
+              : submission.startedAt
+                ? Math.max(0, QUIZ_DURATION - (now - Number(submission.startedAt)))
+                : QUIZ_DURATION,
             startedAt: submission.startedAt ? Number(submission.startedAt) : null,
           }
         : null,
@@ -531,8 +571,8 @@ export class QuizService {
       throw new BadRequestException('Already submitted')
     }
     if (submission?.startedAt) {
-      const elapsed = Date.now() - Number(submission.startedAt)
-      if (elapsed >= QUIZ_DURATION) {
+      if (Date.now() - Number(submission.startedAt) >= QUIZ_DURATION) {
+        await this.finalizeExpiredSubmission(submission, quiz)
         throw new BadRequestException('Time expired')
       }
       return this.getQuizForUser(quizId, user)
@@ -563,10 +603,37 @@ export class QuizService {
     if (submission.finished) throw new BadRequestException('Already submitted')
     if (!submission.startedAt) throw new BadRequestException('Quiz not started')
 
-    const now = Date.now()
-    const elapsed = now - Number(submission.startedAt)
-    const remaining = Math.max(0, QUIZ_DURATION - elapsed)
+    submission.answers = answers
+    const remaining = Math.max(0, QUIZ_DURATION - (Date.now() - Number(submission.startedAt)))
+    submission.correctCount = this.scoreAnswers(quiz, answers)
+    submission.totalQuestions = quiz.questions.length
+    submission.remainingTime = remaining
+    submission.finished = true
+    await this.submissionsRepository.save(submission)
 
+    return this.getQuizForUser(quizId, user)
+  }
+
+  @Cron('*/5 * * * *')
+  async finalizeExpiredSubmissions() {
+    const cutoff = Date.now() - QUIZ_DURATION
+    const expired = await this.submissionsRepository
+      .createQueryBuilder('s')
+      .innerJoinAndSelect('s.quiz', 'quiz')
+      .where('s.finished = :finished', { finished: false })
+      .andWhere('s.startedAt IS NOT NULL')
+      .andWhere('s.startedAt <= :cutoff', { cutoff: String(cutoff) })
+      .getMany()
+
+    for (const submission of expired) {
+      await this.finalizeExpiredSubmission(submission, submission.quiz)
+    }
+    if (expired.length > 0) {
+      this.logger.log(`Auto-finalized ${expired.length} expired submissions`)
+    }
+  }
+
+  private scoreAnswers(quiz: DailyQuizzes, answers: number[][]): number {
     let correctCount = 0
     for (let i = 0; i < quiz.questions.length; i++) {
       const question = quiz.questions[i]
@@ -579,15 +646,73 @@ export class QuizService {
         correctCount++
       }
     }
+    return correctCount
+  }
 
-    submission.answers = answers
-    submission.correctCount = correctCount
+  private async finalizeExpiredSubmission(submission: DailyQuizSubmissions, quiz: DailyQuizzes) {
+    submission.correctCount = this.scoreAnswers(quiz, submission.answers)
     submission.totalQuestions = quiz.questions.length
-    submission.remainingTime = remaining
+    submission.remainingTime = 0
     submission.finished = true
     await this.submissionsRepository.save(submission)
+  }
 
-    return this.getQuizForUser(quizId, user)
+  async getSubmissionByDay(day: string, targetUserId: number, viewer: Users | null) {
+    const quiz = await this.quizzesRepository.findOne({ where: { day } })
+    if (!quiz) throw new BadRequestException('Quiz not found')
+
+    const today = dayjs().format('YYYY-MM-DD')
+    const isToday = quiz.day === today
+
+    if (isToday) {
+      if (!viewer) throw new BadRequestException('Sign in required')
+      const viewerSubmission = await this.submissionsRepository.findOne({
+        where: { quizId: quiz.id, userId: viewer.id, finished: true },
+      })
+      if (!viewerSubmission) {
+        throw new BadRequestException('You must finish the quiz before viewing others')
+      }
+    }
+
+    const targetSubmission = await this.submissionsRepository.findOne({
+      where: { quizId: quiz.id, userId: targetUserId, finished: true },
+      relations: ['user'],
+    })
+    if (!targetSubmission) {
+      throw new BadRequestException('Submission not found')
+    }
+
+    const questions = quiz.questions.map((q, idx) => ({
+      index: idx,
+      type: q.type,
+      negative: q.negative,
+      scramble: q.scramble,
+      drAxis: q.drAxis,
+      lastMove: q.lastMove,
+      options: q.options.map((o, oi) => ({
+        index: oi,
+        label: o.label,
+        solution: o.solution,
+        correct: o.correct,
+      })),
+    }))
+
+    return {
+      quiz: {
+        id: quiz.id,
+        day: quiz.day,
+        questionCount: quiz.questions.length,
+        isToday,
+      },
+      questions,
+      user: targetSubmission.user,
+      submission: {
+        answers: targetSubmission.answers,
+        correctCount: targetSubmission.correctCount,
+        totalQuestions: targetSubmission.totalQuestions,
+        remainingTime: Number(targetSubmission.remainingTime),
+      },
+    }
   }
 
   async getLeaderboard(quizId: number) {
