@@ -657,7 +657,7 @@ export class QuizService {
     await this.submissionsRepository.save(submission)
   }
 
-  async getSubmissionByDay(day: string, targetUserId: number, viewer: Users | null) {
+  async getSubmissionByDay(day: string, id: string, viewer: Users | null) {
     const quiz = await this.quizzesRepository.findOne({ where: { day } })
     if (!quiz) throw new BadRequestException('Quiz not found')
 
@@ -674,10 +674,19 @@ export class QuizService {
       }
     }
 
-    const targetSubmission = await this.submissionsRepository.findOne({
-      where: { quizId: quiz.id, userId: targetUserId, finished: true },
-      relations: ['user'],
-    })
+    const qb = this.submissionsRepository.createQueryBuilder('s')
+      .leftJoinAndSelect('s.user', 'user')
+      .where('s.quizId = :quizId', { quizId: quiz.id })
+      .andWhere('s.finished = true')
+
+    if (/^\d+$/.test(id)) {
+      qb.andWhere('s.userId = :id', { id: Number(id) })
+    }
+    else {
+      qb.andWhere('user.wcaId = :wcaId', { wcaId: id })
+    }
+
+    const targetSubmission = await qb.getOne()
     if (!targetSubmission) {
       throw new BadRequestException('Submission not found')
     }

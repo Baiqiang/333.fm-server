@@ -44,14 +44,14 @@ export class QuizController {
     return this.quizService.getLeaderboard(id)
   }
 
-  @Get('day/:day/submission/:userId')
+  @Get('day/:day/submission/:id')
   @UseGuards(JwtAuthGuard)
   async viewSubmission(
     @Param('day') day: string,
-    @Param('userId', ParseIntPipe) userId: number,
+    @Param('id') id: string,
     @CurrentUser() viewer: Users | null,
   ) {
-    return this.quizService.getSubmissionByDay(day, userId, viewer)
+    return this.quizService.getSubmissionByDay(day, id, viewer)
   }
 
   @Get('history')
