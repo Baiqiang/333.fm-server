@@ -1037,22 +1037,26 @@ export class QuizService {
       }
       if (qtIndices.length === 0) continue
 
-      let targetQTIdx = qtIndices[0]
-
-      const newQT = getDRQT(scramble + ' ' + parts.slice(0, targetQTIdx + 1).join(' '))
-      if (newQT !== null && newQT >= qt) {
-        if (qtIndices.length >= 3) {
-          targetQTIdx = qtIndices[2]
-        } else {
-          continue
+      let targetQTIdx = -1
+      for (const idx of qtIndices) {
+        const newQT = getDRQT(scramble + ' ' + parts.slice(0, idx + 1).join(' '))
+        if (newQT !== null && newQT < qt) {
+          targetQTIdx = idx
+          break
         }
       }
+      if (targetQTIdx === -1) continue
 
-      const filtered = parts.slice(0, targetQTIdx + 1).filter(p => {
-        return !(p.endsWith('2') && qtFaces.has(p[0]))
-      })
+      const prefix = parts.slice(0, targetQTIdx + 1)
+      const filtered = prefix.filter(p => !(p.endsWith('2') && qtFaces.has(p[0])))
       if (filtered.length > 0) {
-        truncated.add(filtered.join(' '))
+        const filteredStr = filtered.join(' ')
+        const filteredQT = getDRQT(scramble + ' ' + filteredStr)
+        if (filteredQT !== null && filteredQT < qt) {
+          truncated.add(filteredStr)
+        } else {
+          truncated.add(prefix.join(' '))
+        }
       }
     }
 
