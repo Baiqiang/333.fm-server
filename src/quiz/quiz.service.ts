@@ -888,7 +888,7 @@ export class QuizService {
 
     const validPicks = shuffled.slice(0, numValid)
     const invalidPicks: string[] = []
-    const used = new Set(validPicks)
+    const used = new Set(validSolutions)
 
     if (suboptimalSolutions && suboptimalSolutions.length > 0) {
       const subShuffled = [...suboptimalSolutions].sort(() => Math.random() - 0.5)

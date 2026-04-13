@@ -46,11 +46,7 @@ export class QuizController {
 
   @Get('day/:day/submission/:id')
   @UseGuards(JwtAuthGuard)
-  async viewSubmission(
-    @Param('day') day: string,
-    @Param('id') id: string,
-    @CurrentUser() viewer: Users | null,
-  ) {
+  async viewSubmission(@Param('day') day: string, @Param('id') id: string, @CurrentUser() viewer: Users | null) {
     return this.quizService.getSubmissionByDay(day, id, viewer)
   }
 
