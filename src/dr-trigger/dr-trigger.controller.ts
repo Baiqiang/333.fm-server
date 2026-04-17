@@ -26,7 +26,13 @@ export class DRTriggerController {
   @Post('start')
   @UseGuards(JwtRequiredGuard)
   async start(@CurrentUser() user: Users, @Body() dto: DRTriggerStartDto) {
-    return this.drTriggerService.startGame(user, dto.difficulty ?? 5, dto.rzp, dto.merged ?? true)
+    return this.drTriggerService.startGame(
+      user,
+      dto.difficulty ?? 5,
+      dto.rzp,
+      dto.merged ?? true,
+      dto.practice ?? false,
+    )
   }
 
   @Post('submit')

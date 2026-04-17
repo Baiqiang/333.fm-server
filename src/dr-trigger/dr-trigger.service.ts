@@ -52,7 +52,7 @@ export class DRTriggerService {
     }
   }
 
-  async startGame(user: Users, difficulty = 5, rzp?: string, merged = true) {
+  async startGame(user: Users, difficulty = 5, rzp?: string, merged = true, practice = false) {
     const existing = await this.gamesRepository.findOne({
       where: { userId: user.id, status: DRTriggerGameStatus.ONGOING },
     })
@@ -77,6 +77,7 @@ export class DRTriggerService {
     game.difficulty = isRzpMode ? 0 : difficulty
     game.rzp = isRzpMode ? rzp! : null
     game.merged = merged
+    game.practice = practice
     game.currentTriggerId = trigger.id
     game.currentRoundStartedAt = Date.now()
     const hash = createHash('sha256').update(`${user.id}-${Date.now()}-${Math.random()}`).digest('hex').substring(0, 64)
@@ -287,6 +288,7 @@ export class DRTriggerService {
       .createQueryBuilder('g')
       .leftJoinAndSelect('g.user', 'user')
       .where('g.status = :status', { status: DRTriggerGameStatus.ENDED })
+      .andWhere('g.practice = false')
       .orderBy('g.levels', 'DESC')
       .addOrderBy('g.remainingTime', 'DESC')
       .take(50)
@@ -618,6 +620,7 @@ export class DRTriggerService {
       difficulty: game.difficulty,
       rzp: game.rzp,
       merged: game.merged,
+      practice: game.practice,
       remainingTime: Math.max(0, remainingTime),
       totalTimeBonus: game.totalTimeBonus,
       createdAt: game.createdAt,

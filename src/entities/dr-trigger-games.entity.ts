@@ -57,6 +57,10 @@ export class DRTriggerGames {
   @Index()
   merged: boolean
 
+  @Column({ default: false })
+  @Index()
+  practice: boolean
+
   @Column({ length: 1024, default: '' })
   sessionHash: string
 

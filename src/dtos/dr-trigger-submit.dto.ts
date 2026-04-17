@@ -12,6 +12,10 @@ export class DRTriggerStartDto {
   @IsOptional()
   @IsBoolean()
   merged?: boolean
+
+  @IsOptional()
+  @IsBoolean()
+  practice?: boolean
 }
 
 export class DRTriggerSubmitDto {
