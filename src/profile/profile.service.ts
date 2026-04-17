@@ -428,7 +428,9 @@ export class ProfileService {
         season: true,
       },
       order: {
-        seasonId: 'ASC',
+        season: {
+          number: 'ASC',
+        },
         week: 'ASC',
       },
     })
