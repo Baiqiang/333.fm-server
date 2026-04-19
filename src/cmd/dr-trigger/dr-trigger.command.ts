@@ -31,9 +31,12 @@ export class DRTriggerCommand extends CommandRunner {
       case 'compute-symmetry':
         await this.service.computeSymmetryGroups()
         break
+      case 'update-representatives':
+        await this.service.updateRepresentatives()
+        break
       default:
         this.logger.warn(
-          'Usage: npm run cmd -- dr-trigger seed|symmetry [maxMoves]|count-table|reset|fix-eo|compute-symmetry',
+          'Usage: npm run cmd -- dr-trigger seed|symmetry [maxMoves]|count-table|reset|fix-eo|compute-symmetry|update-representatives',
         )
         break
     }

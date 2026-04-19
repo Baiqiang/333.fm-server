@@ -23,6 +23,7 @@ import { LeagueResults } from '@/entities/league-results.entity'
 import { LeagueSeasons } from '@/entities/league-seasons.entity'
 import { LeagueStandings } from '@/entities/league-standings.entity'
 import { LeagueTiers } from '@/entities/league-tiers.entity'
+import { LeaveSliceCases } from '@/entities/leave-slice-cases.entity'
 import { Notifications } from '@/entities/notifications.entity'
 import { RealInsertionFinders } from '@/entities/real-insertion-finders.entity'
 import { Results } from '@/entities/results.entity'
@@ -41,6 +42,8 @@ import { EndlessCommand } from './endless/endless.command'
 import { EndlessCommandService } from './endless/endless.service'
 import { LeagueCommand } from './league/league.command'
 import { LeagueService } from './league/league.service'
+import { LeaveSliceCommand } from './leave-slice/leave-slice.command'
+import { LeaveSliceCommandService } from './leave-slice/leave-slice.service'
 import { PointCommand } from './point/point.command'
 import { PointService } from './point/point.service'
 import { SubmissionCommand } from './submission/submission.command'
@@ -98,6 +101,7 @@ import { WcaService } from './wca/wca.service'
       DRTriggers,
       DRTriggerGames,
       DRTriggerGameRounds,
+      LeaveSliceCases,
     ]),
   ],
   providers: [
@@ -116,6 +120,8 @@ import { WcaService } from './wca/wca.service'
     LeagueCommand,
     WcaService,
     WcaCommand,
+    LeaveSliceCommandService,
+    LeaveSliceCommand,
   ],
 })
 export class CmdModule {}

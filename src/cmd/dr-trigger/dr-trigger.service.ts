@@ -298,6 +298,97 @@ export class DRTriggerCommandService {
     }
   }
 
+  async updateRepresentatives() {
+    const FACE_PRIORITY: Record<string, number> = { R: 0, U: 1, F: 2, D: 3, B: 4, L: 5 }
+
+    const groups = await this.triggersRepository
+      .createQueryBuilder('t')
+      .select('DISTINCT t.symmetryGroup', 'symmetryGroup')
+      .where('t.symmetryGroup IS NOT NULL')
+      .getRawMany<{ symmetryGroup: string }>()
+
+    this.logger.log(`Found ${groups.length} symmetry groups`)
+
+    // Reset all representatives
+    await this.triggersRepository
+      .createQueryBuilder()
+      .update()
+      .set({ isSymmetryRepresentative: false })
+      .execute()
+
+    const scoreSolution = (solution: string): number => {
+      return solution
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+        .reduce((sum, move) => {
+          const m = MOVE_RE.exec(move)
+          return sum + (m ? (FACE_PRIORITY[m[1]] ?? 0) : 0)
+        }, 0)
+    }
+
+    const scoreTrigger = (trigger: DRTriggers): { score: number; best: string } => {
+      const minLen = Math.min(...trigger.solutions.map(s => this.getSolutionMoveCount(s.solution)))
+      const optimalSolutions = trigger.solutions
+        .filter(s => this.getSolutionMoveCount(s.solution) === minLen)
+        .map(s => s.solution)
+      let bestScore = Infinity
+      let bestSol = ''
+      for (const sol of optimalSolutions) {
+        const s = scoreSolution(sol)
+        if (s < bestScore || (s === bestScore && sol < bestSol)) {
+          bestScore = s
+          bestSol = sol
+        }
+      }
+      return { score: bestScore, best: bestSol }
+    }
+
+    let updated = 0
+    for (let i = 0; i < groups.length; i += BATCH_SIZE) {
+      const batch = groups.slice(i, i + BATCH_SIZE)
+      const groupKeys = batch.map(g => g.symmetryGroup)
+
+      const triggers = await this.triggersRepository
+        .createQueryBuilder('t')
+        .where('t.symmetryGroup IN (:...groupKeys)', { groupKeys })
+        .getMany()
+
+      const byGroup = new Map<string, DRTriggers[]>()
+      for (const t of triggers) {
+        const list = byGroup.get(t.symmetryGroup!) ?? []
+        list.push(t)
+        byGroup.set(t.symmetryGroup!, list)
+      }
+
+      const repIds: number[] = []
+      for (const members of byGroup.values()) {
+        members.sort((a, b) => {
+          const sa = scoreTrigger(a)
+          const sb = scoreTrigger(b)
+          if (sa.score !== sb.score) return sa.score - sb.score
+          if (sa.best !== sb.best) return sa.best < sb.best ? -1 : 1
+          return a.id - b.id
+        })
+        repIds.push(members[0].id)
+      }
+
+      for (let j = 0; j < repIds.length; j += BATCH_SIZE) {
+        await this.triggersRepository
+          .createQueryBuilder()
+          .update()
+          .set({ isSymmetryRepresentative: true })
+          .whereInIds(repIds.slice(j, j + BATCH_SIZE))
+          .execute()
+      }
+
+      updated += repIds.length
+      this.logger.log(`Updated ${updated}/${groups.length} groups`)
+    }
+
+    this.logger.log(`Done. Updated representatives for ${updated} symmetry groups.`)
+  }
+
   private computeCanonicalKey(
     trigger: DRTriggers,
     symmetries: SymmetryTransform[],
