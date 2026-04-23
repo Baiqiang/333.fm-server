@@ -23,6 +23,8 @@ const excludePracticeSubTypes = [
   CompetitionSubType.HTR_PRACTICE,
 ]
 
+const excludeCompetitionTypes = [CompetitionType.FMC_CHAIN, CompetitionType.WCA_RECONSTRUCTION]
+
 function ywToStr(yw: number) {
   const year = Math.floor(yw / 100)
   const week = yw % 100
@@ -90,7 +92,7 @@ export class StatsService {
     return this.submissionsRepository
       .createQueryBuilder('s')
       .leftJoin('s.competition', 'c')
-      .where('c.type != :chain', { chain: CompetitionType.FMC_CHAIN })
+      .where('c.type NOT IN (:...excludeTypes)', { excludeTypes: excludeCompetitionTypes })
       .andWhere('c.subType NOT IN (:...practiceSubTypes)', { practiceSubTypes: excludePracticeSubTypes })
       .andWhere('s.moves > 0')
       .andWhere('s.created_at < :currentWeekStart', { currentWeekStart })
@@ -143,7 +145,7 @@ export class StatsService {
       .addSelect('COUNT(*)', 'cnt')
       .leftJoin('cm.submission', 's')
       .leftJoin('s.competition', 'c')
-      .where('c.type != :chain', { chain: CompetitionType.FMC_CHAIN })
+      .where('c.type NOT IN (:...excludeTypes)', { excludeTypes: excludeCompetitionTypes })
       .andWhere('c.subType NOT IN (:...practiceSubTypes)', { practiceSubTypes: excludePracticeSubTypes })
       .andWhere('s.moves > 0')
       .andWhere('s.created_at < :currentWeekStart', { currentWeekStart })
@@ -251,7 +253,7 @@ export class StatsService {
       .addSelect('u.avatar_thumb', 'u_avatarThumb')
       .addSelect('COUNT(*)', 'submissionCount')
       .addSelect('MIN(s.moves)', 'bestSingle')
-      .where('c.type != :chain', { chain: CompetitionType.FMC_CHAIN })
+      .where('c.type NOT IN (:...excludeTypes)', { excludeTypes: excludeCompetitionTypes })
       .andWhere('c.subType NOT IN (:...practiceSubTypes)', { practiceSubTypes: excludePracticeSubTypes })
       .andWhere('s.moves > 0')
       .andWhere('s.mode = :mode', { mode: CompetitionMode.REGULAR })
