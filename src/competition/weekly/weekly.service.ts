@@ -225,80 +225,79 @@ export class WeeklyService {
     if (competition.hasEnded) {
       throw new BadRequestException('Competition has ended')
     }
-    const scramble = await this.scramblesRepository.findOne({
-      where: {
-        id: solution.scrambleId,
-        competitionId: competition.id,
-      },
-    })
-    if (scramble === null) {
-      throw new BadRequestException('Invalid scramble')
-    }
-    const preSubmissions = await this.submissionsRepository.find({
-      where: {
-        scrambleId: scramble.id,
-        userId: user.id,
-      },
-    })
-
-    // regular mode can only submit once
-    if (solution.mode === CompetitionMode.REGULAR) {
-      if (preSubmissions.length > 0) {
-        throw new BadRequestException('Already submitted')
-      }
-    }
-    const preSubmission = preSubmissions.find(s => s.mode === solution.mode)
-    const moves = calculateMoves(scramble.scramble, solution.solution)
-    // check if moves is better than preSubmission
-    if (solution.mode === CompetitionMode.UNLIMITED && preSubmissions.some(s => s.moves < moves)) {
-      throw new BadRequestException('Solution is not better than previous submission')
-    }
-    let submission = preSubmission
-    if (!submission) {
-      submission = await this.competitionService.createSubmission(competition, scramble, user, solution, {
-        moves,
+    return await this.submissionsRepository.manager.transaction(async manager => {
+      const scramble = await manager.findOne(Scrambles, {
+        where: {
+          id: solution.scrambleId,
+          competitionId: competition.id,
+        },
+        lock: { mode: 'pessimistic_write' },
       })
-    } else {
-      await this.competitionService.updateSubmission(submission, { ...solution, moves }, [
-        'solution',
-        'moves',
-        'comment',
-        'attachments',
-      ])
-    }
-    submission.moves = moves
-    let result = await this.resultsRepository.findOne({
-      where: {
-        mode: solution.mode,
-        competition: {
-          id: competition.id,
+      if (scramble === null) {
+        throw new BadRequestException('Invalid scramble')
+      }
+      const preSubmissions = await manager.find(Submissions, {
+        where: {
+          scrambleId: scramble.id,
+          userId: user.id,
         },
-        user: {
-          id: user.id,
+      })
+
+      // regular mode can only submit once
+      if (solution.mode === CompetitionMode.REGULAR) {
+        if (preSubmissions.length > 0) {
+          throw new BadRequestException('Already submitted')
+        }
+      }
+      const preSubmission = preSubmissions.find(s => s.mode === solution.mode)
+      const moves = calculateMoves(scramble.scramble, solution.solution)
+      // check if moves is better than preSubmission
+      if (solution.mode === CompetitionMode.UNLIMITED && preSubmissions.some(s => s.moves < moves)) {
+        throw new BadRequestException('Solution is not better than previous submission')
+      }
+      let submission = preSubmission
+      if (!submission) {
+        submission = await this.competitionService.createSubmission(competition, scramble, user, solution, {
+          moves,
+        })
+      } else {
+        await this.competitionService.updateSubmission(submission, { ...solution, moves }, [
+          'solution',
+          'moves',
+          'comment',
+          'attachments',
+        ])
+      }
+      submission.moves = moves
+      let result = await manager.findOne(Results, {
+        where: {
+          mode: solution.mode,
+          competitionId: competition.id,
+          userId: user.id,
         },
-      },
+      })
+      if (result === null) {
+        result = new Results()
+        result.mode = solution.mode
+        result.competition = competition
+        result.user = user
+        result.values = competition.scrambles.map(() => 0)
+        result.best = 0
+        result.average = 0
+        await manager.save(result)
+      }
+      submission.result = result
+      await manager.save(submission)
+      result.values[scramble.number - 1] = submission.moves
+      const nonZeroValues = result.values.filter(value => value > 0)
+      result.best = Math.min(...nonZeroValues)
+      result.average = Math.round(nonZeroValues.reduce((a, b) => a + b, 0) / nonZeroValues.length)
+      if (result.values.some(v => v === DNF || v === DNS)) {
+        result.average = DNF
+      }
+      await manager.save(result)
+      return submission
     })
-    if (result === null) {
-      result = new Results()
-      result.mode = solution.mode
-      result.competition = competition
-      result.user = user
-      result.values = competition.scrambles.map(() => 0)
-      result.best = 0
-      result.average = 0
-      await this.resultsRepository.save(result)
-    }
-    submission.result = result
-    await this.submissionsRepository.save(submission)
-    result.values[scramble.number - 1] = submission.moves
-    const nonZeroValues = result.values.filter(value => value > 0)
-    result.best = Math.min(...nonZeroValues)
-    result.average = Math.round(nonZeroValues.reduce((a, b) => a + b, 0) / nonZeroValues.length)
-    if (result.values.some(v => v === DNF || v === DNS)) {
-      result.average = DNF
-    }
-    await this.resultsRepository.save(result)
-    return submission
   }
 
   async update(
@@ -312,65 +311,68 @@ export class WeeklyService {
   }
 
   async turnToUnlimited(competition: Competitions, user: Users, id: number) {
-    const submission = await this.submissionsRepository.findOne({
-      where: {
-        id,
-        mode: CompetitionMode.REGULAR,
-        userId: user.id,
-        competitionId: competition.id,
-      },
-      relations: {
-        scramble: true,
-        result: true,
-      },
+    await this.submissionsRepository.manager.transaction(async manager => {
+      const submission = await manager.findOne(Submissions, {
+        where: {
+          id,
+          mode: CompetitionMode.REGULAR,
+          userId: user.id,
+          competitionId: competition.id,
+        },
+        relations: {
+          scramble: true,
+          result: true,
+        },
+        lock: { mode: 'pessimistic_write' },
+      })
+      if (submission === null) {
+        throw new BadRequestException('Invalid submission')
+      }
+      const unlimitedSubmission = await manager.findOne(Submissions, {
+        where: {
+          scrambleId: submission.scrambleId,
+          mode: CompetitionMode.UNLIMITED,
+          userId: user.id,
+          competitionId: competition.id,
+        },
+      })
+      if (unlimitedSubmission) {
+        throw new BadRequestException('Already submitted')
+      }
+      submission.mode = CompetitionMode.UNLIMITED
+      // DNF regular result
+      const regularResult = submission.result
+      regularResult.values[submission.scramble.number - 1] = DNF
+      regularResult.best = Math.min(...regularResult.values.filter(v => v > 0))
+      regularResult.average = DNF
+      await manager.save(regularResult)
+      // update unlimited result
+      let unlimitedResult = await manager.findOne(Results, {
+        where: {
+          mode: CompetitionMode.UNLIMITED,
+          competitionId: competition.id,
+          userId: user.id,
+        },
+      })
+      if (unlimitedResult === null) {
+        unlimitedResult = new Results()
+        unlimitedResult.mode = CompetitionMode.UNLIMITED
+        unlimitedResult.competition = competition
+        unlimitedResult.user = user
+        unlimitedResult.values = competition.scrambles.map(() => 0)
+        unlimitedResult.best = 0
+        unlimitedResult.average = 0
+      }
+      unlimitedResult.values[submission.scramble.number - 1] = submission.moves
+      const nonZeroValues = unlimitedResult.values.filter(value => value > 0)
+      unlimitedResult.best = Math.min(...nonZeroValues)
+      unlimitedResult.average = Math.round(nonZeroValues.reduce((a, b) => a + b, 0) / nonZeroValues.length)
+      if (unlimitedResult.values.some(v => v === DNF || v === DNS)) {
+        unlimitedResult.average = DNF
+      }
+      await manager.save(unlimitedResult)
+      submission.result = unlimitedResult
+      await manager.save(submission)
     })
-    if (submission === null) {
-      throw new BadRequestException('Invalid submission')
-    }
-    const unlimitedSubmission = await this.submissionsRepository.findOne({
-      where: {
-        scrambleId: submission.scrambleId,
-        mode: CompetitionMode.UNLIMITED,
-        userId: user.id,
-        competitionId: competition.id,
-      },
-    })
-    if (unlimitedSubmission) {
-      throw new BadRequestException('Already submitted')
-    }
-    submission.mode = CompetitionMode.UNLIMITED
-    // DNF regular result
-    const regularResult = submission.result
-    regularResult.values[submission.scramble.number - 1] = DNF
-    regularResult.best = Math.min(...regularResult.values.filter(v => v > 0))
-    regularResult.average = DNF
-    await this.resultsRepository.save(regularResult)
-    // update unlimited result
-    let unlimitedResult = await this.resultsRepository.findOne({
-      where: {
-        mode: CompetitionMode.UNLIMITED,
-        competitionId: competition.id,
-        userId: user.id,
-      },
-    })
-    if (unlimitedResult === null) {
-      unlimitedResult = new Results()
-      unlimitedResult.mode = CompetitionMode.UNLIMITED
-      unlimitedResult.competition = competition
-      unlimitedResult.user = user
-      unlimitedResult.values = competition.scrambles.map(() => 0)
-      unlimitedResult.best = 0
-      unlimitedResult.average = 0
-    }
-    unlimitedResult.values[submission.scramble.number - 1] = submission.moves
-    const nonZeroValues = unlimitedResult.values.filter(value => value > 0)
-    unlimitedResult.best = Math.min(...nonZeroValues)
-    unlimitedResult.average = Math.round(nonZeroValues.reduce((a, b) => a + b, 0) / nonZeroValues.length)
-    if (unlimitedResult.values.some(v => v === DNF || v === DNS)) {
-      unlimitedResult.average = DNF
-    }
-    await this.resultsRepository.save(unlimitedResult)
-    submission.result = unlimitedResult
-    await this.submissionsRepository.save(submission)
   }
 }

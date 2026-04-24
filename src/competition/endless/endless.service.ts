@@ -513,97 +513,96 @@ export class EndlessService {
     // if (competition.hasEnded) {
     //   throw new BadRequestException('Competition has ended')
     // }
-    const scramble = await this.scramblesRepository.findOne({
-      where: {
-        id: solution.scrambleId,
-        competitionId: competition.id,
-      },
-    })
-    if (scramble === null) {
-      throw new BadRequestException('Invalid scramble')
-    }
-    // check for previous level
-    let previousLevelDnfPenalty = false
-    if (scramble.number > 1) {
-      const prevScramble = await this.scramblesRepository.findOne({
+    return await this.submissionsRepository.manager.transaction(async manager => {
+      const scramble = await manager.findOne(Scrambles, {
         where: {
+          id: solution.scrambleId,
           competitionId: competition.id,
-          number: scramble.number - 1,
         },
+        lock: { mode: 'pessimistic_write' },
       })
-      const previousLevelSubmission = await this.submissionsRepository.findOne({
+      if (scramble === null) {
+        throw new BadRequestException('Invalid scramble')
+      }
+      // check for previous level
+      let previousLevelDnfPenalty = false
+      if (scramble.number > 1) {
+        const prevScramble = await manager.findOne(Scrambles, {
+          where: {
+            competitionId: competition.id,
+            number: scramble.number - 1,
+          },
+        })
+        const previousLevelSubmission = await manager.findOne(Submissions, {
+          where: {
+            scrambleId: prevScramble.id,
+            userId: user.id,
+          },
+        })
+        if (previousLevelSubmission === null) {
+          throw new BadRequestException('Previous scramble not solved')
+        }
+        previousLevelDnfPenalty =
+          competition.subType === CompetitionSubType.BOSS_CHALLENGE && previousLevelSubmission.moves === DNF
+      }
+      const prevSubmission = await manager.findOne(Submissions, {
         where: {
-          scrambleId: prevScramble.id,
+          scrambleId: scramble.id,
           userId: user.id,
         },
       })
-      if (previousLevelSubmission === null) {
-        throw new BadRequestException('Previous scramble not solved')
+      if (prevSubmission !== null) {
+        throw new BadRequestException('Already submitted')
       }
-      previousLevelDnfPenalty =
-        competition.subType === CompetitionSubType.BOSS_CHALLENGE && previousLevelSubmission.moves === DNF
-    }
-    const prevSubmission = await this.submissionsRepository.findOne({
-      where: {
-        scrambleId: scramble.id,
-        userId: user.id,
-      },
-    })
-    if (prevSubmission !== null) {
-      throw new BadRequestException('Already submitted')
-    }
-    const competitionChallenges = await this.challengesRepository.find({
-      where: {
+      const competitionChallenges = await this.challengesRepository.find({
+        where: {
+          competitionId: competition.id,
+        },
+        order: {
+          id: 'ASC',
+        },
+      })
+      const currentChallenge = competitionChallenges.find(entry => matchesChallengeLevel(entry, scramble.number))
+      const moves = calculateMoves(scramble.scramble, solution.solution)
+      if (moves === DNF && currentChallenge?.isBoss !== true) {
+        throw new BadRequestException('DNF')
+      }
+      const submission = await this.competitionService.createSubmission(competition, scramble, user, solution, {
+        moves,
+      })
+      let result = await manager.findOne(Results, {
+        where: {
+          competitionId: competition.id,
+          userId: user.id,
+        },
+      })
+      if (result === null) {
+        result = new Results()
+        result.mode = submission.mode
+        result.competition = competition
+        result.user = user
+        result.values = []
+        result.best = 0
+        result.average = 0
+        await manager.save(result)
+      }
+      submission.result = result
+      await manager.save(submission)
+      result.values.push(submission.moves)
+      result.best = Math.min(...result.values)
+      result.average = calculateTrimmedMean(result.values)
+      await manager.save(result)
+      await this.queue.add({
         competitionId: competition.id,
-      },
-      order: {
-        id: 'ASC',
-      },
+        userId: user.id,
+        scrambleId: scramble.id,
+        scrambleNumber: scramble.number,
+        submissionId: submission.id,
+        moves,
+        previousLevelDnfPenalty,
+      })
+      return submission
     })
-    const currentChallenge = competitionChallenges.find(entry => matchesChallengeLevel(entry, scramble.number))
-    const moves = calculateMoves(scramble.scramble, solution.solution)
-    if (moves === DNF && currentChallenge?.isBoss !== true) {
-      throw new BadRequestException('DNF')
-    }
-    const submission = await this.competitionService.createSubmission(competition, scramble, user, solution, {
-      moves,
-    })
-    let result = await this.resultsRepository.findOne({
-      where: {
-        competition: {
-          id: competition.id,
-        },
-        user: {
-          id: user.id,
-        },
-      },
-    })
-    if (result === null) {
-      result = new Results()
-      result.mode = submission.mode
-      result.competition = competition
-      result.user = user
-      result.values = []
-      result.best = 0
-      result.average = 0
-      await this.resultsRepository.save(result)
-    }
-    submission.result = result
-    await this.submissionsRepository.save(submission)
-    result.values.push(submission.moves)
-    result.best = Math.min(...result.values)
-    result.average = calculateTrimmedMean(result.values)
-    await this.resultsRepository.save(result)
-    await this.queue.add({
-      competitionId: competition.id,
-      userId: user.id,
-      scrambleId: scramble.id,
-      scrambleNumber: scramble.number,
-      submissionId: submission.id,
-      moves,
-      previousLevelDnfPenalty,
-    })
-    return submission
   }
 
   async update(

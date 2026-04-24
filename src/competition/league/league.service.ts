@@ -788,53 +788,56 @@ export class LeagueService {
         seasonId: competition.leagueSeasonId,
       },
     })
-    const scramble = await this.scramblesRepository.findOne({
-      where: {
-        id: solution.scrambleId,
-        competitionId: competition.id,
-      },
+    return await this.submissionsRepository.manager.transaction(async manager => {
+      const scramble = await manager.findOne(Scrambles, {
+        where: {
+          id: solution.scrambleId,
+          competitionId: competition.id,
+        },
+        lock: { mode: 'pessimistic_write' },
+      })
+      if (scramble === null) {
+        throw new BadRequestException('Invalid scramble')
+      }
+      const preSubmission = await manager.findOne(Submissions, {
+        where: {
+          scrambleId: scramble.id,
+          userId: user.id,
+        },
+      })
+      if (preSubmission !== null) {
+        throw new BadRequestException('You have already submitted a solution')
+      }
+      solution.mode = player ? CompetitionMode.REGULAR : CompetitionMode.UNLIMITED
+      const submission = await this.competitionService.createSubmission(competition, scramble, user, solution)
+      let result = await manager.findOne(Results, {
+        where: {
+          competitionId: competition.id,
+          userId: user.id,
+        },
+      })
+      if (result === null) {
+        result = new Results()
+        result.mode = solution.mode
+        result.competition = competition
+        result.user = user
+        result.values = competition.scrambles.map(() => 0)
+        result.best = 0
+        result.average = 0
+        await manager.save(result)
+      }
+      submission.result = result
+      await manager.save(submission)
+      result.values[scramble.number - 1] = submission.moves
+      const nonZeroValues = result.values.filter(value => value > 0)
+      result.best = Math.min(...nonZeroValues)
+      result.average = Math.round(nonZeroValues.reduce((a, b) => a + b, 0) / nonZeroValues.length)
+      if (result.values.some(v => v === DNF || v === DNS)) {
+        result.average = DNF
+      }
+      await manager.save(result)
+      return submission
     })
-    if (scramble === null) {
-      throw new BadRequestException('Invalid scramble')
-    }
-    const preSubmission = await this.submissionsRepository.findOne({
-      where: {
-        scrambleId: scramble.id,
-        userId: user.id,
-      },
-    })
-    if (preSubmission !== null) {
-      throw new BadRequestException('You have already submitted a solution')
-    }
-    solution.mode = player ? CompetitionMode.REGULAR : CompetitionMode.UNLIMITED
-    const submission = await this.competitionService.createSubmission(competition, scramble, user, solution)
-    let result = await this.resultsRepository.findOne({
-      where: {
-        competitionId: competition.id,
-        userId: user.id,
-      },
-    })
-    if (result === null) {
-      result = new Results()
-      result.mode = solution.mode
-      result.competition = competition
-      result.user = user
-      result.values = competition.scrambles.map(() => 0)
-      result.best = 0
-      result.average = 0
-      await this.resultsRepository.save(result)
-    }
-    submission.result = result
-    await this.submissionsRepository.save(submission)
-    result.values[scramble.number - 1] = submission.moves
-    const nonZeroValues = result.values.filter(value => value > 0)
-    result.best = Math.min(...nonZeroValues)
-    result.average = Math.round(nonZeroValues.reduce((a, b) => a + b, 0) / nonZeroValues.length)
-    if (result.values.some(v => v === DNF || v === DNS)) {
-      result.average = DNF
-    }
-    await this.resultsRepository.save(result)
-    return submission
   }
 
   async adminAddSubmission(scrambleId: number, userId: number, solution: string, comment: string) {
