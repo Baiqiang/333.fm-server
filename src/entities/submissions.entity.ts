@@ -84,6 +84,9 @@ export class Submissions {
   @Column({ default: 0 })
   damage: number
 
+  @Column({ default: false })
+  bossInstantKill: boolean
+
   @Column({ default: true })
   verified: boolean
 

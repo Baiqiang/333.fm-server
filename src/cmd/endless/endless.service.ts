@@ -1,9 +1,12 @@
+import { InjectQueue } from '@nestjs/bull'
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { Repository } from 'typeorm'
+import { Queue } from 'bull'
+import { In, Repository } from 'typeorm'
 
 import {
   type ConditionDef,
+  type EndlessJob,
   generateConditions,
   isBossLevel,
   normalizeSolution,
@@ -38,7 +41,8 @@ import {
   type SameSolutionParams,
   type TotalSubmissionsParams,
 } from '@/entities/endless-challenge-conditions.entity'
-import { DNF } from '@/entities/results.entity'
+import { EndlessKickoffs } from '@/entities/endless-kickoffs.entity'
+import { DNF, DNS } from '@/entities/results.entity'
 import { Scrambles } from '@/entities/scrambles.entity'
 import { Submissions } from '@/entities/submissions.entity'
 import { generateScramble } from '@/utils/scramble'
@@ -131,6 +135,10 @@ export class EndlessCommandService {
     private readonly submissionsRepository: Repository<Submissions>,
     @InjectRepository(EndlessChallengeConditions)
     private readonly conditionsRepository: Repository<EndlessChallengeConditions>,
+    @InjectRepository(EndlessKickoffs)
+    private readonly kickoffsRepository: Repository<EndlessKickoffs>,
+    @InjectQueue('endless')
+    private readonly queue: Queue<EndlessJob>,
   ) {}
 
   async openBoss(alias: string, startTimeRaw?: string, endTimeRaw?: string) {
@@ -279,6 +287,281 @@ export class EndlessCommandService {
     await this.competitionsRepository.save(competition)
     this.logger.log(`Ended endless ${competition.alias} (#${competition.id})`)
     return competition
+  }
+
+  async printBossStats(alias: string) {
+    if (!alias) {
+      throw new BadRequestException('Alias is required')
+    }
+    const competition = await this.competitionsRepository.findOne({
+      where: {
+        alias,
+        type: CompetitionType.ENDLESS,
+        subType: CompetitionSubType.BOSS_CHALLENGE,
+      },
+      relations: {
+        challenges: true,
+      },
+    })
+    if (!competition) {
+      throw new NotFoundException(`Boss endless not found: ${alias}`)
+    }
+
+    const scrambles = await this.scramblesRepository.find({
+      where: { competitionId: competition.id },
+      order: { number: 'ASC' },
+      relations: {
+        kickoffs: {
+          submission: {
+            user: true,
+          },
+          user: true,
+        },
+      },
+    })
+    if (scrambles.length === 0) {
+      this.logger.warn(`No levels found for ${competition.alias} (#${competition.id})`)
+      return
+    }
+
+    const submissions = await this.submissionsRepository.find({
+      where: {
+        scrambleId: In(scrambles.map(scramble => scramble.id)),
+      },
+      order: {
+        moves: 'ASC',
+      },
+      relations: {
+        user: true,
+      },
+    })
+    const submissionsByScramble = new Map<number, Submissions[]>()
+    for (const submission of submissions) {
+      const entries = submissionsByScramble.get(submission.scrambleId) ?? []
+      entries.push(submission)
+      submissionsByScramble.set(submission.scrambleId, entries)
+    }
+
+    let instantKillCount = 0
+    let teamKillCount = 0
+    let unbeatenCount = 0
+    const unlockedLevels = new Set(scrambles.map(scramble => scramble.number))
+    const rows = scrambles.map(scramble => {
+      const challenge = competition.challenges?.find(entry => matchesChallengeLevel(entry, scramble.number))
+      const bossChallenge = challenge?.isBoss ? challenge.bossChallenge : undefined
+      const levelSubmissions = submissionsByScramble.get(scramble.id) ?? []
+      const totalDamage = levelSubmissions.reduce((sum, submission) => sum + submission.damage, 0)
+      const bestSubmission = levelSubmissions[0]
+      const defeated = scramble.currentHP <= 0 || unlockedLevels.has(scramble.number + 1)
+      const instantKickoff = bossChallenge
+        ? scramble.kickoffs?.find(kickoff => {
+            const submission = kickoff.submission
+            return submission && submission.bossInstantKill
+          })
+        : undefined
+      const result = !defeated ? '未击破' : instantKickoff ? '秒杀' : '合力击破'
+      if (result === '秒杀') {
+        instantKillCount++
+      } else if (result === '合力击破') {
+        teamKillCount++
+      } else {
+        unbeatenCount++
+      }
+
+      return {
+        level: scramble.number,
+        result,
+        hp: `${scramble.initialHP}->${scramble.currentHP}`,
+        instantKill: bossChallenge?.instantKill ?? '',
+        submissions: levelSubmissions.length,
+        best: bestSubmission ? this.formatMoves(bestSubmission.moves) : '',
+        damage: totalDamage,
+        kickedOffBy: (scramble.kickoffs ?? [])
+          .map(kickoff => {
+            const submission = kickoff.submission
+            const name = submission?.user?.name ?? kickoff.user?.name ?? `user#${kickoff.userId}`
+            return submission ? `${name}(${this.formatMoves(submission.moves)})` : name
+          })
+          .join(', '),
+      }
+    })
+
+    this.logger.log(`Boss stats for ${competition.alias} (#${competition.id})`)
+    console.table(rows)
+    this.logger.log(`Summary: ${instantKillCount} instant kill, ${teamKillCount} team kill, ${unbeatenCount} unbeaten`)
+  }
+
+  async fixBossLongMoveDamage(alias: string) {
+    if (!alias) {
+      throw new BadRequestException('Alias is required')
+    }
+    const competition = await this.competitionsRepository.findOne({
+      where: {
+        alias,
+        type: CompetitionType.ENDLESS,
+        subType: CompetitionSubType.BOSS_CHALLENGE,
+      },
+    })
+    if (!competition) {
+      throw new NotFoundException(`Boss endless not found: ${alias}`)
+    }
+
+    const scrambles = await this.scramblesRepository.find({
+      where: { competitionId: competition.id },
+      order: { number: 'ASC' },
+    })
+    let fixed = 0
+    const rows: Array<{ level: number; fixed: number }> = []
+    for (let i = 0; i < scrambles.length; i++) {
+      const scramble = scrambles[i]
+      const nextScramble = scrambles[i + 1]
+      const defeatedAt = nextScramble?.createdAt ?? (scramble.currentHP <= 0 ? scramble.updatedAt : null)
+      if (!defeatedAt) {
+        continue
+      }
+
+      const submissions = await this.submissionsRepository
+        .createQueryBuilder('submission')
+        .where('submission.scramble_id = :scrambleId', { scrambleId: scramble.id })
+        .andWhere('submission.created_at <= :defeatedAt', { defeatedAt })
+        .andWhere('submission.moves >= :moves', { moves: 2700 })
+        .andWhere('submission.moves NOT IN (:...invalidMoves)', { invalidMoves: [DNF, DNS] })
+        .andWhere('submission.damage = 0')
+        .getMany()
+      for (const submission of submissions) {
+        submission.damage = 1
+      }
+      if (submissions.length > 0) {
+        await this.submissionsRepository.save(submissions)
+        fixed += submissions.length
+        rows.push({ level: scramble.number, fixed: submissions.length })
+      }
+    }
+
+    this.logger.log(`Fixed ${fixed} long-move boss submissions for ${competition.alias} (#${competition.id})`)
+    if (rows.length > 0) {
+      console.table(rows)
+    }
+  }
+
+  async fixBossInstantKills(alias: string) {
+    if (!alias) {
+      throw new BadRequestException('Alias is required')
+    }
+    const competition = await this.competitionsRepository.findOne({
+      where: {
+        alias,
+        type: CompetitionType.ENDLESS,
+        subType: CompetitionSubType.BOSS_CHALLENGE,
+      },
+      relations: {
+        challenges: true,
+      },
+    })
+    if (!competition) {
+      throw new NotFoundException(`Boss endless not found: ${alias}`)
+    }
+
+    const scrambles = await this.scramblesRepository.find({
+      where: { competitionId: competition.id },
+      order: { number: 'ASC' },
+    })
+    const scrambleIds = scrambles.map(scramble => scramble.id)
+    if (scrambleIds.length === 0) {
+      this.logger.warn(`No levels found for ${competition.alias} (#${competition.id})`)
+      return
+    }
+
+    await this.submissionsRepository.update(
+      {
+        competitionId: competition.id,
+        bossInstantKill: true,
+      },
+      {
+        bossInstantKill: false,
+      },
+    )
+
+    const fixedSubmissions: Submissions[] = []
+    const rows: Array<{ level: number; submissionId: number; userId: number; moves: string }> = []
+    for (const scramble of scrambles) {
+      const challenge = competition.challenges?.find(entry => matchesChallengeLevel(entry, scramble.number))
+      if (!challenge?.isBoss) {
+        continue
+      }
+
+      const kickoffs = await this.kickoffsRepository.find({
+        where: {
+          competitionId: competition.id,
+          scrambleId: scramble.id,
+        },
+        relations: {
+          submission: true,
+        },
+      })
+      const bossChallenge = challenge.bossChallenge
+      for (const kickoff of kickoffs) {
+        const submission = kickoff.submission
+        if (submission && submission.moves <= bossChallenge.instantKill && submission.damage === 0) {
+          submission.bossInstantKill = true
+          fixedSubmissions.push(submission)
+          rows.push({
+            level: scramble.number,
+            submissionId: submission.id,
+            userId: submission.userId,
+            moves: this.formatMoves(submission.moves),
+          })
+        }
+      }
+    }
+
+    if (fixedSubmissions.length > 0) {
+      await this.submissionsRepository.save(fixedSubmissions)
+    }
+    this.logger.log(
+      `Fixed ${fixedSubmissions.length} boss instant-kill submissions for ${competition.alias} (#${competition.id})`,
+    )
+    if (rows.length > 0) {
+      console.table(rows)
+    }
+  }
+
+  async retryJobs(submissionIdRaws: string[]) {
+    const submissionIds = this.parseSubmissionIds(submissionIdRaws)
+
+    for (const submissionId of submissionIds) {
+      const submission = await this.submissionsRepository.findOne({
+        where: {
+          id: submissionId,
+        },
+        relations: {
+          competition: true,
+          scramble: true,
+        },
+      })
+      if (!submission) {
+        throw new NotFoundException(`Submission not found: ${submissionId}`)
+      }
+      if (submission.competition.type !== CompetitionType.ENDLESS) {
+        throw new BadRequestException(`Submission ${submissionId} is not from an endless competition`)
+      }
+
+      const previousLevelDnfPenalty = await this.getPreviousLevelDnfPenalty(submission)
+      const data: EndlessJob = {
+        competitionId: submission.competitionId,
+        userId: submission.userId,
+        scrambleId: submission.scrambleId,
+        scrambleNumber: submission.scramble.number,
+        submissionId: submission.id,
+        moves: submission.moves,
+        previousLevelDnfPenalty,
+        solution: submission.solution,
+      }
+      const job = await this.queue.add(data)
+      this.logger.log(
+        `Queued endless job ${job.id} for submission ${submission.id}, competition ${submission.competitionId}, level ${submission.scramble.number}`,
+      )
+    }
   }
 
   async simulateOldBoss(alias: string, runs = 1000) {
@@ -515,6 +798,48 @@ export class EndlessCommandService {
       throw new BadRequestException(`Invalid date: ${value}`)
     }
     return date
+  }
+
+  private parseSubmissionIds(values: string[]) {
+    if (values.length === 0) {
+      throw new BadRequestException('At least one submission id is required')
+    }
+    return values.map(value => {
+      const id = Number(value)
+      if (!Number.isInteger(id) || id <= 0) {
+        throw new BadRequestException(`Invalid submission id: ${value}`)
+      }
+      return id
+    })
+  }
+
+  private formatMoves(moves: number) {
+    return moves === DNF ? 'DNF' : String(moves / 100)
+  }
+
+  private async getPreviousLevelDnfPenalty(submission: Submissions) {
+    if (submission.competition.subType !== CompetitionSubType.BOSS_CHALLENGE || submission.scramble.number <= 1) {
+      return false
+    }
+    const previousScramble = await this.scramblesRepository.findOne({
+      where: {
+        competitionId: submission.competitionId,
+        number: submission.scramble.number - 1,
+      },
+    })
+    if (!previousScramble) {
+      throw new NotFoundException(`Previous scramble not found for submission ${submission.id}`)
+    }
+    const previousSubmission = await this.submissionsRepository.findOne({
+      where: {
+        scrambleId: previousScramble.id,
+        userId: submission.userId,
+      },
+    })
+    if (!previousSubmission) {
+      throw new NotFoundException(`Previous submission not found for submission ${submission.id}`)
+    }
+    return previousSubmission.moves === DNF
   }
 
   private getBossChallenge(level: number) {

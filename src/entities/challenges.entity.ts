@@ -1,6 +1,7 @@
 import { Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm'
 
 import { Competitions } from './competitions.entity'
+import { DNF, DNS } from './results.entity'
 
 export enum ChallengeType {
   REGULAR,
@@ -126,9 +127,14 @@ const BOSS_DAMAGE_BY_MOVES: Record<number, number> = {
   15: 1500,
 }
 
+const INVALID_BOSS_DAMAGE_MOVES = new Set([DNF, DNS])
+
 export function getDamage(moves: number) {
   if (moves % 100 !== 0) {
     return 0
+  }
+  if (!INVALID_BOSS_DAMAGE_MOVES.has(moves) && moves >= 2700) {
+    return 1
   }
   const moveCount = Math.floor(moves / 100)
   return BOSS_DAMAGE_BY_MOVES[moveCount] ?? 0

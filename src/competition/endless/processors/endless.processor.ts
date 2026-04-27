@@ -136,9 +136,16 @@ export class EndlessProcessor {
         const scramble = await this.scramblesRepository.findOneBy({
           id: scrambleId,
         })
+        const submission = await this.submissionsRepository.findOneBy({
+          id: submissionId,
+        })
         if (scramble) {
           scramble.currentHP = 0
           await this.scramblesRepository.save(scramble)
+        }
+        if (submission) {
+          submission.bossInstantKill = true
+          await this.submissionsRepository.save(submission)
         }
         generateNext = true
         singleKickedOff = true
