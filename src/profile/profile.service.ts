@@ -57,12 +57,13 @@ export class ProfileService {
     })
     const endlessBests = await this.submissionsRepository
       .createQueryBuilder('s')
+      .leftJoin('s.result', 'r')
       .where('s.competition_id IN(:...competitionIds)', { competitionIds: endlessCompetitions.map(c => c.id) })
       .andWhere('s.user_id = :userId', { userId: user.id })
       .select([
         's.competition_id AS competitionId',
         'MIN(moves) AS single',
-        'AVG(moves) AS mean',
+        'MIN(r.average) AS mean',
         'COUNT(s.id) AS levels',
       ])
       .groupBy('s.competition_id')
