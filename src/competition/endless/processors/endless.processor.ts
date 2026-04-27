@@ -1,5 +1,5 @@
 import { Process, Processor } from '@nestjs/bull'
-import { Logger } from '@nestjs/common'
+import { forwardRef, Inject, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Job } from 'bull'
@@ -18,7 +18,7 @@ import { Scrambles } from '@/entities/scrambles.entity'
 import { Submissions } from '@/entities/submissions.entity'
 import { generateScramble, ScrambleType } from '@/utils/scramble'
 
-import { EndlessJob } from '../endless.service'
+import { EndlessJob, EndlessService } from '../endless.service'
 
 @Processor('endless')
 export class EndlessProcessor {
@@ -33,11 +33,22 @@ export class EndlessProcessor {
     @InjectRepository(EndlessKickoffs)
     private readonly kickoffsRepository: Repository<EndlessKickoffs>,
     private readonly configService: ConfigService,
+    @Inject(forwardRef(() => EndlessService))
+    private readonly endlessService: EndlessService,
   ) {}
 
   @Process()
   async process(job: Job<EndlessJob>) {
-    const { competitionId, userId, scrambleId, scrambleNumber, submissionId, moves, previousLevelDnfPenalty } = job.data
+    const {
+      competitionId,
+      userId,
+      scrambleId,
+      scrambleNumber,
+      submissionId,
+      moves,
+      previousLevelDnfPenalty,
+      solution,
+    } = job.data
     const competition = await this.competitionsRepository.findOne({
       where: {
         id: competitionId,
@@ -50,6 +61,18 @@ export class EndlessProcessor {
       return
     }
     if (competition.hasEnded) {
+      return
+    }
+    if (competition.subType === CompetitionSubType.MYSTERY) {
+      await this.endlessService.evaluateConditions(
+        competitionId,
+        userId,
+        scrambleId,
+        scrambleNumber,
+        submissionId,
+        moves,
+        solution ?? '',
+      )
       return
     }
     let scrambleType: ScrambleType = ScrambleType.NORMAL

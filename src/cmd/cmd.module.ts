@@ -12,6 +12,7 @@ import { Competitions } from '@/entities/competitions.entity'
 import { DRTriggerGameRounds } from '@/entities/dr-trigger-game-rounds.entity'
 import { DRTriggerGames } from '@/entities/dr-trigger-games.entity'
 import { DRTriggers } from '@/entities/dr-triggers.entity'
+import { EndlessChallengeConditions } from '@/entities/endless-challenge-conditions.entity'
 import { EndlessKickoffs } from '@/entities/endless-kickoffs.entity'
 import { InsertionFinders } from '@/entities/insertion-finders.entity'
 import { LeagueDuels } from '@/entities/league-duels.entity'
@@ -75,6 +76,7 @@ import { WcaService } from './wca/wca.service'
       Algs,
       Challenges,
       Competitions,
+      EndlessChallengeConditions,
       EndlessKickoffs,
       InsertionFinders,
       RealInsertionFinders,

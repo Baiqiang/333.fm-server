@@ -113,6 +113,15 @@ export class CompetitionService {
     }
   }
 
+  @Cron('* * * * *')
+  async autoRevealEndlessChallengeConditions() {
+    try {
+      await this.endlessService.autoRevealConditions()
+    } catch (error) {
+      this.logger.error('Failed to auto-reveal endless challenge conditions', error)
+    }
+  }
+
   getLatest() {
     return this.competitionsRepository.find({
       take: 10,

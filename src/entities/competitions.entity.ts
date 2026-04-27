@@ -38,6 +38,7 @@ export enum CompetitionSubType {
   HTR_PRACTICE,
   HIDDEN_SCRAMBLE,
   JZP_PRACTICE,
+  MYSTERY,
 }
 
 export enum CompetitionFormat {

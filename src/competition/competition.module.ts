@@ -6,6 +6,7 @@ import { AttachmentModule } from '@/attachment/attachment.module'
 import { AuthModule } from '@/auth/auth.module'
 import { Challenges } from '@/entities/challenges.entity'
 import { Competitions } from '@/entities/competitions.entity'
+import { EndlessChallengeConditions } from '@/entities/endless-challenge-conditions.entity'
 import { EndlessKickoffs } from '@/entities/endless-kickoffs.entity'
 import { LeagueDuels } from '@/entities/league-duels.entity'
 import { LeagueEloHistories } from '@/entities/league-elo-histories.entity'
@@ -47,6 +48,7 @@ import { WeeklyService } from './weekly/weekly.service'
     TypeOrmModule.forFeature([
       Competitions,
       Challenges,
+      EndlessChallengeConditions,
       EndlessKickoffs,
       Results,
       Scrambles,

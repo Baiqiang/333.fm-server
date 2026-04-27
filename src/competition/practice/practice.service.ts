@@ -244,7 +244,7 @@ export class PracticeService {
     if (competition.hasEnded) {
       throw new BadRequestException('Competition has ended')
     }
-    return await this.submissionsRepository.manager.transaction(async manager => {
+    const submission = await this.submissionsRepository.manager.transaction(async manager => {
       const scramble = await manager.findOne(Scrambles, {
         where: {
           id: solution.scrambleId,
@@ -292,16 +292,17 @@ export class PracticeService {
         result.average = DNF
       }
       await manager.save(result)
-      await this.queue.add({
-        competitionId: competition.id,
-        userId: user.id,
-        scrambleId: scramble.id,
-        scrambleNumber: scramble.number,
-        submissionId: submission.id,
-        moves: submission.moves,
-      })
       return submission
     })
+    await this.queue.add({
+      competitionId: competition.id,
+      userId: user.id,
+      scrambleId: solution.scrambleId,
+      scrambleNumber: 0,
+      submissionId: submission.id,
+      moves: submission.moves,
+    })
+    return submission
   }
 
   async update(
